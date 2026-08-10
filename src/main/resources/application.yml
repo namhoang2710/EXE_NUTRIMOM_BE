@@ -1,0 +1,98 @@
+spring:
+  application:
+    name: nutrimom-backend
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${NUTRIMOM_DB_URL:jdbc:sqlserver://localhost:1433;databaseName=NutriMomDB;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true}
+    username: ${NUTRIMOM_DB_USER:nutrimom_app}
+    password: ${NUTRIMOM_DB_PASSWORD}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      pool-name: NutriMomHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      validation-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: app
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+  flyway:
+    enabled: true
+    user: ${NUTRIMOM_FLYWAY_USER:nutrimom_migrator}
+    password: ${NUTRIMOM_FLYWAY_PASSWORD}
+    default-schema: app
+    schemas: app
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+  data:
+    redis:
+      repositories:
+        enabled: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  threads:
+    virtual:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  health:
+    redis:
+      enabled: ${NUTRIMOM_REDIS_HEALTH_ENABLED:false}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+app:
+  security:
+    issuer: ${NUTRIMOM_JWT_ISSUER:nutrimom-api}
+    jwt-secret: ${NUTRIMOM_JWT_SECRET}
+    access-token-ttl: ${NUTRIMOM_ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${NUTRIMOM_REFRESH_TOKEN_TTL:P30D}
+  otp:
+    code-length: 6
+    ttl: ${NUTRIMOM_OTP_TTL:PT5M}
+    resend-cooldown: ${NUTRIMOM_OTP_RESEND_COOLDOWN:PT45S}
+    max-attempts: ${NUTRIMOM_OTP_MAX_ATTEMPTS:5}
+    expose-debug-code: ${NUTRIMOM_OTP_EXPOSE_DEBUG_CODE:true}
+    hmac-secret: ${NUTRIMOM_OTP_HMAC_SECRET}
+  bootstrap:
+    demo-user-enabled: ${NUTRIMOM_DEMO_USER_ENABLED:true}
+
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-}]"
+  level:
+    org.springframework.security: INFO

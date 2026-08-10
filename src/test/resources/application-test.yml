@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:nutrimom_test;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;INIT=CREATE SCHEMA IF NOT EXISTS app
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        default_schema: app
+  flyway:
+    enabled: false
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+app:
+  security:
+    issuer: nutrimom-test
+    jwt-secret: nutrimom-test-jwt-secret-with-at-least-thirty-two-characters
+    access-token-ttl: PT5M
+    refresh-token-ttl: P1D
+  otp:
+    code-length: 6
+    ttl: PT5M
+    resend-cooldown: PT1S
+    max-attempts: 5
+    expose-debug-code: true
+    hmac-secret: nutrimom-test-otp-hmac-secret-with-at-least-thirty-two-characters
+  bootstrap:
+    demo-user-enabled: false
+
+springdoc:
+  api-docs:
+    enabled: false
