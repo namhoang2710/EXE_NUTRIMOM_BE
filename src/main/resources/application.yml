@@ -90,6 +90,10 @@ app:
     hmac-secret: ${NUTRIMOM_OTP_HMAC_SECRET}
   bootstrap:
     demo-user-enabled: ${NUTRIMOM_DEMO_USER_ENABLED:true}
+    admin-user-enabled: ${NUTRIMOM_ADMIN_USER_ENABLED:false}
+    admin-phone: ${NUTRIMOM_ADMIN_PHONE:}
+    admin-password: ${NUTRIMOM_ADMIN_PASSWORD:}
+    admin-display-name: ${NUTRIMOM_ADMIN_DISPLAY_NAME:NutriMom Admin}
 
 logging:
   pattern:
