@@ -103,6 +103,93 @@ Idempotent, luôn trả `logged_out: true`.
 Authorization: Bearer eyJ...
 ```
 
+## Local/dev admin bootstrap
+
+Admin bootstrap is disabled by default and must be enabled explicitly through environment configuration. Do not commit the real password or `.env` file.
+
+```properties
+NUTRIMOM_ADMIN_USER_ENABLED=true
+NUTRIMOM_ADMIN_PHONE=0900000001
+NUTRIMOM_ADMIN_PASSWORD=choose-a-local-secret
+NUTRIMOM_ADMIN_DISPLAY_NAME=NutriMom Admin
+```
+
+On startup, the bootstrap uses the existing `users` and `user_roles` tables:
+
+- If the configured user already exists, bootstrap sets it to `ACTIVE`, adds the `ADMIN` role, and synchronizes its password with `NUTRIMOM_ADMIN_PASSWORD`. This makes credential changes predictable on the next startup.
+- If the phone does not exist, an active account with role `ADMIN` is created. The password must contain 8-72 characters, including at least one letter and one digit.
+- Set `NUTRIMOM_ADMIN_USER_ENABLED=false` outside local/dev. The default is already `false`.
+
+The bootstrap is not a separate authentication flow. Admins log in through the existing endpoint:
+
+## POST `/auth/login` for admin
+
+```json
+{
+  "phone": "0900000001",
+  "password": "<local-admin-password>",
+  "device_id": "admin-web"
+}
+```
+
+The normal authentication envelope is returned. The user object and access JWT both contain the admin role:
+
+```json
+{
+  "data": {
+    "access_token": "eyJ...",
+    "expires_in": 900,
+    "refresh_token": "opaque-token",
+    "refresh_expires_in": 2592000,
+    "token_type": "Bearer",
+    "user": {
+      "id": "uuid",
+      "phone": "+84900000001",
+      "display_name": "NutriMom Admin",
+      "roles": ["ADMIN"],
+      "status": "ACTIVE",
+      "created_at": "2026-08-10T12:00:00Z"
+    }
+  },
+  "meta": {}
+}
+```
+
+Relevant access-token claim:
+
+```json
+{"sub": "uuid", "phone": "+84900000001", "roles": ["ADMIN"], "type": "access"}
+```
+
+## GET `/admin/me`
+
+Returns the authenticated admin profile using the standard response envelope.
+
+```http
+GET /api/v1/admin/me
+Authorization: Bearer eyJ...
+```
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "phone": "+84900000001",
+    "display_name": "NutriMom Admin",
+    "roles": ["ADMIN"],
+    "status": "ACTIVE",
+    "created_at": "2026-08-10T12:00:00Z"
+  },
+  "meta": {
+    "request_id": "uuid",
+    "server_time": "2026-08-10T12:00:00Z"
+  }
+}
+```
+
+- Missing or invalid bearer token: `401 UNAUTHORIZED`.
+- Authenticated account without role `ADMIN`: `403 FORBIDDEN`.
+
 ## Flutter
 
 - Lưu token bằng `flutter_secure_storage`, không dùng SharedPreferences.

@@ -74,6 +74,7 @@ Tài khoản password demo khi `NUTRIMOM_DEMO_USER_ENABLED=true`:
 | POST | `/api/v1/auth/refresh` | Xoay vòng refresh token |
 | POST | `/api/v1/auth/logout` | Thu hồi refresh token |
 | GET | `/api/v1/auth/me` | Lấy người dùng hiện tại |
+| GET | `/api/v1/admin/me` | Lấy admin hiện tại; yêu cầu role `ADMIN` |
 
 Chi tiết contract: [docs/AUTH_API.md](docs/AUTH_API.md).
 
