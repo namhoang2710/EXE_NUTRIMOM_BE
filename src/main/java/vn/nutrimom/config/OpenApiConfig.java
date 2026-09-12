@@ -1,5 +1,8 @@
 package vn.nutrimom.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.*;
 import io.swagger.v3.oas.models.info.*;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -15,5 +18,16 @@ public class OpenApiConfig {
                 .components(new Components().addSecuritySchemes("bearerAuth",
                         new SecurityScheme().type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer").bearerFormat("JWT")));
+    }
+
+    /**
+     * Sinh schema OpenAPI theo snake_case để Swagger UI khớp với JSON thật
+     * (runtime dùng spring.jackson.property-naming-strategy=SNAKE_CASE).
+     * Swagger-core dùng Jackson 2 nên phải cấu hình ObjectMapper riêng ở đây.
+     */
+    @Bean
+    ModelResolver snakeCaseModelResolver() {
+        return new ModelResolver(new ObjectMapper()
+                .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE));
     }
 }
