@@ -9,6 +9,7 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -43,6 +44,12 @@ public class GlobalExceptionHandler {
                 fields.putIfAbsent(violation.getPropertyPath().toString(), violation.getMessage()));
         return error(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR",
                 "Dữ liệu gửi lên chưa hợp lệ.", fields, false);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        return error(HttpStatus.CONFLICT, "VERSION_CONFLICT",
+                "Dữ liệu đã được cập nhật ở nơi khác. Vui lòng tải lại và thử lại.", Map.of(), false);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

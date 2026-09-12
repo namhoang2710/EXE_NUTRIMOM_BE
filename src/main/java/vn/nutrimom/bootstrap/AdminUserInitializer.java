@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.auth.domain.OnboardingStatus;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
@@ -68,6 +69,7 @@ public class AdminUserInitializer implements ApplicationRunner {
         admin.setDisplayName(normalizedDisplayName());
         admin.setStatus(UserStatus.ACTIVE);
         admin.setRoles(Set.of(UserRole.ADMIN));
+        admin.setOnboardingStatus(OnboardingStatus.COMPLETED);
         users.save(admin);
         log.warn("Created configured local/dev admin user {}. Disable admin bootstrap outside local development.",
                 normalizedPhone);

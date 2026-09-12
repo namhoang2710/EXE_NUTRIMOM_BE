@@ -1,6 +1,7 @@
 package vn.nutrimom.auth.domain;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
@@ -22,6 +23,23 @@ public class UserEntity {
 
     @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
+
+    @Column(name = "email", length = 255)
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 10)
+    private Gender gender;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Column(name = "avatar_key", length = 50)
+    private String avatarKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "onboarding_status", nullable = false, length = 30)
+    private OnboardingStatus onboardingStatus = OnboardingStatus.PROFILE_REQUIRED;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -65,6 +83,16 @@ public class UserEntity {
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public Gender getGender() { return gender; }
+    public void setGender(Gender gender) { this.gender = gender; }
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+    public String getAvatarKey() { return avatarKey; }
+    public void setAvatarKey(String avatarKey) { this.avatarKey = avatarKey; }
+    public OnboardingStatus getOnboardingStatus() { return onboardingStatus; }
+    public void setOnboardingStatus(OnboardingStatus onboardingStatus) { this.onboardingStatus = onboardingStatus; }
     public UserStatus getStatus() { return status; }
     public void setStatus(UserStatus status) { this.status = status; }
     public Set<UserRole> getRoles() { return roles; }

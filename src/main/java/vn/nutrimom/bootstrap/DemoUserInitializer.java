@@ -39,6 +39,7 @@ public class DemoUserInitializer implements ApplicationRunner {
         demo.setDisplayName("Mẹ Bầu Demo");
         demo.setStatus(UserStatus.ACTIVE);
         demo.setRoles(Set.of(UserRole.USER));
+        demo.setOnboardingStatus(OnboardingStatus.COMPLETED);
         users.save(demo);
         log.warn("Created local demo user {}. Disable demo user outside local development.", phone);
     }
