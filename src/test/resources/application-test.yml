@@ -33,6 +33,7 @@ app:
     hmac-secret: nutrimom-test-otp-hmac-secret-with-at-least-thirty-two-characters
   bootstrap:
     demo-user-enabled: false
+    admin-user-enabled: false
 
 springdoc:
   api-docs:
