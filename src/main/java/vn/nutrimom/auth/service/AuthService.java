@@ -111,7 +111,8 @@ public class AuthService {
     private UserResponse toUserResponse(UserEntity user) {
         List<String> roles = user.getRoles().stream().map(Enum::name).sorted().toList();
         return new UserResponse(user.getId(), user.getPhone(), user.getDisplayName(),
-                roles, user.getStatus().name(), user.getCreatedAt());
+                roles, user.getStatus().name(), user.getOnboardingStatus().name(),
+                user.getCreatedAt());
     }
 
     private BusinessException duplicatePhone() {
