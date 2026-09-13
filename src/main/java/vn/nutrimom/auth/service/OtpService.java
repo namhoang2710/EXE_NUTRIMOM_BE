@@ -156,6 +156,38 @@ public class OtpService {
         return new OtpVerifyResponse(newUser, authService.issueSession(user, request.deviceId()));
     }
 
+    @Transactional(noRollbackFor = OtpVerificationException.class)
+    public void verifyReauthentication(UserEntity user, String challengeId, String code) {
+        OtpChallengeEntity challenge = challengeRepository.findByIdForUpdate(challengeId)
+                .orElseThrow(() -> invalid("OTP_CHALLENGE_NOT_FOUND", "OTP challenge was not found."));
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        if (challenge.getPurpose() != OtpPurpose.LOGIN
+                || !challenge.getPhone().equals(user.getPhone())) {
+            throw invalid("OTP_REAUTHENTICATION_MISMATCH",
+                    "OTP challenge does not belong to the authenticated account.");
+        }
+        if (challenge.getStatus() != OtpStatus.PENDING) {
+            throw invalid("OTP_CHALLENGE_USED", "OTP challenge is no longer valid.");
+        }
+        if (!challenge.getExpiresAt().isAfter(now)) {
+            challenge.setStatus(OtpStatus.EXPIRED);
+            challengeRepository.save(challenge);
+            throw invalid("OTP_EXPIRED", "OTP code has expired.");
+        }
+        if (!constantTimeEquals(challenge.getCodeHash(),
+                hmac(challenge.getPhone() + ":" + code))) {
+            challenge.setAttempts(challenge.getAttempts() + 1);
+            if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
+                challenge.setStatus(OtpStatus.EXPIRED);
+            }
+            challengeRepository.save(challenge);
+            throw invalid("INVALID_OTP", "OTP code is invalid.");
+        }
+        challenge.setStatus(OtpStatus.VERIFIED);
+        challenge.setVerifiedAt(now);
+        challengeRepository.save(challenge);
+    }
+
     private String generateCode() {
         int bound = (int) Math.pow(10, properties.getCodeLength());
         return String.format("%0" + properties.getCodeLength() + "d", secureRandom.nextInt(bound));

@@ -53,6 +53,7 @@ class AdminAuthIntegrationTest {
     void adminCanLoginAndJwtContainsAdminRole() throws Exception {
         MvcResult result = login(ADMIN_PHONE, ADMIN_PASSWORD)
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.role").value("ADMIN"))
                 .andExpect(jsonPath("$.data.user.roles", hasItem("ADMIN")))
                 .andReturn();
 

@@ -30,4 +30,28 @@ class OpenApiSnakeCaseTest {
                 .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.displayName").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.UpdateProfileRequest.properties.dateOfBirth").doesNotExist());
     }
+
+    @Test
+    void newDashboardAndFamilySharingContractsArePublished() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/v1/dashboard/mom'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/dashboard/partner'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-groups'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-groups'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-invitations'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-invitations/accept'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-members'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-members/{memberId}'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/family-members/{memberId}'].delete").exists())
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.paths['/api/v1/dashboard/partner'].get.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateFamilyInvitationRequest.properties.invited_phone").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateFamilyInvitationRequest.properties.expires_in_hours").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateFamilyInvitationRequest.properties.invitedPhone").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PartnerDashboardResponse.properties.membership_role").exists())
+                .andExpect(jsonPath("$.components.schemas.PartnerDashboardResponse.properties.pregnancy_overview").exists())
+                .andExpect(jsonPath("$.components.schemas.PartnerDashboardResponse.properties.membershipRole").doesNotExist());
+    }
 }

@@ -2,7 +2,11 @@ package vn.nutrimom.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,12 +44,14 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.new_user").value(true))
                 .andExpect(jsonPath("$.data.authentication.user.phone").value("+84912345678"))
+                .andExpect(jsonPath("$.data.authentication.user.role").value("USER"))
                 .andReturn();
         String access = objectMapper.readTree(verified.getResponse().getContentAsString())
                 .at("/data/authentication/access_token").stringValue();
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.display_name").value("Mẹ An"));
+                .andExpect(jsonPath("$.data.display_name").value("Mẹ An"))
+                .andExpect(jsonPath("$.data.role").value("USER"));
         mockMvc.perform(post("/api/v1/auth/otp/verify").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                         new VerifyOtpBody(challengeId, code, "otp-device", null))))
@@ -75,6 +81,7 @@ class AuthFlowIntegrationTest {
                      "display_name":"Nguyễn An","device_id":"test-device"}
                     """))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.user.role").value("USER"))
                 .andExpect(header().string("X-Request-Id", "register-test")).andReturn();
         JsonNode registered = objectMapper.readTree(registration.getResponse().getContentAsString());
         String access = registered.at("/data/access_token").stringValue();
@@ -99,7 +106,59 @@ class AuthFlowIntegrationTest {
                 .andExpect(jsonPath("$.info.title").value("NutriMom Backend API"));
     }
 
+    @Test
+    void passwordLoginAndRefreshReturnMomAfterPregnancyCreation() throws Exception {
+        MvcResult registration = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0905551250","password":"Secure123!",
+                                 "display_name":"Mom Persona","device_id":"persona-device"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.user.role").value("USER"))
+                .andReturn();
+        JsonNode registered = objectMapper.readTree(
+                registration.getResponse().getContentAsString());
+        String access = registered.at("/data/access_token").stringValue();
+        String refresh = registered.at("/data/refresh_token").stringValue();
+        LocalDate dueDate = LocalDate.now(ZoneOffset.UTC).plusDays(100);
+
+        mockMvc.perform(post("/api/v1/pregnancies")
+                        .header("Authorization", "Bearer " + access)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new PregnancyBody(dueDate))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0905551250","password":"Secure123!",
+                                 "device_id":"persona-device"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.role").value("MOM"));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RefreshBody(refresh, "persona-device"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.role").value("MOM"));
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.role").value("MOM"));
+
+        mockMvc.perform(get("/api/v1/reference-data/roles")
+                        .header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].code", not(hasItem("EXPERT"))));
+    }
+
     private record VerifyOtpBody(String challengeId, String code, String deviceId, String displayName) { }
     private record RefreshBody(String refreshToken, String deviceId) { }
     private record LogoutBody(String refreshToken) { }
+    private record PregnancyBody(LocalDate estimatedDueDate) { }
 }

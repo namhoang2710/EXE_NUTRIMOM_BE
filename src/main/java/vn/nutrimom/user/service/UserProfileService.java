@@ -1,13 +1,13 @@
 package vn.nutrimom.user.service;
 
-import java.util.List;
-import java.util.Set;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.OnboardingStatus;
 import vn.nutrimom.auth.domain.UserEntity;
-import vn.nutrimom.auth.domain.UserRole;
+import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.user.dto.UpdateProfileRequest;
@@ -16,15 +16,14 @@ import vn.nutrimom.user.dto.UserProfileResponse;
 @Service
 public class UserProfileService {
 
-    /** Thứ tự ưu tiên khi suy ra persona chính từ nhiều system role. */
-    private static final List<UserRole> ROLE_PRIORITY = List.of(
-            UserRole.ADMIN, UserRole.EXPERT, UserRole.CONTENT_PUBLISHER,
-            UserRole.CONTENT_REVIEWER, UserRole.CONTENT_EDITOR, UserRole.USER);
+    private static final int MAX_REASONABLE_AGE = 120;
 
     private final UserRepository users;
+    private final UserPersonaService personaService;
 
-    public UserProfileService(UserRepository users) {
+    public UserProfileService(UserRepository users, UserPersonaService personaService) {
         this.users = users;
+        this.personaService = personaService;
     }
 
     @Transactional(readOnly = true)
@@ -40,12 +39,19 @@ public class UserProfileService {
         }
 
         if (request.displayName() != null) {
+            if (request.displayName().isBlank()) {
+                throw validation("display_name must not be blank.");
+            }
             user.setDisplayName(request.displayName().trim());
         }
         if (request.email() != null) {
             user.setEmail(request.email().isBlank() ? null : request.email().trim());
         }
         if (request.dateOfBirth() != null) {
+            if (request.dateOfBirth().isBefore(
+                    LocalDate.now(ZoneOffset.UTC).minusYears(MAX_REASONABLE_AGE))) {
+                throw validation("date_of_birth is outside the supported age range.");
+            }
             user.setDateOfBirth(request.dateOfBirth());
         }
         if (request.gender() != null) {
@@ -67,7 +73,9 @@ public class UserProfileService {
     }
 
     private UserEntity loadUser(String userId) {
-        return users.findById(userId).orElseThrow(() -> new BusinessException(
+        return users.findById(userId)
+                .filter(user -> user.getStatus() == UserStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(
                 HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không hợp lệ."));
     }
 
@@ -77,7 +85,8 @@ public class UserProfileService {
                 user.getPhone(),
                 user.getEmail(),
                 user.getDisplayName(),
-                derivePrimaryRole(user.getRoles()),
+                deriveSalutation(user),
+                personaService.derive(user),
                 user.getGender() == null ? null : user.getGender().name(),
                 user.getDateOfBirth(),
                 user.getAvatarKey(),
@@ -87,19 +96,19 @@ public class UserProfileService {
                 user.getVersion());
     }
 
-    private String derivePrimaryRole(Set<UserRole> roles) {
-        if (roles == null || roles.isEmpty()) {
-            return UserRole.USER.name();
+    private String deriveSalutation(UserEntity user) {
+        if (user.getGender() == null || user.getGender() == vn.nutrimom.auth.domain.Gender.OTHER) {
+            return user.getDisplayName();
         }
-        return ROLE_PRIORITY.stream()
-                .filter(roles::contains)
-                .findFirst()
-                .orElse(UserRole.USER)
-                .name();
+        return user.getGender() == vn.nutrimom.auth.domain.Gender.MALE ? "Anh" : "Chị";
     }
 
     private BusinessException versionConflict() {
         return new BusinessException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
                 "Hồ sơ đã được cập nhật ở nơi khác. Vui lòng tải lại và thử lại.");
+    }
+
+    private BusinessException validation(String message) {
+        return new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", message);
     }
 }

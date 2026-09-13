@@ -13,6 +13,7 @@ import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.dto.*;
 import vn.nutrimom.auth.repository.*;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.user.service.UserPersonaService;
 
 @Service
 public class AuthService {
@@ -22,16 +23,19 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final PhoneNormalizer phoneNormalizer;
     private final TokenService tokenService;
+    private final UserPersonaService personaService;
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
-                       PhoneNormalizer phoneNormalizer, TokenService tokenService) {
+                       PhoneNormalizer phoneNormalizer, TokenService tokenService,
+                       UserPersonaService personaService) {
         this.userRepository = users;
         this.refreshTokenRepository = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.phoneNormalizer = phoneNormalizer;
         this.tokenService = tokenService;
+        this.personaService = personaService;
     }
 
     @Transactional
@@ -111,7 +115,8 @@ public class AuthService {
     private UserResponse toUserResponse(UserEntity user) {
         List<String> roles = user.getRoles().stream().map(Enum::name).sorted().toList();
         return new UserResponse(user.getId(), user.getPhone(), user.getDisplayName(),
-                roles, user.getStatus().name(), user.getOnboardingStatus().name(),
+                personaService.derive(user), roles, user.getStatus().name(),
+                user.getOnboardingStatus().name(),
                 user.getCreatedAt());
     }
 
