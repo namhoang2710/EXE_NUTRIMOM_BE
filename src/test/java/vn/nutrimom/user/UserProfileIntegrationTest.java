@@ -27,6 +27,7 @@ class UserProfileIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.phone").value("+84912345001"))
                 .andExpect(jsonPath("$.data.display_name").value("Mẹ An"))
+                .andExpect(jsonPath("$.data.salutation").value("Mẹ An"))
                 .andExpect(jsonPath("$.data.role").value("USER"))
                 .andExpect(jsonPath("$.data.onboarding_status").value("PROFILE_REQUIRED"))
                 .andExpect(jsonPath("$.data.version").value(0));
@@ -44,6 +45,7 @@ class UserProfileIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.display_name").value("Nguyễn Thị Hoa"))
                 .andExpect(jsonPath("$.data.gender").value("FEMALE"))
+                .andExpect(jsonPath("$.data.salutation").value("Chị"))
                 .andExpect(jsonPath("$.data.date_of_birth").value("1997-04-18"))
                 .andExpect(jsonPath("$.data.onboarding_status").value("CONTEXT_REQUIRED"))
                 .andExpect(jsonPath("$.data.version").value(1));
@@ -79,6 +81,29 @@ class UserProfileIntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.fields.dateOfBirth").exists());
+    }
+
+    @Test
+    void patchRejectsBlankNameInvalidEmailAndUnreasonableAge() throws Exception {
+        String access = registerViaOtp("0912345007", "Validation User");
+
+        mockMvc.perform(patch("/api/v1/users/me").header("Authorization", "Bearer " + access)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"display_name\":\"   \",\"version\":0}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(patch("/api/v1/users/me").header("Authorization", "Bearer " + access)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"invalid-email\",\"version\":0}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(patch("/api/v1/users/me").header("Authorization", "Bearer " + access)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"date_of_birth\":\"1800-01-01\",\"version\":0}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test

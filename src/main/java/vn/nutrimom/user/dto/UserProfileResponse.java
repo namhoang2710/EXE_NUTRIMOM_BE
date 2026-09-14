@@ -13,6 +13,7 @@ public record UserProfileResponse(
         String phone,
         String email,
         String displayName,
+        String salutation,
         String role,
         String gender,
         LocalDate dateOfBirth,

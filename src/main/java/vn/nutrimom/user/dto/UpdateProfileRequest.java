@@ -1,5 +1,6 @@
 package vn.nutrimom.user.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
@@ -15,6 +16,7 @@ public record UpdateProfileRequest(
         @Size(max = 100, message = "Tên hiển thị tối đa 100 ký tự")
         String displayName,
 
+        @Email(message = "Email format is invalid")
         @Size(max = 255, message = "Email tối đa 255 ký tự")
         String email,
 
