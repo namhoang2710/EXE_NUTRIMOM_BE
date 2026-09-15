@@ -2,12 +2,12 @@ package vn.nutrimom.knowledge.service;
 
 import org.slf4j.*;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.knowledge.config.R2Properties;
 import vn.nutrimom.knowledge.service.ImageOptimizationService.OptimizedImage;
 
@@ -31,7 +31,7 @@ public class R2StorageService {
             log.error("R2 upload failed key={}", key, ex);
             // A timeout can occur after R2 accepted the object. Best-effort deletion uses the same key.
             try { delete(key); } catch (RuntimeException cleanup) { ex.addSuppressed(cleanup); }
-            throw new BusinessException(HttpStatus.BAD_GATEWAY, "R2_UPLOAD_FAILED", "Image could not be uploaded. Please retry.", true);
+            throw new BusinessException(ErrorCode.R2_UPLOAD_FAILED, "Image could not be uploaded. Please retry.");
         }
     }
     public void delete(String key) {
@@ -46,8 +46,7 @@ public class R2StorageService {
     }
     private S3Client requireClient() {
         S3Client client = clients.getIfAvailable();
-        if (!config.enabled() || client == null) throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE,
-                "R2_UPLOAD_FAILED", "Media storage is not configured.", true);
+        if (!config.enabled() || client == null) throw new BusinessException(ErrorCode.R2_UPLOAD_FAILED, "Media storage is not configured.");
         return client;
     }
 }

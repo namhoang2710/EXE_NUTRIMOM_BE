@@ -3,7 +3,6 @@ package vn.nutrimom.knowledge.service;
 import java.time.*;
 import java.util.UUID;
 import org.slf4j.*;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -11,6 +10,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.knowledge.domain.ArticleMedia;
 import vn.nutrimom.knowledge.dto.ArticleDtos.MediaUpload;
 import vn.nutrimom.knowledge.repository.ArticleMediaRepository;
@@ -31,8 +31,8 @@ public class ArticleMediaService {
     }
     public MediaUpload upload(MultipartFile file, String alt, String caption, String adminId) {
         if (alt != null && alt.length() > 500 || caption != null && caption.length() > 1000)
-            throw new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", "alt or caption exceeds the allowed length.");
-        var admin = users.findById(adminId).orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Account not found."));
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "alt or caption exceeds the allowed length.");
+        var admin = users.findById(adminId).orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Account not found."));
         log.info("Media upload start adminId={}", adminId);
         var image = optimizer.optimize(file);
         String id = UUID.randomUUID().toString();
@@ -53,7 +53,7 @@ public class ArticleMediaService {
         } catch (RuntimeException ex) {
             log.error("Media DB persistence failed key={}", key, ex);
             try { storage.delete(key); } catch (RuntimeException cleanup) { ex.addSuppressed(cleanup); }
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "DB_SAVE_FAILED", "Image metadata could not be saved. Please retry.", true);
+            throw new BusinessException(ErrorCode.DB_SAVE_FAILED, "Image metadata could not be saved. Please retry.");
         }
     }
 }

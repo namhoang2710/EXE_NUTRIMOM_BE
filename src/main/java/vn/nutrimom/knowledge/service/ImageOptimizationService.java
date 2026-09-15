@@ -8,10 +8,10 @@ import java.util.concurrent.Semaphore;
 import javax.imageio.*;
 import javax.imageio.stream.*;
 import org.slf4j.*;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 
 @Service
 public class ImageOptimizationService {
@@ -26,35 +26,35 @@ public class ImageOptimizationService {
     public record OptimizedImage(byte[] bytes, int width, int height, String contentType, String extension) {}
 
     public OptimizedImage optimize(MultipartFile file) {
-        if (file == null || file.isEmpty()) throw error(HttpStatus.BAD_REQUEST, "INVALID_MULTIPART", "Image file is required.");
-        if (file.getSize() > MAX_INPUT_BYTES) throw error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Image must be at most 10 MiB.");
+        if (file == null || file.isEmpty()) throw error(ErrorCode.INVALID_MULTIPART, "Image file is required.");
+        if (file.getSize() > MAX_INPUT_BYTES) throw error(ErrorCode.FILE_TOO_LARGE, "Image must be at most 10 MiB.");
         String mime = file.getContentType();
         if (mime == null || !Set.of("image/jpeg", "image/jpg", "image/png", "image/webp").contains(mime.toLowerCase(Locale.ROOT)))
-            throw error(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_FILE_TYPE", "Only JPEG, PNG and WebP images are supported.");
-        if (!processingSlots.tryAcquire()) throw error(HttpStatus.TOO_MANY_REQUESTS, "IMAGE_PROCESSING_BUSY", "Image processing is busy. Please retry.");
+            throw error(ErrorCode.INVALID_FILE_TYPE, "Only JPEG, PNG and WebP images are supported.");
+        if (!processingSlots.tryAcquire()) throw error(ErrorCode.IMAGE_PROCESSING_BUSY, "Image processing is busy. Please retry.");
         try {
             log.info("Image optimization start inputBytes={} mime={}", file.getSize(), mime);
             byte[] input;
             try (InputStream stream = file.getInputStream()) {
                 input = stream.readNBytes((int) MAX_INPUT_BYTES + 1);
             }
-            if (input.length > MAX_INPUT_BYTES) throw error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Image must be at most 10 MiB.");
+            if (input.length > MAX_INPUT_BYTES) throw error(ErrorCode.FILE_TOO_LARGE, "Image must be at most 10 MiB.");
             BufferedImage decoded;
             // Explicit memory streams prevent ImageIO from creating temporary files.
             try (ImageInputStream stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(input))) {
                 Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
-                if (!readers.hasNext()) throw error(HttpStatus.UNPROCESSABLE_CONTENT, "IMAGE_PROCESSING_FAILED", "Image cannot be decoded.");
+                if (!readers.hasNext()) throw error(ErrorCode.IMAGE_PROCESSING_FAILED, "Image cannot be decoded.");
                 ImageReader reader = readers.next();
                 try {
                     reader.setInput(stream, true, true);
                     String format = reader.getFormatName().toLowerCase(Locale.ROOT);
                     String expected = mime.equalsIgnoreCase("image/png") ? "png" : mime.equalsIgnoreCase("image/webp") ? "webp" : "jpeg";
                     if (!(format.equals(expected) || expected.equals("jpeg") && format.equals("jpg")))
-                        throw error(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_FILE_TYPE", "Image content does not match its MIME type.");
+                        throw error(ErrorCode.INVALID_FILE_TYPE, "Image content does not match its MIME type.");
                     int width = reader.getWidth(0), height = reader.getHeight(0);
                     if (width < 1 || height < 1 || width > MAX_INPUT_DIMENSION || height > MAX_INPUT_DIMENSION
                             || (long) width * height > MAX_PIXELS)
-                        throw error(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_IMAGE_DIMENSIONS", "Image dimensions exceed the safe processing limit.");
+                        throw error(ErrorCode.INVALID_IMAGE_DIMENSIONS, "Image dimensions exceed the safe processing limit.");
                     ImageReadParam read = reader.getDefaultReadParam();
                     int sample = Math.max(1, Math.max(width, height) / MAX_OUTPUT_DIMENSION);
                     read.setSourceSubsampling(sample, sample, 0, 0);
@@ -83,7 +83,7 @@ public class ImageOptimizationService {
         } catch (BusinessException ex) { throw ex; }
         catch (IOException | RuntimeException ex) {
             log.warn("Image processing failed", ex);
-            throw error(HttpStatus.UNPROCESSABLE_CONTENT, "IMAGE_PROCESSING_FAILED", "Image could not be processed. Please choose another image.");
+            throw error(ErrorCode.IMAGE_PROCESSING_FAILED, "Image could not be processed. Please choose another image.");
         } finally { processingSlots.release(); }
     }
 
@@ -111,7 +111,7 @@ public class ImageOptimizationService {
         return output.toByteArray();
     }
 
-    private BusinessException error(HttpStatus status, String code, String message) {
-        return new BusinessException(status, code, message);
+    private BusinessException error(ErrorCode code, String message) {
+        return new BusinessException(code, message);
     }
 }
