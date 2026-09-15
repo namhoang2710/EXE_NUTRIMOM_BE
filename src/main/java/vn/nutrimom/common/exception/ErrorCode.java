@@ -77,7 +77,20 @@ public enum ErrorCode {
     PREGNANCY_ARCHIVED(HttpStatus.CONFLICT, false, "Thai kỳ đã được lưu trữ."),
     ACTIVE_PREGNANCY_EXISTS(HttpStatus.CONFLICT, false, "Đã tồn tại một thai kỳ đang hoạt động."),
 
+    // --- Knowledge / CMS (đang dùng) ---
+    ARTICLE_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy bài viết."),
+    SLUG_ALREADY_EXISTS(HttpStatus.CONFLICT, false, "Slug bài viết đã tồn tại."),
+    DB_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, true, "Không lưu được dữ liệu. Vui lòng thử lại."),
+    R2_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, true, "Không tải được ảnh lên kho lưu trữ. Vui lòng thử lại."),
+    INVALID_FILE_TYPE(HttpStatus.UNPROCESSABLE_CONTENT, false, "Chỉ hỗ trợ ảnh JPEG, PNG, WebP."),
+    INVALID_IMAGE_DIMENSIONS(HttpStatus.UNPROCESSABLE_CONTENT, false, "Kích thước ảnh vượt giới hạn xử lý an toàn."),
+    IMAGE_PROCESSING_FAILED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Không xử lý được ảnh. Vui lòng chọn ảnh khác."),
+    IMAGE_PROCESSING_BUSY(HttpStatus.TOO_MANY_REQUESTS, true, "Hệ thống xử lý ảnh đang bận. Vui lòng thử lại."),
+
     // --- Handler-level (extension, ngoài spec — giữ nguyên hành vi hiện tại) ---
+    INVALID_MULTIPART(HttpStatus.BAD_REQUEST, false, "Cần một tệp ảnh multipart hợp lệ."),
+    INVALID_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, false, "Content-Type của yêu cầu không được hỗ trợ."),
+    INVALID_REQUEST_PARAMETER(HttpStatus.BAD_REQUEST, false, "Tham số yêu cầu không hợp lệ."),
     MALFORMED_JSON(HttpStatus.BAD_REQUEST, false, "Nội dung JSON không đúng định dạng."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, true, "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.");
 
