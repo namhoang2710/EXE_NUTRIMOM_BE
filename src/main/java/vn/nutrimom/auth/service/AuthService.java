@@ -3,7 +3,6 @@ package vn.nutrimom.auth.service;
 import java.time.*;
 import java.util.List;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +12,7 @@ import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.dto.*;
 import vn.nutrimom.auth.repository.*;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.user.service.UserPersonaService;
 
 @Service
@@ -99,8 +99,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public UserResponse me(String userId) {
         return userRepository.findById(userId).map(this::toUserResponse)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
-                        "UNAUTHORIZED", "Phiên đăng nhập không hợp lệ."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ."));
     }
 
     public AuthResponse issueSession(UserEntity user, String deviceId) {
@@ -121,15 +120,12 @@ public class AuthService {
     }
 
     private BusinessException duplicatePhone() {
-        return new BusinessException(HttpStatus.CONFLICT, "PHONE_ALREADY_EXISTS",
-                "Số điện thoại này đã được đăng ký.");
+        return new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS, "Số điện thoại này đã được đăng ký.");
     }
     private BusinessException invalidCredentials() {
-        return new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
-                "Số điện thoại hoặc mật khẩu không đúng.");
+        return new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Số điện thoại hoặc mật khẩu không đúng.");
     }
     private BusinessException invalidRefreshToken() {
-        return new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN",
-                "Refresh token không hợp lệ hoặc đã hết hạn.");
+        return new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN, "Refresh token không hợp lệ hoặc đã hết hạn.");
     }
 }

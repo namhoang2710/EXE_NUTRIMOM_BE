@@ -1,8 +1,8 @@
 package vn.nutrimom.auth.service;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 
 @Component
 public class PhoneNormalizer {
@@ -11,7 +11,7 @@ public class PhoneNormalizer {
         if (compact.matches("0[35789]\\d{8}")) return "+84" + compact.substring(1);
         if (compact.matches("\\+84[35789]\\d{8}")) return compact;
         if (compact.matches("84[35789]\\d{8}")) return "+" + compact;
-        throw new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "INVALID_PHONE",
+        throw new BusinessException(ErrorCode.INVALID_PHONE,
                 "Số điện thoại Việt Nam không đúng định dạng.");
     }
 }
