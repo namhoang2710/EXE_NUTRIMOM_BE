@@ -40,6 +40,11 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+      file-size-threshold: 11MB
   threads:
     virtual:
       enabled: false
@@ -76,6 +81,14 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  knowledge:
+    r2:
+      enabled: ${R2_ENABLED:false}
+      account-id: ${R2_ACCOUNT_ID:}
+      access-key-id: ${R2_ACCESS_KEY_ID:}
+      secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+      bucket-name: ${R2_BUCKET_NAME:}
+      public-base-url: ${R2_PUBLIC_BASE_URL:}
   security:
     issuer: ${NUTRIMOM_JWT_ISSUER:nutrimom-api}
     jwt-secret: ${NUTRIMOM_JWT_SECRET}
