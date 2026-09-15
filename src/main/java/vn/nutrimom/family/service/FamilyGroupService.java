@@ -3,10 +3,10 @@ package vn.nutrimom.family.service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyGroupStatus;
 import vn.nutrimom.family.domain.FamilyMemberStatus;
@@ -76,9 +76,7 @@ public class FamilyGroupService {
                         userId, FamilyGroupStatus.ACTIVE)
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.NOT_FOUND, "FAMILY_GROUP_NOT_FOUND",
-                        "Create a family group for the active pregnancy first."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.FAMILY_GROUP_NOT_FOUND, "Create a family group for the active pregnancy first."));
     }
 
     @Transactional(readOnly = true)
@@ -96,16 +94,13 @@ public class FamilyGroupService {
         String requestedPregnancyId = request == null ? null : request.pregnancyId();
         if (requestedPregnancyId == null || requestedPregnancyId.isBlank()) {
             return pregnancies.findByOwnerUserIdAndStatus(userId, PregnancyStatus.ACTIVE)
-                    .orElseThrow(() -> new BusinessException(
-                            HttpStatus.NOT_FOUND, "ACTIVE_PREGNANCY_NOT_FOUND",
-                            "An active pregnancy is required to create a family group."));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ACTIVE_PREGNANCY_NOT_FOUND, "An active pregnancy is required to create a family group."));
         }
         PregnancyEntity pregnancy = pregnancies.findByIdAndOwnerUserId(
                         requestedPregnancyId.trim(), userId)
                 .orElseThrow(this::notFound);
         if (pregnancy.getStatus() != PregnancyStatus.ACTIVE) {
-            throw new BusinessException(HttpStatus.CONFLICT, "PREGNANCY_NOT_ACTIVE",
-                    "Only an active pregnancy can have an active family group.");
+            throw new BusinessException(ErrorCode.PREGNANCY_NOT_ACTIVE, "Only an active pregnancy can have an active family group.");
         }
         return pregnancy;
     }
@@ -117,7 +112,6 @@ public class FamilyGroupService {
     }
 
     private BusinessException notFound() {
-        return new BusinessException(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
-                "Family group was not found.");
+        return new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Family group was not found.");
     }
 }

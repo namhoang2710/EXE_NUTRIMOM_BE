@@ -5,7 +5,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.OnboardingStatus;
@@ -14,6 +13,7 @@ import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.auth.service.PhoneNormalizer;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyGroupStatus;
 import vn.nutrimom.family.domain.FamilyInvitationEntity;
@@ -91,38 +91,28 @@ public class FamilyInvitationService {
             String userId, AcceptFamilyInvitationRequest request) {
         UserEntity user = users.findByIdForUpdate(userId)
                 .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.UNAUTHORIZED, "UNAUTHORIZED",
-                        "The authenticated account is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
         FamilyInvitationEntity invitation = invitations
                 .findByTokenHashForUpdate(tokens.hash(request.token()))
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.NOT_FOUND, "INVALID_INVITATION_TOKEN",
-                        "Invitation token is invalid."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid."));
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         if (invitation.getAcceptedAt() != null) {
-            throw new BusinessException(HttpStatus.CONFLICT,
-                    "INVITATION_ALREADY_USED", "Invitation token has already been used.");
+            throw new BusinessException(ErrorCode.INVITATION_ALREADY_USED, "Invitation token has already been used.");
         }
         if (!invitation.getExpiresAt().isAfter(now)) {
-            throw new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT,
-                    "INVITATION_EXPIRED", "Invitation token has expired.");
+            throw new BusinessException(ErrorCode.INVITATION_EXPIRED, "Invitation token has expired.");
         }
 
         FamilyGroupEntity group = groups.findByIdAndStatus(
                         invitation.getFamilyGroupId(), FamilyGroupStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.NOT_FOUND, "FAMILY_GROUP_NOT_FOUND",
-                        "The invitation's family group is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.FAMILY_GROUP_NOT_FOUND, "The invitation's family group is unavailable."));
         if (group.getOwnerUserId().equals(userId)) {
-            throw new BusinessException(HttpStatus.CONFLICT, "OWNER_ALREADY_IN_GROUP",
-                    "The pregnancy owner does not need a family membership.");
+            throw new BusinessException(ErrorCode.OWNER_ALREADY_IN_GROUP, "The pregnancy owner does not need a family membership.");
         }
         requireMatchingInviteTarget(invitation, user);
         if (members.findByFamilyGroupIdAndUserIdAndStatus(
                 group.getId(), userId, FamilyMemberStatus.ACTIVE).isPresent()) {
-            throw new BusinessException(HttpStatus.CONFLICT, "FAMILY_MEMBER_EXISTS",
-                    "The account already has an active membership in this group.");
+            throw new BusinessException(ErrorCode.FAMILY_MEMBER_EXISTS, "The account already has an active membership in this group.");
         }
 
         FamilyMemberEntity member = new FamilyMemberEntity();
@@ -151,9 +141,7 @@ public class FamilyInvitationService {
                 && user.getEmail() != null
                 && invitation.getInvitedEmail().equalsIgnoreCase(user.getEmail());
         if (!phoneMatches && !emailMatches) {
-            throw new BusinessException(HttpStatus.FORBIDDEN,
-                    "INVITATION_TARGET_MISMATCH",
-                    "Invitation token belongs to a different account.");
+            throw new BusinessException(ErrorCode.INVITATION_TARGET_MISMATCH, "Invitation token belongs to a different account.");
         }
     }
 
@@ -180,7 +168,6 @@ public class FamilyInvitationService {
     }
 
     private BusinessException validation(String message) {
-        return new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT,
-                "VALIDATION_ERROR", message);
+        return new BusinessException(ErrorCode.VALIDATION_ERROR, message);
     }
 }
