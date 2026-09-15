@@ -3,10 +3,10 @@ package vn.nutrimom.dashboard.service;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.dashboard.domain.DashboardBlock;
 import vn.nutrimom.dashboard.dto.BabySummaryResponse;
 import vn.nutrimom.dashboard.dto.MomDashboardResponse;
@@ -42,9 +42,7 @@ public class MomDashboardService {
     @Transactional(readOnly = true)
     public MomDashboardResponse getDashboard(String userId) {
         if (!pregnancies.existsByOwnerUserIdAndStatus(userId, PregnancyStatus.ACTIVE)) {
-            throw new BusinessException(HttpStatus.NOT_FOUND,
-                    "ACTIVE_PREGNANCY_NOT_FOUND",
-                    "An active pregnancy is required for the mom dashboard.");
+            throw new BusinessException(ErrorCode.ACTIVE_PREGNANCY_NOT_FOUND, "An active pregnancy is required for the mom dashboard.");
         }
 
         UserProfileResponse profile = profiles.getProfile(userId);

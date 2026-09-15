@@ -2,12 +2,12 @@ package vn.nutrimom.user.service;
 
 import java.time.DateTimeException;
 import java.time.ZoneId;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.user.domain.UserPreferenceEntity;
 import vn.nutrimom.user.dto.UpdatePreferencesRequest;
 import vn.nutrimom.user.dto.UserPreferencesResponse;
@@ -80,8 +80,7 @@ public class UserPreferenceService {
     private void requireActiveUserForUpdate(String userId) {
         users.findByIdForUpdate(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
-                        "UNAUTHORIZED", "The authenticated account is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
     }
 
     private UserPreferencesResponse toResponse(UserPreferenceEntity preference) {
@@ -93,11 +92,10 @@ public class UserPreferenceService {
     }
 
     private BusinessException versionConflict() {
-        return new BusinessException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
-                "Preferences were updated elsewhere. Reload and try again.");
+        return new BusinessException(ErrorCode.VERSION_CONFLICT, "Preferences were updated elsewhere. Reload and try again.");
     }
 
     private BusinessException validation(String message) {
-        return new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", message);
+        return new BusinessException(ErrorCode.VALIDATION_ERROR, message);
     }
 }

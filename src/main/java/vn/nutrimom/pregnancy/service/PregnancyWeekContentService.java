@@ -1,9 +1,9 @@
 package vn.nutrimom.pregnancy.service;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.pregnancy.domain.PregnancyWeekContentEntity;
 import vn.nutrimom.pregnancy.dto.PregnancyWeekContentResponse;
 import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
@@ -19,8 +19,7 @@ public class PregnancyWeekContentService {
     @Transactional(readOnly = true)
     public PregnancyWeekContentResponse getWeek(int week) {
         PregnancyWeekContentEntity content = contents.findById(week)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND,
-                        "RESOURCE_NOT_FOUND", "Pregnancy content for this week was not found."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Pregnancy content for this week was not found."));
         return new PregnancyWeekContentResponse(
                 content.getWeek(), content.getTitle(), content.getSummary(),
                 content.getBabyDevelopment(), content.getMotherChanges(),

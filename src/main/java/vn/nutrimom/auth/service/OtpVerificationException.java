@@ -1,10 +1,10 @@
 package vn.nutrimom.auth.service;
 
-import org.springframework.http.HttpStatus;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 
 public class OtpVerificationException extends BusinessException {
-    public OtpVerificationException(String code, String message) {
-        super(HttpStatus.UNAUTHORIZED, code, message);
+    public OtpVerificationException(ErrorCode code, String message) {
+        super(code, message);
     }
 }

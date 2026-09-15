@@ -8,13 +8,13 @@ import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.dto.*;
 import vn.nutrimom.auth.repository.*;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.config.OtpProperties;
 
 @Service
@@ -54,22 +54,18 @@ public class OtpService {
         String phone = phoneNormalizer.normalizeVietnamesePhone(request.phone());
         boolean accountExists = userRepository.existsByPhone(phone);
         if (request.purpose() == OtpPurpose.LOGIN && !accountExists)
-            throw new BusinessException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND",
-                    "Không tìm thấy tài khoản với số điện thoại này.");
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND, "Không tìm thấy tài khoản với số điện thoại này.");
         if (request.purpose() == OtpPurpose.REGISTER && accountExists)
-            throw new BusinessException(HttpStatus.CONFLICT, "PHONE_ALREADY_EXISTS",
-                    "Số điện thoại này đã được đăng ký.");
+            throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS, "Số điện thoại này đã được đăng ký.");
         if (request.purpose() == OtpPurpose.REGISTER && !Boolean.TRUE.equals(request.acceptedTerms()))
-            throw new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "TERMS_NOT_ACCEPTED",
-                    "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.");
+            throw new BusinessException(ErrorCode.TERMS_NOT_ACCEPTED, "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.");
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         challengeRepository.findTopByPhoneAndPurposeOrderByCreatedAtDesc(phone, request.purpose())
                 .filter(previous -> previous.getStatus() == OtpStatus.PENDING)
                 .ifPresent(previous -> {
                     if (previous.getResendAvailableAt().isAfter(now))
-                        throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS,
-                                "OTP_RESEND_TOO_SOON", "Vui lòng chờ trước khi yêu cầu mã OTP mới.", true);
+                        throw new BusinessException(ErrorCode.OTP_RESEND_TOO_SOON, "Vui lòng chờ trước khi yêu cầu mã OTP mới.");
                     previous.setStatus(OtpStatus.SUPERSEDED);
                     challengeRepository.saveAndFlush(previous);
                 });
@@ -91,8 +87,7 @@ public class OtpService {
         try {
             challengeRepository.saveAndFlush(challenge);
         } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "OTP_REQUEST_IN_PROGRESS",
-                    "Một yêu cầu OTP khác đang được xử lý. Vui lòng thử lại sau.", true);
+            throw new BusinessException(ErrorCode.OTP_REQUEST_IN_PROGRESS, "Một yêu cầu OTP khác đang được xử lý. Vui lòng thử lại sau.");
         }
 
         return new OtpChallengeResponse(challenge.getId(), maskPhone(phone), deliveryChannel,
@@ -103,14 +98,14 @@ public class OtpService {
     @Transactional(noRollbackFor = OtpVerificationException.class)
     public OtpVerifyResponse verify(OtpVerifyRequest request) {
         OtpChallengeEntity challenge = challengeRepository.findByIdForUpdate(request.challengeId())
-                .orElseThrow(() -> invalid("OTP_CHALLENGE_NOT_FOUND", "Yêu cầu OTP không tồn tại."));
+                .orElseThrow(() -> invalid(ErrorCode.OTP_CHALLENGE_NOT_FOUND, "Yêu cầu OTP không tồn tại."));
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         if (challenge.getStatus() != OtpStatus.PENDING)
-            throw invalid("OTP_CHALLENGE_USED", "Yêu cầu OTP đã hết hiệu lực.");
+            throw invalid(ErrorCode.OTP_CHALLENGE_USED, "Yêu cầu OTP đã hết hiệu lực.");
         if (!challenge.getExpiresAt().isAfter(now)) {
             challenge.setStatus(OtpStatus.EXPIRED);
             challengeRepository.save(challenge);
-            throw invalid("OTP_EXPIRED", "Mã OTP đã hết hạn.");
+            throw invalid(ErrorCode.OTP_EXPIRED, "Mã OTP đã hết hạn.");
         }
         if (!constantTimeEquals(challenge.getCodeHash(),
                 hmac(challenge.getPhone() + ":" + request.code()))) {
@@ -118,23 +113,22 @@ public class OtpService {
             if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
                 challenge.setStatus(OtpStatus.EXPIRED);
                 challengeRepository.save(challenge);
-                throw invalid("OTP_ATTEMPTS_EXCEEDED",
+                throw invalid(ErrorCode.OTP_ATTEMPTS_EXCEEDED,
                         "Bạn đã nhập sai OTP quá số lần cho phép. Vui lòng yêu cầu mã mới.");
             }
             challengeRepository.save(challenge);
-            throw invalid("INVALID_OTP", "Mã OTP không chính xác.");
+            throw invalid(ErrorCode.INVALID_OTP, "Mã OTP không chính xác.");
         }
         if (challenge.getDeviceId() != null && request.deviceId() != null
                 && !request.deviceId().isBlank()
                 && !challenge.getDeviceId().equals(request.deviceId().trim()))
-            throw invalid("OTP_DEVICE_MISMATCH", "Mã OTP không thuộc thiết bị này.");
+            throw invalid(ErrorCode.OTP_DEVICE_MISMATCH, "Mã OTP không thuộc thiết bị này.");
 
         boolean newUser = challenge.getPurpose() == OtpPurpose.REGISTER;
         UserEntity user;
         if (newUser) {
             if (userRepository.existsByPhone(challenge.getPhone()))
-                throw new BusinessException(HttpStatus.CONFLICT, "PHONE_ALREADY_EXISTS",
-                        "Số điện thoại này đã được đăng ký.");
+                throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS, "Số điện thoại này đã được đăng ký.");
             user = new UserEntity();
             user.setPhone(challenge.getPhone());
             user.setDisplayName(normalizeDisplayName(request.displayName()));
@@ -146,7 +140,7 @@ public class OtpService {
         } else {
             user = userRepository.findByPhone(challenge.getPhone())
                     .filter(value -> value.getStatus() == UserStatus.ACTIVE)
-                    .orElseThrow(() -> invalid("ACCOUNT_UNAVAILABLE",
+                    .orElseThrow(() -> invalid(ErrorCode.ACCOUNT_UNAVAILABLE,
                             "Tài khoản không tồn tại hoặc đã bị khóa."));
         }
 
@@ -159,20 +153,20 @@ public class OtpService {
     @Transactional(noRollbackFor = OtpVerificationException.class)
     public void verifyReauthentication(UserEntity user, String challengeId, String code) {
         OtpChallengeEntity challenge = challengeRepository.findByIdForUpdate(challengeId)
-                .orElseThrow(() -> invalid("OTP_CHALLENGE_NOT_FOUND", "OTP challenge was not found."));
+                .orElseThrow(() -> invalid(ErrorCode.OTP_CHALLENGE_NOT_FOUND, "OTP challenge was not found."));
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         if (challenge.getPurpose() != OtpPurpose.LOGIN
                 || !challenge.getPhone().equals(user.getPhone())) {
-            throw invalid("OTP_REAUTHENTICATION_MISMATCH",
+            throw invalid(ErrorCode.OTP_REAUTHENTICATION_MISMATCH,
                     "OTP challenge does not belong to the authenticated account.");
         }
         if (challenge.getStatus() != OtpStatus.PENDING) {
-            throw invalid("OTP_CHALLENGE_USED", "OTP challenge is no longer valid.");
+            throw invalid(ErrorCode.OTP_CHALLENGE_USED, "OTP challenge is no longer valid.");
         }
         if (!challenge.getExpiresAt().isAfter(now)) {
             challenge.setStatus(OtpStatus.EXPIRED);
             challengeRepository.save(challenge);
-            throw invalid("OTP_EXPIRED", "OTP code has expired.");
+            throw invalid(ErrorCode.OTP_EXPIRED, "OTP code has expired.");
         }
         if (!constantTimeEquals(challenge.getCodeHash(),
                 hmac(challenge.getPhone() + ":" + code))) {
@@ -181,7 +175,7 @@ public class OtpService {
                 challenge.setStatus(OtpStatus.EXPIRED);
             }
             challengeRepository.save(challenge);
-            throw invalid("INVALID_OTP", "OTP code is invalid.");
+            throw invalid(ErrorCode.INVALID_OTP, "OTP code is invalid.");
         }
         challenge.setStatus(OtpStatus.VERIFIED);
         challenge.setVerifiedAt(now);
@@ -216,7 +210,7 @@ public class OtpService {
     private String normalizeDisplayName(String value) {
         return value == null || value.isBlank() ? "Thành viên NutriMom" : value.trim();
     }
-    private OtpVerificationException invalid(String code, String message) {
+    private OtpVerificationException invalid(ErrorCode code, String message) {
         return new OtpVerificationException(code, message);
     }
 }

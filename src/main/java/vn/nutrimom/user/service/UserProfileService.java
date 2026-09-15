@@ -2,7 +2,6 @@ package vn.nutrimom.user.service;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.OnboardingStatus;
@@ -10,6 +9,7 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.user.dto.UpdateProfileRequest;
 import vn.nutrimom.user.dto.UserProfileResponse;
 
@@ -75,8 +75,7 @@ public class UserProfileService {
     private UserEntity loadUser(String userId) {
         return users.findById(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(
-                HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không hợp lệ."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ."));
     }
 
     private UserProfileResponse toResponse(UserEntity user) {
@@ -104,11 +103,10 @@ public class UserProfileService {
     }
 
     private BusinessException versionConflict() {
-        return new BusinessException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
-                "Hồ sơ đã được cập nhật ở nơi khác. Vui lòng tải lại và thử lại.");
+        return new BusinessException(ErrorCode.VERSION_CONFLICT, "Hồ sơ đã được cập nhật ở nơi khác. Vui lòng tải lại và thử lại.");
     }
 
     private BusinessException validation(String message) {
-        return new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", message);
+        return new BusinessException(ErrorCode.VALIDATION_ERROR, message);
     }
 }

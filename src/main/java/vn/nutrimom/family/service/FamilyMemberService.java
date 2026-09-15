@@ -4,10 +4,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyMemberEntity;
 import vn.nutrimom.family.domain.FamilyMemberStatus;
@@ -51,8 +51,7 @@ public class FamilyMemberService {
             String userId, String memberId, UpdateFamilyMemberRequest request) {
         FamilyMemberEntity member = loadOwnedMember(userId, memberId);
         if (request.version() != member.getVersion()) {
-            throw new BusinessException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
-                    "Family membership was updated elsewhere. Reload and try again.");
+            throw new BusinessException(ErrorCode.VERSION_CONFLICT, "Family membership was updated elsewhere. Reload and try again.");
         }
         member.setScopes(request.scopes());
         members.saveAndFlush(member);
@@ -88,7 +87,6 @@ public class FamilyMemberService {
     }
 
     private BusinessException notFound() {
-        return new BusinessException(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
-                "Family member was not found.");
+        return new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Family member was not found.");
     }
 }
