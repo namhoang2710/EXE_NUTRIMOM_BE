@@ -5,7 +5,6 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +15,7 @@ import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.auth.service.OtpService;
 import vn.nutrimom.auth.service.OtpVerificationException;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.user.dto.DeleteAccountRequest;
 import vn.nutrimom.user.dto.DeleteAccountResponse;
 
@@ -40,8 +40,8 @@ public class UserAccountService {
     public DeleteAccountResponse deleteAccount(String userId, DeleteAccountRequest request) {
         UserEntity user = users.findByIdForUpdate(userId)
                 .filter(value -> value.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
-                        "UNAUTHORIZED", "The authenticated account is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED,
+                        "The authenticated account is unavailable."));
 
         reauthenticate(user, request);
         OffsetDateTime disabledAt = OffsetDateTime.now(ZoneOffset.UTC);
@@ -68,9 +68,9 @@ public class UserAccountService {
                     user, request.otpChallengeId().trim(), request.otpCode());
             return;
         }
-        String code = request.password() == null || request.password().isBlank()
-                ? "REAUTHENTICATION_REQUIRED" : "INVALID_REAUTHENTICATION";
-        throw new BusinessException(HttpStatus.UNAUTHORIZED, code,
+        ErrorCode code = request.password() == null || request.password().isBlank()
+                ? ErrorCode.REAUTHENTICATION_REQUIRED : ErrorCode.INVALID_REAUTHENTICATION;
+        throw new BusinessException(code,
                 "A valid password or login OTP is required to delete the account.");
     }
 }
