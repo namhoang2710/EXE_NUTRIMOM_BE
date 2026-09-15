@@ -22,6 +22,28 @@ import vn.nutrimom.common.api.ApiErrorResponse;
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleUploadTooLarge(Exception ex) {
+        return error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Image upload exceeds the size limit.", Map.of(), false);
+    }
+
+    @ExceptionHandler({org.springframework.web.multipart.MultipartException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class})
+    public ResponseEntity<ApiErrorResponse> handleMultipart(Exception ex) {
+        return error(HttpStatus.BAD_REQUEST, "INVALID_MULTIPART", "A valid multipart image file is required.", Map.of(), false);
+    }
+
+    @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
+    public ResponseEntity<ApiErrorResponse> handleInvalidParameter(Exception ex) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Invalid request parameter.", Map.of(), false);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleContentType(Exception ex) {
+        return error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "INVALID_CONTENT_TYPE", "Unsupported request content type.", Map.of(), false);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiErrorResponse> handleBusiness(BusinessException ex) {
         return error(ex.getStatus(), ex.getCode(), ex.getMessage(), Map.of(), ex.isRetryable());
