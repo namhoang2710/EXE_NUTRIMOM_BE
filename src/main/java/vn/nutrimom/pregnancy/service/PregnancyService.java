@@ -5,7 +5,6 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.OnboardingStatus;
@@ -13,6 +12,7 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.pregnancy.domain.PregnancyCalculationSource;
 import vn.nutrimom.pregnancy.domain.PregnancyEntity;
 import vn.nutrimom.pregnancy.domain.PregnancyStatus;
@@ -99,8 +99,7 @@ public class PregnancyService {
         loadActiveUserForUpdate(userId);
         PregnancyEntity pregnancy = loadOwned(userId, pregnancyId);
         if (pregnancy.getStatus() == PregnancyStatus.ARCHIVED) {
-            throw new BusinessException(HttpStatus.CONFLICT, "PREGNANCY_ARCHIVED",
-                    "An archived pregnancy cannot be updated.");
+            throw new BusinessException(ErrorCode.PREGNANCY_ARCHIVED, "An archived pregnancy cannot be updated.");
         }
         if (request.version() != pregnancy.getVersion()) {
             throw versionConflict();
@@ -149,15 +148,13 @@ public class PregnancyService {
     private UserEntity loadActiveUserForUpdate(String userId) {
         return users.findByIdForUpdate(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
-                        "UNAUTHORIZED", "The authenticated account is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
     }
 
     private void requireActiveUser(String userId) {
         users.findById(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
-                        "UNAUTHORIZED", "The authenticated account is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
     }
 
     private PregnancyEntity loadOwned(String userId, String pregnancyId) {
@@ -208,21 +205,18 @@ public class PregnancyService {
     }
 
     private BusinessException activePregnancyExists() {
-        return new BusinessException(HttpStatus.CONFLICT, "ACTIVE_PREGNANCY_EXISTS",
-                "The user already has an active pregnancy.");
+        return new BusinessException(ErrorCode.ACTIVE_PREGNANCY_EXISTS, "The user already has an active pregnancy.");
     }
 
     private BusinessException versionConflict() {
-        return new BusinessException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
-                "The pregnancy was updated elsewhere. Reload and try again.");
+        return new BusinessException(ErrorCode.VERSION_CONFLICT, "The pregnancy was updated elsewhere. Reload and try again.");
     }
 
     private BusinessException validation(String message) {
-        return new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", message);
+        return new BusinessException(ErrorCode.VALIDATION_ERROR, message);
     }
 
     private BusinessException notFound() {
-        return new BusinessException(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
-                "Pregnancy not found.");
+        return new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Pregnancy not found.");
     }
 }
