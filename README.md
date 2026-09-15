@@ -1,5 +1,9 @@
 # NutriMom Backend
 
+Knowledge CMS: article CRUD, public library pagination/filters, account bookmarks,
+optimized image uploads to Cloudflare R2. API contract, configuration and FE
+mapping: [docs/KNOWLEDGE_API.md](docs/KNOWLEDGE_API.md).
+
 Backend Spring Boot cho ứng dụng chăm sóc sức khỏe mẹ bầu NutriMom, dùng Microsoft SQL Server, Flyway, Spring Security JWT và Swagger/OpenAPI.
 
 ## Thành phần đã có
