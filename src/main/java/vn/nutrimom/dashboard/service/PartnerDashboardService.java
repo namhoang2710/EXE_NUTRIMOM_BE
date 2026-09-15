@@ -4,12 +4,12 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.dashboard.dto.FamilyTaskResponse;
 import vn.nutrimom.dashboard.dto.PartnerDashboardResponse;
 import vn.nutrimom.dashboard.dto.PartnerPregnancyOverviewResponse;
@@ -48,15 +48,11 @@ public class PartnerDashboardService {
     public PartnerDashboardResponse getDashboard(String userId) {
         users.findById(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.UNAUTHORIZED, "UNAUTHORIZED",
-                        "The authenticated account is unavailable."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
         MembershipContext context = resolveMembership(userId);
         FamilyMemberEntity member = context.member();
         PregnancyEntity pregnancy = pregnancies.findById(context.group().getPregnancyId())
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
-                        "Shared pregnancy was not found."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Shared pregnancy was not found."));
 
         return new PartnerDashboardResponse(
                 member.getMembershipRole().name(),
@@ -82,9 +78,7 @@ public class PartnerDashboardService {
                         .orElse(null))
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.FORBIDDEN, "SHARING_SCOPE_REQUIRED",
-                        "An active family membership is required for the partner dashboard."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHARING_SCOPE_REQUIRED, "An active family membership is required for the partner dashboard."));
     }
 
     private PartnerPregnancyOverviewResponse pregnancyOverview(PregnancyEntity pregnancy) {
