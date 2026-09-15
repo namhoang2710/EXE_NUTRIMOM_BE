@@ -91,6 +91,17 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | ACTIVE_PREGNANCY_NOT_FOUND | 404 | false | family/dashboard |
 | PREGNANCY_ARCHIVED | 409 | false | pregnancy |
 | ACTIVE_PREGNANCY_EXISTS | 409 | false | pregnancy |
+| ARTICLE_NOT_FOUND | 404 | false | knowledge/CMS |
+| SLUG_ALREADY_EXISTS | 409 | false | knowledge/CMS |
+| DB_SAVE_FAILED | 500 | true | knowledge/CMS |
+| R2_UPLOAD_FAILED | 502 | true | knowledge (media/R2 storage) |
+| INVALID_FILE_TYPE | 422 | false | knowledge (image upload) |
+| INVALID_IMAGE_DIMENSIONS | 422 | false | knowledge (image upload) |
+| IMAGE_PROCESSING_FAILED | 422 | false | knowledge (image upload) |
+| IMAGE_PROCESSING_BUSY | 429 | true | knowledge (image upload) |
+| INVALID_MULTIPART | 400 | false | handler (multipart hỏng/thiếu part) |
+| INVALID_CONTENT_TYPE | 415 | false | handler (Content-Type không hỗ trợ) |
+| INVALID_REQUEST_PARAMETER | 400 | false | handler (query param sai kiểu/thiếu) |
 | MALFORMED_JSON | 400 | false | handler (body JSON hỏng) |
 | INTERNAL_ERROR | 500 | true | handler (lỗi không lường trước) |
 
@@ -98,4 +109,4 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 
 - Code **reserved** đã có sẵn hằng trong `ErrorCode` — cứ `throw new BusinessException(ErrorCode.X, ...)`, không tự đặt tên mới.
 - Cần code mới chưa có? Thêm hằng vào `ErrorCode` (kèm HTTP status + retryable + message mặc định) rồi cập nhật bảng này — đừng viết literal string ở service.
-- `GlobalExceptionHandler` đã tự map các lỗi Spring phổ biến về code chuẩn: body hỏng → `MALFORMED_JSON`; thiếu/sai kiểu param → `VALIDATION_ERROR`; route không tồn tại → `RESOURCE_NOT_FOUND`; upload quá cỡ → `FILE_TOO_LARGE`; 401/403 → `UNAUTHORIZED`/`FORBIDDEN`.
+- `GlobalExceptionHandler` đã tự map các lỗi Spring phổ biến về code chuẩn: body hỏng → `MALFORMED_JSON`; query param sai kiểu/thiếu → `INVALID_REQUEST_PARAMETER` (400); body/DTO validation → `VALIDATION_ERROR` (422); route không tồn tại → `RESOURCE_NOT_FOUND`; upload quá cỡ → `FILE_TOO_LARGE`; multipart hỏng → `INVALID_MULTIPART`; Content-Type sai → `INVALID_CONTENT_TYPE`; 401/403 → `UNAUTHORIZED`/`FORBIDDEN`.

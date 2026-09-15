@@ -13,7 +13,6 @@ import org.slf4j.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -22,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.knowledge.domain.*;
 import vn.nutrimom.knowledge.dto.ArticleRequest;
 import vn.nutrimom.knowledge.dto.ArticleRequest.ImageInput;
@@ -101,8 +101,7 @@ public class KnowledgeArticleService {
         validateFilter(category, CATEGORIES, "category");
         validateFilter(stage, STAGES, "stage");
         if (topic != null && topic.length() > 100) throw invalid("topic is too long");
-        if (savedOnly && userId == null) throw new BusinessException(HttpStatus.UNAUTHORIZED,
-                "UNAUTHORIZED", "Sign in to read saved articles.");
+        if (savedOnly && userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED, "Sign in to read saved articles.");
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         Specification<KnowledgeArticle> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -200,7 +199,7 @@ public class KnowledgeArticleService {
             log.error("Knowledge DB persistence failed", ex);
             if (ex instanceof DataIntegrityViolationException && String.valueOf(ex.getMessage()).toLowerCase(Locale.ROOT)
                     .contains("ux_knowledge_articles_slug")) throw duplicateSlug();
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "DB_SAVE_FAILED", "Content could not be saved.", true);
+            throw new BusinessException(ErrorCode.DB_SAVE_FAILED, "Content could not be saved.");
         }
     }
 
@@ -226,7 +225,7 @@ public class KnowledgeArticleService {
                 throw new IllegalArgumentException();
         } catch (IllegalArgumentException ex) { throw invalid("source.href must be an HTTP(S) URL"); }
     }
-    private BusinessException invalid(String message) { return new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "VALIDATION_ERROR", message); }
-    private BusinessException notFound() { return new BusinessException(HttpStatus.NOT_FOUND, "ARTICLE_NOT_FOUND", "Article not found."); }
-    private BusinessException duplicateSlug() { return new BusinessException(HttpStatus.CONFLICT, "SLUG_ALREADY_EXISTS", "Article slug already exists."); }
+    private BusinessException invalid(String message) { return new BusinessException(ErrorCode.VALIDATION_ERROR, message); }
+    private BusinessException notFound() { return new BusinessException(ErrorCode.ARTICLE_NOT_FOUND, "Article not found."); }
+    private BusinessException duplicateSlug() { return new BusinessException(ErrorCode.SLUG_ALREADY_EXISTS, "Article slug already exists."); }
 }
