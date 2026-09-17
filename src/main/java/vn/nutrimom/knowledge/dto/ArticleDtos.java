@@ -19,6 +19,13 @@ public final class ArticleDtos {
             String stage, List<String> topics, @JsonProperty("publishedAt") OffsetDateTime publishedAt,
             Author author, @JsonProperty("coverImage") Image coverImage, String lead,
             List<Section> sections, Source source, ArticleStatus status,
+            @JsonProperty("youtubeVideoId") String youtubeVideoId,
+            @JsonProperty("createdAt") OffsetDateTime createdAt,
+            @JsonProperty("updatedAt") OffsetDateTime updatedAt) {}
+    public record AdminListItem(String id, String slug, String title, String excerpt, String category,
+            String stage, List<String> topics, @JsonProperty("publishedAt") OffsetDateTime publishedAt,
+            Author author, @JsonProperty("coverImage") Image coverImage, String lead,
+            List<Section> sections, Source source, ArticleStatus status,
             @JsonProperty("createdAt") OffsetDateTime createdAt,
             @JsonProperty("updatedAt") OffsetDateTime updatedAt) {}
     public record Pagination<T>(List<T> items, @JsonProperty("totalItems") long totalItems,

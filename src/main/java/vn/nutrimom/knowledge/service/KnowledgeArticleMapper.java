@@ -34,6 +34,12 @@ public class KnowledgeArticleMapper {
                         decode(s.getBullets()), s.getImageUrl() == null ? null
                         : new Image(s.getImageUrl(), s.getImageAlt(), s.getImageCaption()), s.getSortOrder())).toList(),
                 a.getSourceHref() == null ? null : new Source(a.getSourceLabel(), a.getSourceHref()),
-                a.getStatus(), a.getCreatedAt(), a.getUpdatedAt());
+                a.getStatus(), a.getYoutubeVideoId(), a.getCreatedAt(), a.getUpdatedAt());
+    }
+    public AdminListItem adminListItem(KnowledgeArticle a) {
+        Detail d = detail(a);
+        return new AdminListItem(d.id(), d.slug(), d.title(), d.excerpt(), d.category(), d.stage(),
+                d.topics(), d.publishedAt(), d.author(), d.coverImage(), d.lead(), d.sections(),
+                d.source(), d.status(), d.createdAt(), d.updatedAt());
     }
 }

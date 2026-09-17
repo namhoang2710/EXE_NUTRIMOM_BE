@@ -3,7 +3,7 @@
 The module uses the repository's Spring Boot 4.1 / Java 17, JWT security,
 `ApiResponse` (`data`, `meta`) and structured `ApiErrorResponse` (`error`).
 The new article DTOs explicitly use camelCase for `publishedAt`, `coverImage`,
-`createdAt`, `updatedAt`, `sortOrder` and pagination fields. Existing APIs,
+`youtubeVideoId`, `createdAt`, `updatedAt`, `sortOrder` and pagination fields. Existing APIs,
 metadata (`request_id`, `server_time`) and media upload DTOs remain snake_case.
 Article requests also accept the snake_case aliases of their camelCase fields.
 
@@ -48,6 +48,7 @@ existing author when omitted on replacement. An explicit author must exist.
   "publishedAt": "2026-09-01T00:00:00Z",
   "coverImage": { "id": "<uploaded-media-id>", "alt": "Vitamin D" },
   "lead": "Nội dung mở đầu",
+  "youtubeVideoId": "dQw4w9WgXcQ",
   "sections": [
     {
       "heading": "Tại sao quan trọng?",
@@ -65,6 +66,13 @@ explicit timestamp preserves the previous publication timestamp or uses UTC
 now. Other statuses clear `publishedAt`. Section array order defines `sortOrder`;
 PUT replaces the sections, assigns new section IDs, and removes the previous
 section records. An omitted cover/source/sections clears that content on PUT.
+`youtubeVideoId` is an optional article property, separate from `sections`, for
+one YouTube video displayed after all sections. The request accepts its
+`youtube_video_id` alias. Only an ID of exactly 11 characters from
+`[A-Za-z0-9_-]` is accepted; empty strings, whitespace, full URLs and HTML
+return `VALIDATION_ERROR` / 422. The backend stores only the ID and does not
+check YouTube availability. On PUT, omitting `youtubeVideoId` or sending `null`
+removes the video. The response omits the field when no video is attached.
 `createdAt` and `updatedAt` are managed by JPA; optimistic locking prevents
 silent concurrent article overwrites. Slugs are lowercase letters/digits with
 single hyphen separators, at most 180 characters, and database-unique.
@@ -91,8 +99,9 @@ Render their content as text in the FE.
 1..100. Optional `category`, `stage` and `topic` filters combine with AND; topic
 matches the complete, case-sensitive topic string. `savedOnly=true` uses the current JWT account's
 bookmarks. Anonymous saved-only requests return 401.
-Admin lists additionally accept `status` and return detail objects; public lists
-return summary objects. Sort is `field:asc` or `field:desc`; allowed fields are
+Admin lists additionally accept `status` and return the existing detail-like
+items without `youtubeVideoId`; public lists return summary objects. Sort is
+`field:asc` or `field:desc`; allowed fields are
 `publishedAt`, `title`, `createdAt`, `updatedAt`. Defaults are `publishedAt:desc`
 (public), `updatedAt:desc` (admin), with ID as a stable tie-breaker.
 
@@ -112,7 +121,7 @@ return summary objects. Sort is `field:asc` or `field:desc`; allowed fields are
 Pages above the last page clamp to the last page, as in the current FE.
 Summary fields: `id`, `slug`, `title`, `excerpt`, `category`, `stage`, `topics`,
 `publishedAt`, `author: {id,name}`, `coverImage: {url,alt,caption}` (when present).
-Detail adds `lead`, `sections`, `source`, `status`, `createdAt`, `updatedAt`.
+Detail adds `lead`, `sections`, `source`, `status`, `youtubeVideoId`, `createdAt`, `updatedAt`.
 Each section has `id`, `heading`, `paragraphs`, `bullets`, `sortOrder`, optional
 `image: {url,alt,caption}`. Null optional fields are omitted as in existing APIs.
 
@@ -140,6 +149,10 @@ This backend implements the requested CMS contract; the FE files are unchanged.
   by authenticated PUT requests after their articles exist in the CMS.
 - Use `coverImage.url` and `sections[].image.url` when adding image rendering;
   the current `BlogSection` fixture type has no image field.
+- Render the optional video after the detail `sections`. Construct the iframe
+  URL from the validated ID, for example
+  `https://www.youtube-nocookie.com/embed/{id}`; never render supplied HTML or
+  accept an embed URL in place of the ID.
 
 ## R2 configuration and upload policy
 
@@ -225,10 +238,12 @@ JSON section checks and filter indexes. Existing identity V1 and user profile/on
 V13 adds the nullable cover caption column and fills existing articles from their
 uploaded media caption when available. Previously discarded custom cover captions
 cannot be recovered; submit them again in an article replacement request.
+V14 adds the nullable `youtube_video_id NVARCHAR(11)` article column. Existing
+articles have no video until an admin supplies an ID.
 
 Media must precede articles and sections because both reference the media table.
 Local databases that already applied an older Knowledge migration sequence require
-migration-history reconciliation before using V9..V13. Renaming files alone does
+migration-history reconciliation before using V9..V14. Renaming files alone does
 not update an existing database; reset disposable development databases or reconcile
 the Flyway history and existing Knowledge tables before starting the application.
 

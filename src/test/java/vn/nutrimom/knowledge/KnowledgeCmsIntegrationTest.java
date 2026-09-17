@@ -73,11 +73,119 @@ class KnowledgeCmsIntegrationTest {
              {"heading":"Second","paragraphs":["Second paragraph"]}],"source":{"label":"WHO","href":"https://www.who.int"}}
             """.formatted(slug, status, "Long paragraph ".repeat(30));
     }
+    private String withVideo(String request, String videoId) {
+        return request.replace("\"lead\":", "\"youtubeVideoId\":\"" + videoId + "\",\"lead\":");
+    }
     private MvcResult create(String slug, String status) throws Exception {
         return mvc.perform(post("/api/v1/admin/knowledge/articles").with(admin()).contentType(MediaType.APPLICATION_JSON)
                 .content(body(slug,status))).andExpect(status().isCreated()).andReturn();
     }
     private String id(MvcResult result) throws Exception { return json.readTree(result.getResponse().getContentAsString()).at("/data/id").stringValue(); }
+
+    @Test void youtubeVideoFollowsArticleDetailAndFullReplacement() throws Exception {
+        String draft = withVideo(body("with-video", "draft"), "dQw4w9WgXcQ");
+        String articleId = id(mvc.perform(post("/api/v1/admin/knowledge/articles").with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(draft))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.youtubeVideoId").value("dQw4w9WgXcQ"))
+                .andReturn());
+        mvc.perform(get("/api/v1/admin/knowledge/articles/" + articleId).with(admin()))
+                .andExpect(jsonPath("$.data.youtubeVideoId").value("dQw4w9WgXcQ"));
+        mvc.perform(get("/api/v1/admin/knowledge/articles").with(admin()))
+                .andExpect(jsonPath("$.data.items[0].youtubeVideoId").doesNotExist());
+        mvc.perform(get("/api/v1/knowledge/articles/with-video")).andExpect(status().isNotFound());
+
+        String published = withVideo(body("with-video", "published"), "dQw4w9WgXcQ");
+        mvc.perform(put("/api/v1/admin/knowledge/articles/" + articleId).with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(published))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.youtubeVideoId").value("dQw4w9WgXcQ"));
+        mvc.perform(get("/api/v1/knowledge/articles/with-video"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.youtubeVideoId").value("dQw4w9WgXcQ"));
+        mvc.perform(get("/api/v1/knowledge/articles"))
+                .andExpect(jsonPath("$.data.items[0].youtubeVideoId").doesNotExist());
+
+        String replacement = withVideo(body("with-video", "published"), "AbC123_-xYz");
+        mvc.perform(put("/api/v1/admin/knowledge/articles/" + articleId).with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(replacement))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.youtubeVideoId").value("AbC123_-xYz"));
+        mvc.perform(get("/api/v1/admin/knowledge/articles/" + articleId).with(admin()))
+                .andExpect(jsonPath("$.data.youtubeVideoId").value("AbC123_-xYz"));
+        mvc.perform(get("/api/v1/knowledge/articles/with-video"))
+                .andExpect(jsonPath("$.data.youtubeVideoId").value("AbC123_-xYz"));
+
+        mvc.perform(put("/api/v1/admin/knowledge/articles/" + articleId).with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(body("with-video", "published")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+        mvc.perform(get("/api/v1/admin/knowledge/articles/" + articleId).with(admin()))
+                .andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+        mvc.perform(get("/api/v1/knowledge/articles/with-video"))
+                .andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+
+        mvc.perform(put("/api/v1/admin/knowledge/articles/" + articleId).with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(replacement.replace("\"youtubeVideoId\":\"AbC123_-xYz\"", "\"youtube_video_id\":\"AbC123_-xYz\"")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.youtubeVideoId").value("AbC123_-xYz"));
+        mvc.perform(put("/api/v1/admin/knowledge/articles/" + articleId).with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(replacement.replace("\"AbC123_-xYz\"", "null")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+        mvc.perform(get("/api/v1/knowledge/articles/with-video"))
+                .andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+        assertThat(articles.findById(articleId).orElseThrow().getYoutubeVideoId()).isNull();
+
+        String legacyId = id(create("without-video", "published"));
+        mvc.perform(get("/api/v1/admin/knowledge/articles/" + legacyId).with(admin()))
+                .andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+        mvc.perform(get("/api/v1/knowledge/articles/without-video"))
+                .andExpect(jsonPath("$.data.youtubeVideoId").doesNotExist());
+    }
+
+    @Test void invalidYoutubeIdsReturn422WithoutChangingArticle() throws Exception {
+        String original = withVideo(body("video-validation", "published"), "dQw4w9WgXcQ");
+        String articleId = id(mvc.perform(post("/api/v1/admin/knowledge/articles").with(admin())
+                .contentType(MediaType.APPLICATION_JSON).content(original)).andExpect(status().isCreated()).andReturn());
+        for (String invalid : List.of("https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "<iframe>", "short", "123456789012", "", "           ", " abcdefghij", "abcdefghij!")) {
+            mvc.perform(post("/api/v1/admin/knowledge/articles").with(admin())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(withVideo(body("invalid-create", "draft"), invalid)))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.error.fields.youtubeVideoId").exists());
+            String request = withVideo(body("video-validation", "draft"), invalid).replace("Vitamin D", "Changed title");
+            mvc.perform(put("/api/v1/admin/knowledge/articles/" + articleId).with(admin())
+                    .contentType(MediaType.APPLICATION_JSON).content(request))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.fields.youtubeVideoId").exists());
+            mvc.perform(get("/api/v1/admin/knowledge/articles/" + articleId).with(admin()))
+                    .andExpect(jsonPath("$.data.title").value("Vitamin D"))
+                    .andExpect(jsonPath("$.data.status").value("published"))
+                    .andExpect(jsonPath("$.data.youtubeVideoId").value("dQw4w9WgXcQ"));
+        }
+        assertThat(articles.count()).isEqualTo(1);
+    }
+
+    @Test void v14MigrationAddsNullableColumnToExistingArticleTable() throws Exception {
+        String migration;
+        try (var resource = Objects.requireNonNull(getClass().getResourceAsStream(
+                "/db/migration/V14__add_knowledge_article_youtube_video_id.sql"))) {
+            migration = new String(resource.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        try (var connection = java.sql.DriverManager.getConnection(
+                "jdbc:h2:mem:knowledge_v14_migration;MODE=MSSQLServer;DB_CLOSE_DELAY=-1");
+                var statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA IF NOT EXISTS app");
+            statement.execute("CREATE TABLE app.knowledge_articles (id NVARCHAR(36) PRIMARY KEY)");
+            statement.execute("INSERT INTO app.knowledge_articles (id) VALUES ('existing')");
+            statement.execute(migration);
+            try (var rows = statement.executeQuery("SELECT youtube_video_id FROM app.knowledge_articles WHERE id='existing'")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getString(1)).isNull();
+            }
+            statement.execute("INSERT INTO app.knowledge_articles (id, youtube_video_id) VALUES ('new', 'dQw4w9WgXcQ')");
+            try (var rows = statement.executeQuery("SELECT youtube_video_id FROM app.knowledge_articles WHERE id='new'")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getString(1)).isEqualTo("dQw4w9WgXcQ");
+            }
+        }
+    }
 
     @Test void articleLifecyclePreservesContractAndPublicationVisibility() throws Exception {
         String id = id(create("vitamin-d", "draft"));
