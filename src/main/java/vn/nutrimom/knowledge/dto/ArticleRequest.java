@@ -20,7 +20,9 @@ public record ArticleRequest(
         @JsonProperty("coverImage") @JsonAlias("cover_image") @Valid ImageInput coverImage,
         @Size(max=10000) String lead,
         @Size(max=100) List<@NotNull @Valid SectionInput> sections,
-        @Valid SourceInput source) {
+        @Valid SourceInput source,
+        @JsonProperty("youtubeVideoId") @JsonAlias("youtube_video_id")
+        @Pattern(regexp="[A-Za-z0-9_-]{11}") String youtubeVideoId) {
     public record ImageInput(@Size(max=36) String id, @Size(max=2048) String url,
                              @Size(max=500) String alt, @Size(max=1000) String caption) {}
     public record SectionInput(@NotBlank @Size(max=300) String heading,

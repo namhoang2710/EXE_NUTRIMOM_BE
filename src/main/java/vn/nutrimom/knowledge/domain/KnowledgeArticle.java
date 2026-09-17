@@ -30,6 +30,8 @@ public class KnowledgeArticle {
  private String sourceHref;
  @Column(name="lead", columnDefinition="nvarchar(max)")
  private String lead;
+ @Column(name="youtube_video_id", length=11)
+ private String youtubeVideoId;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="cover_media_id")
  private ArticleMedia coverMedia;
  @ManyToOne(fetch=FetchType.LAZY, optional=false) @JoinColumn(name="author_id", nullable=false)
@@ -77,6 +79,8 @@ public class KnowledgeArticle {
  public void setSourceHref(String value) { sourceHref=value; }
  public String getLead() { return lead; }
  public void setLead(String value) { lead=value; }
+ public String getYoutubeVideoId() { return youtubeVideoId; }
+ public void setYoutubeVideoId(String value) { youtubeVideoId=value; }
  public ArticleMedia getCoverMedia() { return coverMedia; }
  public void setCoverMedia(ArticleMedia value) { coverMedia=value; }
  public UserEntity getAuthor() { return author; }

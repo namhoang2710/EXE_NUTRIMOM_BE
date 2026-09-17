@@ -127,7 +127,7 @@ public class KnowledgeArticleService {
         // Match the current UI's convention of clamping an out-of-range page.
         int currentPage = Math.min(page, Math.max(1, result.getTotalPages()));
         if (currentPage != page) result = articles.findAll(spec, PageRequest.of(currentPage - 1, pageSize, ordering));
-        List<?> items = admin ? result.getContent().stream().map(mapper::detail).toList()
+        List<?> items = admin ? result.getContent().stream().map(mapper::adminListItem).toList()
                 : result.getContent().stream().map(mapper::summary).toList();
         return new Pagination<>(items, result.getTotalElements(), result.getTotalPages(), currentPage, pageSize);
     }
@@ -151,6 +151,7 @@ public class KnowledgeArticleService {
         validateFilter(r.category(), CATEGORIES, "category"); validateFilter(r.stage(), STAGES, "stage");
         article.setSlug(r.slug()); article.setTitle(r.title().trim()); article.setExcerpt(r.excerpt());
         article.setCategory(r.category()); article.setStage(r.stage()); article.setLead(r.lead());
+        article.setYoutubeVideoId(r.youtubeVideoId());
         article.setStatus(r.status());
         article.setPublishedAt(r.status() == ArticleStatus.published
                 ? (r.publishedAt() != null ? r.publishedAt() : article.getPublishedAt() != null
