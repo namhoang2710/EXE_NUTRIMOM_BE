@@ -13,6 +13,7 @@ import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
+import vn.nutrimom.common.security.AccessGuard;
 import vn.nutrimom.pregnancy.domain.PregnancyCalculationSource;
 import vn.nutrimom.pregnancy.domain.PregnancyEntity;
 import vn.nutrimom.pregnancy.domain.PregnancyStatus;
@@ -31,12 +32,14 @@ public class PregnancyService {
     private final PregnancyRepository pregnancies;
     private final PregnancyAuditRepository pregnancyAudits;
     private final UserRepository users;
+    private final AccessGuard accessGuard;
 
     public PregnancyService(PregnancyRepository pregnancies, PregnancyAuditRepository pregnancyAudits,
-                            UserRepository users) {
+                            UserRepository users, AccessGuard accessGuard) {
         this.pregnancies = pregnancies;
         this.pregnancyAudits = pregnancyAudits;
         this.users = users;
+        this.accessGuard = accessGuard;
     }
 
     @Transactional
@@ -158,8 +161,9 @@ public class PregnancyService {
     }
 
     private PregnancyEntity loadOwned(String userId, String pregnancyId) {
-        return pregnancies.findByIdAndOwnerUserId(pregnancyId, userId)
-                .orElseThrow(this::notFound);
+        // Row-level: query đã kèm ownerUserId, guard chuẩn hoá việc thiếu quyền → 404 (không lộ tồn tại).
+        return accessGuard.requireOwned(
+                pregnancies.findByIdAndOwnerUserId(pregnancyId, userId), "Pregnancy not found.");
     }
 
     private PregnancyCalculationSource resolveSource(CreatePregnancyRequest request) {

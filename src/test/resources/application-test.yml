@@ -24,6 +24,10 @@ app:
     jwt-secret: nutrimom-test-jwt-secret-with-at-least-thirty-two-characters
     access-token-ttl: PT5M
     refresh-token-ttl: P1D
+    # Tắt rate-limit trong integration test (test đăng nhập/OTP lặp nhiều lần cùng IP). Đơn vị RateLimitFilter
+    # được kiểm bằng test riêng tự bật cấu hình.
+    rate-limit:
+      enabled: false
   otp:
     code-length: 6
     ttl: PT5M
