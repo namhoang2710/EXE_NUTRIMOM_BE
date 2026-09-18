@@ -21,9 +21,13 @@ import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.cors.*;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.common.ratelimit.RateLimitKeyResolver;
+import vn.nutrimom.common.ratelimit.RateLimitProperties;
+import vn.nutrimom.common.ratelimit.RateLimiterStore;
 import vn.nutrimom.security.*;
 
 @Configuration
@@ -32,8 +36,15 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
             ApiAuthenticationEntryPoint entryPoint, ApiAccessDeniedHandler denied,
-            JwtAuthenticationConverter converter) throws Exception {
+            JwtAuthenticationConverter converter, RateLimitProperties rateLimitProperties,
+            RateLimiterStore rateLimiterStore, RateLimitKeyResolver rateLimitKeyResolver) throws Exception {
+        // Chạy sau khi xác thực (trước AuthorizationFilter) để request đã đăng nhập được khóa theo user,
+        // còn login/OTP (chưa xác thực) khóa theo IP. Khởi tạo tại chỗ, không để thành bean, tránh servlet
+        // container tự đăng ký filter lần hai.
+        RateLimitFilter rateLimitFilter =
+                new RateLimitFilter(rateLimitProperties, rateLimiterStore, rateLimitKeyResolver);
         http.csrf(csrf -> csrf.disable()).cors(Customizer.withDefaults())
+                .addFilterBefore(rateLimitFilter, AuthorizationFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -119,7 +130,7 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id"));
-        config.setExposedHeaders(List.of("X-Request-Id"));
+        config.setExposedHeaders(List.of("X-Request-Id", "Retry-After"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -94,6 +94,24 @@ app:
     jwt-secret: ${NUTRIMOM_JWT_SECRET}
     access-token-ttl: ${NUTRIMOM_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${NUTRIMOM_REFRESH_TOKEN_TTL:P30D}
+    # Rate-limit (đếm trong RAM). Ngưỡng là lựa chọn vận hành — spec mục 21 không quy định số.
+    rate-limit:
+      enabled: ${NUTRIMOM_RATE_LIMIT_ENABLED:true}
+      policies:
+        login:
+          capacity: 10
+          window: PT1M
+        otp:
+          capacity: 5
+          window: PT1M
+        default:
+          capacity: 100
+          window: PT1M
+      routes:
+        - pattern: /api/v1/auth/login
+          policy: login
+        - pattern: /api/v1/auth/otp/**
+          policy: otp
   otp:
     code-length: 6
     ttl: ${NUTRIMOM_OTP_TTL:PT5M}
