@@ -139,6 +139,22 @@ public class GlobalExceptionHandler {
     }
 
     private String validationFieldName(String value) {
-        return "acceptedTerms".equals(value) ? "accepted_terms" : value;
+        if ("youtubeVideoId".equals(value)) {
+            return value;
+        }
+        return toSnakeCase(value);
+    }
+
+    private String toSnakeCase(String value) {
+        StringBuilder result = new StringBuilder(value.length() + 4);
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (Character.isUpperCase(character)) {
+                result.append('_').append(Character.toLowerCase(character));
+            } else {
+                result.append(character);
+            }
+        }
+        return result.toString();
     }
 }
