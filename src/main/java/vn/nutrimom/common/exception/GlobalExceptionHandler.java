@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> fields = new LinkedHashMap<>();
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
-            fields.putIfAbsent(toSnakeCase(fieldError.getField()), fieldError.getDefaultMessage());
+            fields.putIfAbsent(validationFieldName(fieldError.getField()), fieldError.getDefaultMessage());
         }
         boolean termsNotAccepted = !ex.getBindingResult()
                 .getFieldErrors("acceptedTerms").isEmpty();
@@ -57,8 +57,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
         Map<String, String> fields = new LinkedHashMap<>();
         ex.getConstraintViolations().forEach(violation ->
-                fields.putIfAbsent(toSnakeCase(violation.getPropertyPath().toString()),
-                        violation.getMessage()));
+                fields.putIfAbsent(violation.getPropertyPath().toString(), violation.getMessage()));
         return error(ErrorCode.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR.defaultMessage(), fields);
     }
 
@@ -139,16 +138,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(new ApiErrorResponse(body));
     }
 
-    private String toSnakeCase(String value) {
-        StringBuilder result = new StringBuilder(value.length() + 4);
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            if (Character.isUpperCase(character)) {
-                result.append('_').append(Character.toLowerCase(character));
-            } else {
-                result.append(character);
-            }
-        }
-        return result.toString();
+    private String validationFieldName(String value) {
+        return "acceptedTerms".equals(value) ? "accepted_terms" : value;
     }
 }
