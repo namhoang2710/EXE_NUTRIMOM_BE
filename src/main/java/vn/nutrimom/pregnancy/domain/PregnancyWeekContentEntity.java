@@ -40,6 +40,36 @@ public class PregnancyWeekContentEntity {
     @Column(name = "disclaimer", nullable = false, columnDefinition = "nvarchar(max)")
     private String disclaimer;
 
+    @Column(name = "review_status", nullable = false, length = 20)
+    private String reviewStatus = "UNREVIEWED";
+
+    @Column(name = "reviewed_by", length = 255)
+    private String reviewedBy;
+
+    @Column(name = "reviewed_at")
+    private OffsetDateTime reviewedAt;
+
+    @Column(name = "next_review_at")
+    private OffsetDateTime nextReviewAt;
+
+    @Column(name = "content_version", nullable = false)
+    private int contentVersion = 1;
+
+    @Column(name = "baby_length_cm_min", precision = 6, scale = 2)
+    private java.math.BigDecimal babyLengthCmMin;
+
+    @Column(name = "baby_length_cm_max", precision = 6, scale = 2)
+    private java.math.BigDecimal babyLengthCmMax;
+
+    @Column(name = "baby_weight_g_min")
+    private Integer babyWeightGMin;
+
+    @Column(name = "baby_weight_g_max")
+    private Integer babyWeightGMax;
+
+    @Column(name = "comparison_label", length = 200)
+    private String comparisonLabel;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -76,6 +106,26 @@ public class PregnancyWeekContentEntity {
     public void setSources(String sources) { this.sources = sources; }
     public String getDisclaimer() { return disclaimer; }
     public void setDisclaimer(String disclaimer) { this.disclaimer = disclaimer; }
+    public String getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(String value) { reviewStatus = value; }
+    public String getReviewedBy() { return reviewedBy; }
+    public void setReviewedBy(String value) { reviewedBy = value; }
+    public OffsetDateTime getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(OffsetDateTime value) { reviewedAt = value; }
+    public OffsetDateTime getNextReviewAt() { return nextReviewAt; }
+    public void setNextReviewAt(OffsetDateTime value) { nextReviewAt = value; }
+    public int getContentVersion() { return contentVersion; }
+    public void setContentVersion(int value) { contentVersion = value; }
+    public java.math.BigDecimal getBabyLengthCmMin() { return babyLengthCmMin; }
+    public void setBabyLengthCmMin(java.math.BigDecimal value) { babyLengthCmMin = value; }
+    public java.math.BigDecimal getBabyLengthCmMax() { return babyLengthCmMax; }
+    public void setBabyLengthCmMax(java.math.BigDecimal value) { babyLengthCmMax = value; }
+    public Integer getBabyWeightGMin() { return babyWeightGMin; }
+    public void setBabyWeightGMin(Integer value) { babyWeightGMin = value; }
+    public Integer getBabyWeightGMax() { return babyWeightGMax; }
+    public void setBabyWeightGMax(Integer value) { babyWeightGMax = value; }
+    public String getComparisonLabel() { return comparisonLabel; }
+    public void setComparisonLabel(String value) { comparisonLabel = value; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

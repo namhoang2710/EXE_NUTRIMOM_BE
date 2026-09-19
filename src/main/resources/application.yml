@@ -1,8 +1,6 @@
 spring:
   application:
     name: nutrimom-backend
-  config:
-    import: optional:file:.env[.properties]
   datasource:
     url: ${NUTRIMOM_DB_URL:jdbc:sqlserver://localhost:1433;databaseName=NutriMomDB;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true}
     username: ${NUTRIMOM_DB_USER:nutrimom_app}
@@ -117,7 +115,7 @@ app:
     ttl: ${NUTRIMOM_OTP_TTL:PT5M}
     resend-cooldown: ${NUTRIMOM_OTP_RESEND_COOLDOWN:PT45S}
     max-attempts: ${NUTRIMOM_OTP_MAX_ATTEMPTS:5}
-    expose-debug-code: ${NUTRIMOM_OTP_EXPOSE_DEBUG_CODE:true}
+    expose-debug-code: ${NUTRIMOM_OTP_EXPOSE_DEBUG_CODE:false}
     hmac-secret: ${NUTRIMOM_OTP_HMAC_SECRET}
   bootstrap:
     demo-user-enabled: ${NUTRIMOM_DEMO_USER_ENABLED:true}
@@ -131,3 +129,10 @@ logging:
     level: "%5p [requestId:%X{requestId:-}]"
   level:
     org.springframework.security: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!test"
+    import: optional:file:.env[.properties]

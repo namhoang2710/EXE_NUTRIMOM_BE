@@ -61,11 +61,11 @@ public class UserProfileService {
             user.setAvatarKey(request.avatarKey().isBlank() ? null : request.avatarKey().trim());
         }
 
-        // Đã có hồ sơ cơ bản (display_name) thì đẩy onboarding sang bước cần ngữ cảnh.
-        // Bước ->COMPLETED do luồng pregnancy/family (nhánh sau) đảm nhận.
-        if (user.getOnboardingStatus() == OnboardingStatus.PROFILE_REQUIRED
+        // A complete basic profile is enough to enter MAIN/HOME; pregnancy is optional.
+        if ((user.getOnboardingStatus() == OnboardingStatus.PROFILE_REQUIRED
+                || user.getOnboardingStatus() == OnboardingStatus.CONTEXT_REQUIRED)
                 && user.getDisplayName() != null && !user.getDisplayName().isBlank()) {
-            user.setOnboardingStatus(OnboardingStatus.CONTEXT_REQUIRED);
+            user.setOnboardingStatus(OnboardingStatus.COMPLETED);
         }
 
         users.saveAndFlush(user);

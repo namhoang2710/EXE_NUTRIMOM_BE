@@ -27,6 +27,10 @@ Base URL: `http://localhost:8080/api/v1`. JSON dùng `snake_case`, thời gian I
 
 Đăng nhập dùng `purpose: "LOGIN"`, không cần `accepted_terms`.
 
+Với `purpose: "REGISTER"`, `accepted_terms` phải có giá trị `true`. Giá trị `false`
+hoặc thiếu field trả `400 TERMS_NOT_ACCEPTED`. `device_id` được truyền trong JSON body
+cho các luồng OTP và refresh token; API hiện không dùng header `X-Device-Id`.
+
 ```json
 {
   "data": {
@@ -72,6 +76,21 @@ Base URL: `http://localhost:8080/api/v1`. JSON dùng `snake_case`, thời gian I
 ```
 
 Lỗi: `INVALID_OTP`, `OTP_EXPIRED`, `OTP_ATTEMPTS_EXCEEDED`, `OTP_CHALLENGE_USED`, `OTP_DEVICE_MISMATCH`.
+
+## POST `/auth/register`
+
+```json
+{
+  "phone": "0901234567",
+  "password": "NutriMom@123",
+  "display_name": "Nguyễn An",
+  "accepted_terms": true,
+  "device_id": "device-id"
+}
+```
+
+`accepted_terms` phải là `true`; giá trị `false` hoặc thiếu field trả
+`400 TERMS_NOT_ACCEPTED`.
 
 ## POST `/auth/login`
 

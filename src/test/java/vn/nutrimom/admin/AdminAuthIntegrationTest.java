@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,7 +71,8 @@ class AdminAuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"0900000002","password":"UserTest123!",
-                                 "display_name":"Normal User","device_id":"admin-access-test"}
+                                 "display_name":"Normal User","accepted_terms":true,
+                                 "device_id":"admin-access-test"}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -82,9 +84,15 @@ class AdminAuthIntegrationTest {
         UserEntity normalUser = users.findByPhone(NORMALIZED_USER_PHONE).orElseThrow();
         assertThat(normalUser.getRoles()).containsExactly(UserRole.USER);
         mockMvc.perform(get("/api/v1/admin/me")
-                        .header("Authorization", "Bearer " + accessToken))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Request-Id", "admin-forbidden-test"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+                .andExpect(header().string("X-Request-Id", "admin-forbidden-test"))
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.error.message").isNotEmpty())
+                .andExpect(jsonPath("$.error.fields").isMap())
+                .andExpect(jsonPath("$.error.retryable").value(false))
+                .andExpect(jsonPath("$.error.request_id").value("admin-forbidden-test"));
     }
 
     @Test

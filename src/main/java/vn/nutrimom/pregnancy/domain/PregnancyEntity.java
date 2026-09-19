@@ -34,6 +34,24 @@ public class PregnancyEntity {
     @Column(name = "last_menstrual_period", nullable = false)
     private LocalDate lastMenstrualPeriod;
 
+    @Column(name = "conception_date")
+    private LocalDate conceptionDate;
+
+    @Column(name = "gestational_age_anchor_days")
+    private Integer gestationalAgeAnchorDays;
+
+    @Column(name = "gestational_age_anchor_date")
+    private LocalDate gestationalAgeAnchorDate;
+
+    @Column(name = "is_first_pregnancy")
+    private Boolean isFirstPregnancy;
+
+    @Column(name = "multiple_pregnancy")
+    private Boolean multiplePregnancy;
+
+    @Column(name = "timezone", length = 50)
+    private String timezone;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "calculation_source", nullable = false, length = 20)
     private PregnancyCalculationSource calculationSource;
@@ -78,6 +96,18 @@ public class PregnancyEntity {
     public void setEstimatedDueDate(LocalDate value) { estimatedDueDate = value; }
     public LocalDate getLastMenstrualPeriod() { return lastMenstrualPeriod; }
     public void setLastMenstrualPeriod(LocalDate value) { lastMenstrualPeriod = value; }
+    public LocalDate getConceptionDate() { return conceptionDate; }
+    public void setConceptionDate(LocalDate value) { conceptionDate = value; }
+    public Integer getGestationalAgeAnchorDays() { return gestationalAgeAnchorDays; }
+    public void setGestationalAgeAnchorDays(Integer value) { gestationalAgeAnchorDays = value; }
+    public LocalDate getGestationalAgeAnchorDate() { return gestationalAgeAnchorDate; }
+    public void setGestationalAgeAnchorDate(LocalDate value) { gestationalAgeAnchorDate = value; }
+    public Boolean getIsFirstPregnancy() { return isFirstPregnancy; }
+    public void setIsFirstPregnancy(Boolean value) { isFirstPregnancy = value; }
+    public Boolean getMultiplePregnancy() { return multiplePregnancy; }
+    public void setMultiplePregnancy(Boolean value) { multiplePregnancy = value; }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String value) { timezone = value; }
     public PregnancyCalculationSource getCalculationSource() { return calculationSource; }
     public void setCalculationSource(PregnancyCalculationSource value) { calculationSource = value; }
     public String getCareFacilityName() { return careFacilityName; }
