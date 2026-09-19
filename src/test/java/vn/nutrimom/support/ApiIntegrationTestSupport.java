@@ -46,7 +46,8 @@ public abstract class ApiIntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new PasswordRegistrationBody(
-                                        phone, password, displayName, "integration-device"))))
+                                        phone, password, displayName, true,
+                                        "integration-device"))))
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode authentication = objectMapper.readTree(result.getResponse().getContentAsString())
@@ -78,5 +79,6 @@ public abstract class ApiIntegrationTestSupport {
     private record VerifyOtpBody(String challengeId, String code,
                                  String deviceId, String displayName) { }
     private record PasswordRegistrationBody(String phone, String password,
-                                            String displayName, String deviceId) { }
+                                            String displayName, boolean acceptedTerms,
+                                            String deviceId) { }
 }

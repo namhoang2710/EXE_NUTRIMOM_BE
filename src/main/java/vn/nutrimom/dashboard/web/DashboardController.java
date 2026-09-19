@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
@@ -31,8 +32,10 @@ public class DashboardController {
 
     @GetMapping("/mom")
     @Operation(summary = "Get the authenticated pregnancy owner's dashboard")
-    public ApiResponse<MomDashboardResponse> mom(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponses.success(momDashboardService.getDashboard(jwt.getSubject()));
+    public ApiResponse<MomDashboardResponse> mom(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "pregnancy_id", required = false) String pregnancyId) {
+        return ApiResponses.success(momDashboardService.getDashboard(jwt.getSubject(), pregnancyId));
     }
 
     @GetMapping("/partner")

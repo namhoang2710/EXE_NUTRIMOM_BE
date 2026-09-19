@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
+import vn.nutrimom.pregnancy.dto.CalculatePregnancyRequest;
 import vn.nutrimom.pregnancy.dto.CreatePregnancyRequest;
+import vn.nutrimom.pregnancy.dto.PregnancyCalculationResponse;
 import vn.nutrimom.pregnancy.dto.PregnancyResponse;
 import vn.nutrimom.pregnancy.dto.UpdatePregnancyRequest;
 import vn.nutrimom.pregnancy.service.PregnancyService;
@@ -40,6 +42,14 @@ public class PregnancyController {
             @Valid @RequestBody CreatePregnancyRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponses.success(service.create(jwt.getSubject(), request)));
+    }
+
+    @PostMapping("/calculate")
+    @Operation(summary = "Preview pregnancy dates without persisting a pregnancy")
+    public ApiResponse<PregnancyCalculationResponse> calculate(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody CalculatePregnancyRequest request) {
+        return ApiResponses.success(service.calculate(request));
     }
 
     @GetMapping("/current")

@@ -44,6 +44,9 @@ class PregnancyIntegrationTest extends ApiIntegrationTestSupport {
         content.setWarningSigns("Liên hệ cơ sở y tế nếu có triệu chứng bất thường.");
         content.setSources("[{\"name\":\"WHO\",\"url\":\"https://www.who.int/health-topics/pregnancy\"}]");
         content.setDisclaimer("Nội dung tham khảo, không thay thế tư vấn của bác sĩ.");
+        content.setReviewStatus("REVIEWED");
+        content.setReviewedBy("Test medical reviewer");
+        content.setReviewedAt(java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC));
         weekContents.saveAndFlush(content);
     }
 
@@ -125,6 +128,56 @@ class PregnancyIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.gestational_day").value(3))
                 .andExpect(jsonPath("$.data.trimester").value(2))
                 .andExpect(jsonPath("$.data.calculation_source").value("LMP"));
+    }
+
+    @Test
+    void additionalPregnancyFieldsCanBeCreatedAndUpdated() throws Exception {
+        Session session = registerViaOtp("0912353010", "Additional Fields");
+        LocalDate dueDate = today().plusDays(140);
+
+        MvcResult created = mockMvc.perform(post("/api/v1/pregnancies")
+                        .header("Authorization", "Bearer " + session.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"estimated_due_date":"%s",
+                                 "is_first_pregnancy":true,
+                                 "multiple_pregnancy":false,
+                                 "timezone":"Asia/Ho_Chi_Minh"}
+                                """.formatted(dueDate)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.is_first_pregnancy").value(true))
+                .andExpect(jsonPath("$.data.multiple_pregnancy").value(false))
+                .andExpect(jsonPath("$.data.timezone").value("Asia/Ho_Chi_Minh"))
+                .andReturn();
+        String pregnancyId = responseData(created).at("/id").stringValue();
+
+        mockMvc.perform(patch("/api/v1/pregnancies/{id}", pregnancyId)
+                        .header("Authorization", "Bearer " + session.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"is_first_pregnancy":false,
+                                 "multiple_pregnancy":true,
+                                 "timezone":"Asia/Bangkok","version":0}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_first_pregnancy").value(false))
+                .andExpect(jsonPath("$.data.multiple_pregnancy").value(true))
+                .andExpect(jsonPath("$.data.timezone").value("Asia/Bangkok"))
+                .andExpect(jsonPath("$.data.version").value(1));
+    }
+
+    @Test
+    void invalidPregnancyTimezoneIsRejected() throws Exception {
+        Session session = registerViaOtp("0912353011", "Invalid Timezone");
+
+        mockMvc.perform(post("/api/v1/pregnancies")
+                        .header("Authorization", "Bearer " + session.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"estimated_due_date":"%s","timezone":"Saigon/Invalid"}
+                                """.formatted(today().plusDays(140))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -248,7 +301,7 @@ class PregnancyIntegrationTest extends ApiIntegrationTestSupport {
                                 {"display_name":"Mom Due Date","gender":"FEMALE","version":0}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.onboarding_status").value("CONTEXT_REQUIRED"));
+                .andExpect(jsonPath("$.data.onboarding_status").value("COMPLETED"));
     }
 
     private JsonNode responseData(MvcResult result) throws Exception {

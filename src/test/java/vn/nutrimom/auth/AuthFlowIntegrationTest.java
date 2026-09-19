@@ -2,6 +2,7 @@ package vn.nutrimom.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 
@@ -15,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.*;
 import tools.jackson.databind.*;
+import vn.nutrimom.auth.repository.UserRepository;
 
 @SpringBootTest(properties = "springdoc.api-docs.enabled=true")
 @AutoConfigureMockMvc
@@ -22,6 +24,66 @@ import tools.jackson.databind.*;
 class AuthFlowIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
+    @Autowired UserRepository users;
+
+    @Test
+    void otpRegistrationRequiresAcceptedTerms() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/otp/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345601","purpose":"REGISTER",
+                                 "accepted_terms":true,"device_id":"terms-device"}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/otp/request")
+                        .header("X-Request-Id", "terms-false-test")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345602","purpose":"REGISTER",
+                                 "accepted_terms":false,"device_id":"terms-device"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("TERMS_NOT_ACCEPTED"))
+                .andExpect(jsonPath("$.error.message").isNotEmpty())
+                .andExpect(jsonPath("$.error.fields.accepted_terms").isNotEmpty())
+                .andExpect(jsonPath("$.error.retryable").value(false))
+                .andExpect(jsonPath("$.error.request_id").value("terms-false-test"));
+
+        mockMvc.perform(post("/api/v1/auth/otp/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345603","purpose":"REGISTER",
+                                 "device_id":"terms-device"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("TERMS_NOT_ACCEPTED"))
+                .andExpect(jsonPath("$.error.fields.accepted_terms").isNotEmpty())
+                .andExpect(jsonPath("$.error.request_id").isNotEmpty());
+    }
+
+    @Test
+    void passwordRegistrationRequiresAcceptedTerms() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345604","password":"Secure123!",
+                                 "display_name":"Terms False","accepted_terms":false}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("TERMS_NOT_ACCEPTED"))
+                .andExpect(jsonPath("$.error.fields.accepted_terms").isNotEmpty());
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345605","password":"Secure123!",
+                                 "display_name":"Terms Missing"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("TERMS_NOT_ACCEPTED"))
+                .andExpect(jsonPath("$.error.fields.accepted_terms").isNotEmpty());
+    }
 
     @Test
     void otpRegistrationLoginAndOneTimeUse() throws Exception {
@@ -78,7 +140,8 @@ class AuthFlowIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).header("X-Request-Id", "register-test")
                 .content("""
                     {"phone":"0905551234","password":"Secure123!",
-                     "display_name":"Nguyễn An","device_id":"test-device"}
+                     "display_name":"Nguyễn An","accepted_terms":true,
+                     "device_id":"test-device"}
                     """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.user.role").value("USER"))
@@ -86,9 +149,18 @@ class AuthFlowIntegrationTest {
         JsonNode registered = objectMapper.readTree(registration.getResponse().getContentAsString());
         String access = registered.at("/data/access_token").stringValue();
         String refresh = registered.at("/data/refresh_token").stringValue();
+        var registeredUser = users.findByPhone("+84905551234").orElseThrow();
+        assertThat(registeredUser.getTermsAcceptedAt()).isNotNull();
+        assertThat(registeredUser.getPrivacyAcceptedAt()).isNotNull();
 
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RefreshBody(refresh, "wrong-device"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
         MvcResult rotatedResult = mockMvc.perform(post("/api/v1/auth/refresh")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new RefreshBody(refresh, "test-device"))))
@@ -112,7 +184,8 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"0905551250","password":"Secure123!",
-                                 "display_name":"Mom Persona","device_id":"persona-device"}
+                                 "display_name":"Mom Persona","accepted_terms":true,
+                                 "device_id":"persona-device"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.user.role").value("USER"))

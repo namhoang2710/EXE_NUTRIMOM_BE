@@ -6,6 +6,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -41,7 +42,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> fields = new LinkedHashMap<>();
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
-            fields.putIfAbsent(fieldError.getField(), fieldError.getDefaultMessage());
+            fields.putIfAbsent(toSnakeCase(fieldError.getField()), fieldError.getDefaultMessage());
+        }
+        boolean termsNotAccepted = !ex.getBindingResult()
+                .getFieldErrors("acceptedTerms").isEmpty();
+        if (termsNotAccepted) {
+            return error(HttpStatus.BAD_REQUEST, "TERMS_NOT_ACCEPTED",
+                    "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.", fields, false);
         }
         return error(ErrorCode.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR.defaultMessage(), fields);
     }
@@ -50,7 +57,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
         Map<String, String> fields = new LinkedHashMap<>();
         ex.getConstraintViolations().forEach(violation ->
-                fields.putIfAbsent(violation.getPropertyPath().toString(), violation.getMessage()));
+                fields.putIfAbsent(toSnakeCase(violation.getPropertyPath().toString()),
+                        violation.getMessage()));
         return error(ErrorCode.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR.defaultMessage(), fields);
     }
 
@@ -123,5 +131,24 @@ public class GlobalExceptionHandler {
         ApiError body = new ApiError(error.code(), message, fields, error.retryable(),
                 MDC.get("requestId"));
         return ResponseEntity.status(error.status()).body(new ApiErrorResponse(body));
+    }
+
+    private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String code, String message,
+                                                   Map<String, String> fields, boolean retryable) {
+        ApiError body = new ApiError(code, message, fields, retryable, MDC.get("requestId"));
+        return ResponseEntity.status(status).body(new ApiErrorResponse(body));
+    }
+
+    private String toSnakeCase(String value) {
+        StringBuilder result = new StringBuilder(value.length() + 4);
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (Character.isUpperCase(character)) {
+                result.append('_').append(Character.toLowerCase(character));
+            } else {
+                result.append(character);
+            }
+        }
+        return result.toString();
     }
 }
