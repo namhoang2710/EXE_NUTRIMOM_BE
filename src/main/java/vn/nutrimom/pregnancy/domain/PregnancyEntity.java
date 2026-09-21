@@ -28,10 +28,10 @@ public class PregnancyEntity {
     @Column(name = "status", nullable = false, length = 20)
     private PregnancyStatus status;
 
-    @Column(name = "estimated_due_date", nullable = false)
+    @Column(name = "estimated_due_date")
     private LocalDate estimatedDueDate;
 
-    @Column(name = "last_menstrual_period", nullable = false)
+    @Column(name = "last_menstrual_period")
     private LocalDate lastMenstrualPeriod;
 
     @Column(name = "conception_date")
@@ -53,7 +53,7 @@ public class PregnancyEntity {
     private String timezone;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "calculation_source", nullable = false, length = 20)
+    @Column(name = "calculation_source", nullable = false, length = 30)
     private PregnancyCalculationSource calculationSource;
 
     @Column(name = "care_facility_name", length = 255)

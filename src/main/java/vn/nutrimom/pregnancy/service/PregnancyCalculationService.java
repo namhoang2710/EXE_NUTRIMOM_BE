@@ -87,7 +87,7 @@ public class PregnancyCalculationService {
         }
         LocalDate dueDate = anchorDate.plusDays(OBSTETRIC_DAYS - anchorDays);
         long ageDays = Math.max(0, anchorDays + ChronoUnit.DAYS.between(anchorDate, today));
-        return result(source, dueDate.minusDays(OBSTETRIC_DAYS), null, dueDate, ageDays, today,
+        return result(source, null, null, dueDate, ageDays, today,
                 anchorDays, anchorDate);
     }
 

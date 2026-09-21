@@ -216,8 +216,13 @@ public class PregnancyService {
                                   PregnancyCalculationService.CalculationResult calculation,
                                   String timezone) {
         pregnancy.setEstimatedDueDate(calculation.estimatedDueDate());
-        pregnancy.setLastMenstrualPeriod(calculation.lastMenstrualPeriod());
-        pregnancy.setConceptionDate(calculation.conceptionDate());
+        if (calculation.source() == PregnancyCalculationSource.MANUAL) {
+            pregnancy.setLastMenstrualPeriod(null);
+            pregnancy.setConceptionDate(null);
+        } else {
+            pregnancy.setLastMenstrualPeriod(calculation.lastMenstrualPeriod());
+            pregnancy.setConceptionDate(calculation.conceptionDate());
+        }
         pregnancy.setCalculationSource(calculation.source());
         pregnancy.setTimezone(timezone);
         if (calculation.source() == PregnancyCalculationSource.MANUAL) {

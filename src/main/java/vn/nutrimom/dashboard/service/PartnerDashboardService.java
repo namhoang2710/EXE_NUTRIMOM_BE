@@ -1,6 +1,8 @@
 package vn.nutrimom.dashboard.service;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -22,6 +24,7 @@ import vn.nutrimom.family.repository.FamilyGroupRepository;
 import vn.nutrimom.family.repository.FamilyMemberRepository;
 import vn.nutrimom.family.repository.FamilyTaskRepository;
 import vn.nutrimom.pregnancy.domain.PregnancyEntity;
+import vn.nutrimom.pregnancy.domain.PregnancyCalculationSource;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
 
 @Service
@@ -82,9 +85,8 @@ public class PartnerDashboardService {
     }
 
     private PartnerPregnancyOverviewResponse pregnancyOverview(PregnancyEntity pregnancy) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        long gestationalDays = Math.max(0,
-                ChronoUnit.DAYS.between(pregnancy.getLastMenstrualPeriod(), today));
+        LocalDate today = LocalDate.now(zone(pregnancy.getTimezone()));
+        long gestationalDays = gestationalDays(pregnancy, today);
         long week = gestationalDays / 7;
         int day = (int) (gestationalDays % 7);
         int trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
@@ -93,6 +95,29 @@ public class PartnerDashboardService {
                 pregnancy.getEstimatedDueDate(),
                 ChronoUnit.DAYS.between(today, pregnancy.getEstimatedDueDate()),
                 pregnancy.getCareFacilityName());
+    }
+
+    private long gestationalDays(PregnancyEntity pregnancy, LocalDate today) {
+        long days;
+        if (pregnancy.getCalculationSource() == PregnancyCalculationSource.MANUAL
+                && pregnancy.getGestationalAgeAnchorDays() != null
+                && pregnancy.getGestationalAgeAnchorDate() != null) {
+            days = pregnancy.getGestationalAgeAnchorDays()
+                    + ChronoUnit.DAYS.between(pregnancy.getGestationalAgeAnchorDate(), today);
+        } else if (pregnancy.getLastMenstrualPeriod() != null) {
+            days = ChronoUnit.DAYS.between(pregnancy.getLastMenstrualPeriod(), today);
+        } else if (pregnancy.getEstimatedDueDate() != null) {
+            days = 280L - ChronoUnit.DAYS.between(today, pregnancy.getEstimatedDueDate());
+        } else {
+            days = 0;
+        }
+        return Math.max(0, days);
+    }
+
+    private ZoneId zone(String timezone) {
+        if (timezone == null || timezone.isBlank()) return ZoneOffset.UTC;
+        try { return ZoneId.of(timezone); }
+        catch (DateTimeException ex) { return ZoneOffset.UTC; }
     }
 
     private List<FamilyTaskResponse> assignedTasks(FamilyMemberEntity member) {
