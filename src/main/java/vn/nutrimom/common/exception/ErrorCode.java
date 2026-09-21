@@ -87,6 +87,15 @@ public enum ErrorCode {
     IMAGE_PROCESSING_FAILED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Không xử lý được ảnh. Vui lòng chọn ảnh khác."),
     IMAGE_PROCESSING_BUSY(HttpStatus.TOO_MANY_REQUESTS, true, "Hệ thống xử lý ảnh đang bận. Vui lòng thử lại."),
 
+    // --- Consultation / experts (đặt lịch tư vấn 1-1) ---
+    REQUEST_ALREADY_CLAIMED(HttpStatus.CONFLICT, false,
+            "Yêu cầu đã được một chuyên gia khác tiếp nhận."),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, false, "Bạn đã đánh giá buổi tư vấn này rồi."),
+    REVIEW_NOT_ALLOWED(HttpStatus.CONFLICT, false,
+            "Chỉ có thể đánh giá sau khi buổi tư vấn đã hoàn thành."),
+    INVALID_CONSULTATION_STATE(HttpStatus.CONFLICT, false,
+            "Không thể thực hiện thao tác này với trạng thái hiện tại của yêu cầu."),
+
     // --- Handler-level (extension, ngoài spec — giữ nguyên hành vi hiện tại) ---
     INVALID_MULTIPART(HttpStatus.BAD_REQUEST, false, "Cần một tệp ảnh multipart hợp lệ."),
     INVALID_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, false, "Content-Type của yêu cầu không được hỗ trợ."),
