@@ -8,6 +8,7 @@ import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.*;
@@ -58,7 +59,8 @@ public class OtpService {
         if (request.purpose() == OtpPurpose.REGISTER && accountExists)
             throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS, "Số điện thoại này đã được đăng ký.");
         if (request.purpose() == OtpPurpose.REGISTER && !Boolean.TRUE.equals(request.acceptedTerms()))
-            throw new BusinessException(ErrorCode.TERMS_NOT_ACCEPTED, "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TERMS_NOT_ACCEPTED",
+                    "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.");
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         challengeRepository.findTopByPhoneAndPurposeOrderByCreatedAtDesc(phone, request.purpose())
@@ -119,9 +121,10 @@ public class OtpService {
             challengeRepository.save(challenge);
             throw invalid(ErrorCode.INVALID_OTP, "Mã OTP không chính xác.");
         }
-        if (challenge.getDeviceId() != null && request.deviceId() != null
-                && !request.deviceId().isBlank()
-                && !challenge.getDeviceId().equals(request.deviceId().trim()))
+        if (challenge.getDeviceId() != null
+                && (request.deviceId() == null
+                || request.deviceId().isBlank()
+                || !challenge.getDeviceId().equals(request.deviceId().trim())))
             throw invalid(ErrorCode.OTP_DEVICE_MISMATCH, "Mã OTP không thuộc thiết bị này.");
 
         boolean newUser = challenge.getPurpose() == OtpPurpose.REGISTER;

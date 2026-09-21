@@ -6,6 +6,8 @@ target/
 .project
 .settings/
 .env
+.env.docker.local
+.env.*.local
 *.log
 data/
 logs/

@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -46,13 +47,23 @@ class MomDashboardIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     @Test
-    void userWithoutActivePregnancyCannotOpenMomDashboard() throws Exception {
+    void userWithoutActivePregnancyGetsContractSafeEmptyDashboard() throws Exception {
         Session user = registerViaOtp("0912360002", "No Pregnancy");
+
+        mockMvc.perform(patch("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + user.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"display_name\":\"No Pregnancy\",\"gender\":\"FEMALE\",\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboarding_status").value("COMPLETED"));
 
         mockMvc.perform(get("/api/v1/dashboard/mom")
                         .header("Authorization", "Bearer " + user.accessToken()))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("ACTIVE_PREGNANCY_NOT_FOUND"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profile_summary.id").value(user.userId()))
+                .andExpect(jsonPath("$.data.pregnancy_summary").value(nullValue()))
+                .andExpect(jsonPath("$.data.baby_summary").value(nullValue()))
+                .andExpect(jsonPath("$.data.care_progress").value(nullValue()));
     }
 
     @Test

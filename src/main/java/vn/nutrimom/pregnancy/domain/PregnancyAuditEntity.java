@@ -37,6 +37,10 @@ public class PregnancyAuditEntity {
     @Column(name = "new_due_date")
     private LocalDate newDueDate;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "calculation_source", length = 30)
+    private PregnancyCalculationSource calculationSource;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -52,6 +56,22 @@ public class PregnancyAuditEntity {
         audit.newDueDate = updated;
         return audit;
     }
+
+    public static PregnancyAuditEntity dueDateChanged(String pregnancyId, String userId,
+                                                       LocalDate previous, LocalDate updated,
+                                                       PregnancyCalculationSource source) {
+        PregnancyAuditEntity audit = dueDateChanged(pregnancyId, userId, previous, updated);
+        audit.calculationSource = source;
+        return audit;
+    }
+
+    public String getPregnancyId() { return pregnancyId; }
+    public String getUserId() { return userId; }
+    public EventType getEventType() { return eventType; }
+    public LocalDate getPreviousDueDate() { return previousDueDate; }
+    public LocalDate getNewDueDate() { return newDueDate; }
+    public PregnancyCalculationSource getCalculationSource() { return calculationSource; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
 
     @PrePersist
     void beforeInsert() {

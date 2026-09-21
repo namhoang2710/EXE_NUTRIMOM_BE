@@ -23,11 +23,20 @@ class OpenApiSnakeCaseTest {
                 .andExpect(status().isOk())
                 // Field camelCase trong Java hiện ra snake_case trong schema.
                 .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.display_name").exists())
+                .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.accepted_terms").exists())
                 .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.device_id").exists())
+                .andExpect(jsonPath("$.components.schemas.OtpChallengeRequest.properties.accepted_terms").exists())
+                .andExpect(jsonPath("$.components.schemas.CreatePregnancyRequest.properties.is_first_pregnancy").exists())
+                .andExpect(jsonPath("$.components.schemas.CreatePregnancyRequest.properties.multiple_pregnancy").exists())
+                .andExpect(jsonPath("$.components.schemas.CreatePregnancyRequest.properties.timezone").exists())
+                .andExpect(jsonPath("$.components.schemas.PregnancyResponse.properties.is_first_pregnancy").exists())
                 .andExpect(jsonPath("$.components.schemas.UpdateProfileRequest.properties.date_of_birth").exists())
                 .andExpect(jsonPath("$.components.schemas.UpdateProfileRequest.properties.avatar_key").exists())
                 // Không còn key camelCase.
                 .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.displayName").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.acceptedTerms").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.OtpChallengeRequest.properties.acceptedTerms").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.CreatePregnancyRequest.properties.isFirstPregnancy").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.UpdateProfileRequest.properties.dateOfBirth").doesNotExist());
     }
 

@@ -47,6 +47,9 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setDisplayName(request.displayName().trim());
         user.setStatus(UserStatus.ACTIVE);
+        OffsetDateTime acceptedAt = OffsetDateTime.now(ZoneOffset.UTC);
+        user.setTermsAcceptedAt(acceptedAt);
+        user.setPrivacyAcceptedAt(acceptedAt);
         user.getRoles().add(UserRole.USER);
         try {
             userRepository.saveAndFlush(user);
@@ -75,9 +78,12 @@ public class AuthService {
                 .orElseThrow(this::invalidRefreshToken);
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         if (!current.isUsableAt(now)) throw invalidRefreshToken();
-        if (current.getDeviceId() != null && request.deviceId() != null
-                && !request.deviceId().isBlank()
-                && !current.getDeviceId().equals(request.deviceId().trim())) throw invalidRefreshToken();
+        if (current.getDeviceId() != null
+                && (request.deviceId() == null
+                || request.deviceId().isBlank()
+                || !current.getDeviceId().equals(request.deviceId().trim()))) {
+            throw invalidRefreshToken();
+        }
         UserEntity user = userRepository.findById(current.getUserId())
                 .filter(value -> value.getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(this::invalidRefreshToken);

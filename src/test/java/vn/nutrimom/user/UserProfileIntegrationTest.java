@@ -47,14 +47,14 @@ class UserProfileIntegrationTest {
                 .andExpect(jsonPath("$.data.gender").value("FEMALE"))
                 .andExpect(jsonPath("$.data.salutation").value("Chị"))
                 .andExpect(jsonPath("$.data.date_of_birth").value("1997-04-18"))
-                .andExpect(jsonPath("$.data.onboarding_status").value("CONTEXT_REQUIRED"))
+                .andExpect(jsonPath("$.data.onboarding_status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.version").value(1));
 
         // Thay đổi được lưu bền vững qua lần đọc sau.
         mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value("hoa@example.com"))
-                .andExpect(jsonPath("$.data.onboarding_status").value("CONTEXT_REQUIRED"))
+                .andExpect(jsonPath("$.data.onboarding_status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.version").value(1));
     }
 
@@ -80,7 +80,7 @@ class UserProfileIntegrationTest {
                     """))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.fields.dateOfBirth").exists());
+                .andExpect(jsonPath("$.error.fields.date_of_birth").exists());
     }
 
     @Test
