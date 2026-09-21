@@ -9,6 +9,7 @@ import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyGroupStatus;
+import vn.nutrimom.family.domain.FamilyMemberEntity;
 import vn.nutrimom.family.domain.FamilyMemberStatus;
 import vn.nutrimom.family.dto.CreateFamilyGroupRequest;
 import vn.nutrimom.family.dto.FamilyGroupResponse;
@@ -68,6 +69,36 @@ public class FamilyGroupService {
                 .filter(java.util.Objects::nonNull)
                 .forEach(group -> accessible.putIfAbsent(group.getId(), group));
         return List.copyOf(accessible.values());
+    }
+
+    /** Group mà caller truy cập được cùng tư cách của họ (owner hoặc member ACTIVE). */
+    public record GroupAccess(
+            FamilyGroupEntity group, FamilyMemberEntity membership, boolean owner) { }
+
+    /**
+     * Guard 1 (row-level): phân giải group active mà caller là owner HOẶC member ACTIVE.
+     * Không thuộc group nào → {@link ErrorCode#FAMILY_GROUP_NOT_FOUND} (404), không lộ tồn tại.
+     * MVP giả định mỗi caller có tối đa một group active.
+     */
+    @Transactional(readOnly = true)
+    public GroupAccess requireAccessibleGroup(String userId) {
+        FamilyGroupEntity owned = groups.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(
+                        userId, FamilyGroupStatus.ACTIVE)
+                .stream().findFirst().orElse(null);
+        if (owned != null) {
+            return new GroupAccess(owned, null, true);
+        }
+        return members.findByUserIdAndStatusOrderByCreatedAtDesc(userId, FamilyMemberStatus.ACTIVE)
+                .stream()
+                .map(member -> groups.findByIdAndStatus(
+                                member.getFamilyGroupId(), FamilyGroupStatus.ACTIVE)
+                        .map(group -> new GroupAccess(group, member, false))
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.FAMILY_GROUP_NOT_FOUND,
+                        "You do not belong to an active family group."));
     }
 
     @Transactional(readOnly = true)
