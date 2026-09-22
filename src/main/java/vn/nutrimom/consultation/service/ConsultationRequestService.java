@@ -1,10 +1,14 @@
 package vn.nutrimom.consultation.service;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
@@ -15,6 +19,7 @@ import vn.nutrimom.consultation.domain.ConsultationStatus;
 import vn.nutrimom.consultation.domain.ExpertProfileEntity;
 import vn.nutrimom.consultation.domain.ExpertStatus;
 import vn.nutrimom.consultation.domain.SlotStatus;
+import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.AcceptConsultationRequest;
 import vn.nutrimom.consultation.dto.RequestDtos.ConsultationRequestResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.CreateConsultationRequest;
@@ -27,21 +32,31 @@ import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 /** Tạo/theo dõi yêu cầu tư vấn (user) và tiếp nhận/hoàn thành (chuyên gia). */
 @Service
 public class ConsultationRequestService {
+    /** Sắp xếp theo giờ hẹn tăng dần; yêu cầu chưa có slot xếp cuối. */
+    private static final Comparator<ConsultationRequestResponse> BY_APPOINTMENT =
+            Comparator.comparing(
+                    (ConsultationRequestResponse r) -> r.slot() == null ? null
+                            : r.slot().slotDate().atTime(r.slot().startTime()),
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+
     private final ConsultationRequestRepository requests;
     private final AvailabilitySlotRepository slots;
     private final ExpertProfileRepository experts;
     private final ConsultationReviewRepository reviews;
+    private final UserRepository users;
     private final AccessGuard guard;
 
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
                                       ExpertProfileRepository experts,
                                       ConsultationReviewRepository reviews,
+                                      UserRepository users,
                                       AccessGuard guard) {
         this.requests = requests;
         this.slots = slots;
         this.experts = experts;
         this.reviews = reviews;
+        this.users = users;
         this.guard = guard;
     }
 
@@ -99,10 +114,12 @@ public class ConsultationRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<ConsultationRequestResponse> listOwn(String userId) {
-        return requests.findByUserIdOrderByCreatedAtDesc(userId).stream()
+    public PageResponse<ConsultationRequestResponse> listOwn(String userId, int page, int pageSize) {
+        List<ConsultationRequestResponse> all = requests.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
                 .map(entity -> toResponse(entity, userId))
                 .toList();
+        return PageResponse.of(all, page, pageSize);
     }
 
     @Transactional(readOnly = true)
@@ -130,23 +147,64 @@ public class ConsultationRequestService {
 
     // ----- Expert -----
 
+    /**
+     * Danh sách buổi tư vấn được giao cho chuyên gia, sắp theo giờ hẹn tăng dần.
+     *
+     * @param status lọc trạng thái; null → mặc định PENDING_CONSULTATION (buổi sắp diễn ra).
+     * @param from   lọc theo ngày hẹn (giờ VN, bao gồm) nếu khác null.
+     * @param to     lọc theo ngày hẹn (giờ VN, bao gồm) nếu khác null.
+     * @param q      tìm theo tên user (không phân biệt hoa thường) nếu khác null.
+     */
     @Transactional(readOnly = true)
-    public List<ConsultationRequestResponse> listAssigned(String expertUserId) {
+    public PageResponse<ConsultationRequestResponse> listAssigned(
+            String expertUserId, ConsultationStatus status, LocalDate from, LocalDate to,
+            String q, int page, int pageSize) {
         requireExpert(expertUserId);
-        return requests.findByExpertUserIdAndStatusOrderByCreatedAtDesc(
-                        expertUserId, ConsultationStatus.PENDING_CONSULTATION).stream()
+        ConsultationStatus effective = status == null ? ConsultationStatus.PENDING_CONSULTATION : status;
+        String needle = normalize(q);
+        List<ConsultationRequestResponse> all = requests
+                .findByExpertUserIdAndStatusOrderByCreatedAtDesc(expertUserId, effective).stream()
                 .map(entity -> toResponse(entity, null))
+                .filter(response -> withinDate(response, from, to))
+                .filter(response -> matchesName(response, needle))
+                .sorted(BY_APPOINTMENT)
                 .toList();
+        return PageResponse.of(all, page, pageSize);
     }
 
     @Transactional(readOnly = true)
-    public List<ConsultationRequestResponse> listPool(String expertUserId) {
+    public PageResponse<ConsultationRequestResponse> listPool(
+            String expertUserId, String q, int page, int pageSize) {
         ExpertProfileEntity expert = requireExpert(expertUserId);
-        return requests.findBySpecialtyAndAssignmentTypeAndStatusOrderByCreatedAtAsc(
+        String needle = normalize(q);
+        List<ConsultationRequestResponse> all = requests
+                .findBySpecialtyAndAssignmentTypeAndStatusOrderByCreatedAtAsc(
                         expert.getSpecialty(), AssignmentType.RANDOM, ConsultationStatus.PENDING_EXPERT)
                 .stream()
                 .map(entity -> toResponse(entity, null))
+                .filter(response -> matchesName(response, needle))
                 .toList();
+        return PageResponse.of(all, page, pageSize);
+    }
+
+    private static String normalize(String q) {
+        return q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean matchesName(ConsultationRequestResponse response, String needle) {
+        return needle == null || (response.userDisplayName() != null
+                && response.userDisplayName().toLowerCase(Locale.ROOT).contains(needle));
+    }
+
+    private static boolean withinDate(ConsultationRequestResponse response, LocalDate from, LocalDate to) {
+        if (from == null && to == null) {
+            return true;
+        }
+        if (response.slot() == null) {
+            return false;
+        }
+        LocalDate date = response.slot().slotDate();
+        return (from == null || !date.isBefore(from)) && (to == null || !date.isAfter(to));
     }
 
     @Transactional
@@ -229,12 +287,14 @@ public class ConsultationRequestService {
                 : slots.findById(entity.getSlotId())
                         .map(s -> new SlotInfo(s.getId(), s.getSlotDate(), s.getStartTime(), s.getEndTime()))
                         .orElse(null);
+        String userName = users.findById(entity.getUserId())
+                .map(user -> user.getDisplayName()).orElse(null);
         boolean reviewed = reviews.existsByRequestId(entity.getId());
         boolean canReview = viewerUserId != null
                 && viewerUserId.equals(entity.getUserId())
                 && entity.getStatus() == ConsultationStatus.COMPLETED
                 && !reviewed;
-        return new ConsultationRequestResponse(entity.getId(), entity.getUserId(),
+        return new ConsultationRequestResponse(entity.getId(), entity.getUserId(), userName,
                 entity.getExpertUserId(), expertName, entity.getSpecialty(), entity.getAssignmentType(),
                 entity.getStatus(), slot, entity.getNote(), reviewed, canReview,
                 entity.getCompletedAt(), entity.getVersion(), entity.getCreatedAt(),

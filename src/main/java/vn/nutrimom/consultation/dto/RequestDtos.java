@@ -50,6 +50,7 @@ public final class RequestDtos {
     public record ConsultationRequestResponse(
             String id,
             String userId,
+            String userDisplayName,
             String expertUserId,
             String expertName,
             Specialty specialty,

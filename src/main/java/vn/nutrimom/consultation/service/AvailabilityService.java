@@ -1,5 +1,8 @@
 package vn.nutrimom.consultation.service;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -21,12 +24,14 @@ public class AvailabilityService {
     private final AvailabilitySlotRepository slots;
     private final ExpertProfileRepository experts;
     private final AccessGuard guard;
+    private final Clock clock;
 
     public AvailabilityService(AvailabilitySlotRepository slots, ExpertProfileRepository experts,
-                               AccessGuard guard) {
+                               AccessGuard guard, Clock clock) {
         this.slots = slots;
         this.experts = experts;
         this.guard = guard;
+        this.clock = clock;
     }
 
     @Transactional
@@ -51,11 +56,19 @@ public class AvailabilityService {
         return ExpertDirectoryService.toSlotResponse(slot);
     }
 
+    /**
+     * Khung giờ của chuyên gia. Khi không truyền khoảng ngày (from/to đều null) sẽ
+     * mặc định ẩn các khung giờ đã trôi qua; khi lọc theo ngày cụ thể thì trả đúng khoảng đó.
+     */
     @Transactional(readOnly = true)
-    public List<SlotResponse> listOwn(String expertUserId) {
+    public List<SlotResponse> listOwn(String expertUserId, LocalDate from, LocalDate to,
+                                      SlotStatus status) {
         requireExpert(expertUserId);
-        return slots.findByExpertUserIdAndStatusOrderBySlotDateAscStartTimeAsc(expertUserId, SlotStatus.OPEN)
-                .stream()
+        boolean hidePast = from == null && to == null;
+        LocalDateTime now = ConsultationClock.nowVietnam(clock);
+        return slots.search(expertUserId, from, to, status).stream()
+                .filter(slot -> !hidePast
+                        || slot.getSlotDate().atTime(slot.getStartTime()).isAfter(now))
                 .map(ExpertDirectoryService::toSlotResponse)
                 .toList();
     }

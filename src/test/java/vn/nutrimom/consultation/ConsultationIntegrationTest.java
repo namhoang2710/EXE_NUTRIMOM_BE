@@ -85,6 +85,21 @@ class ConsultationIntegrationTest {
                                 """.formatted(expertId, slotId)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("SLOT_UNAVAILABLE"));
+
+        // Bộ lọc slot phía chuyên gia: theo trạng thái và theo ngày
+        mockMvc.perform(get("/api/v1/expert/slots").param("status", "BOOKED")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].status").value("BOOKED"));
+        mockMvc.perform(get("/api/v1/expert/slots").param("status", "OPEN")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+        mockMvc.perform(get("/api/v1/expert/slots").param("date", "2026-12-02")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
@@ -106,7 +121,7 @@ class ConsultationIntegrationTest {
         mockMvc.perform(get("/api/v1/expert/consultation-requests")
                         .param("type", "pool").with(expertJwt(expertId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(requestId));
+                .andExpect(jsonPath("$.data.items[0].id").value(requestId));
 
         mockMvc.perform(post("/api/v1/expert/consultation-requests/{id}/accept", requestId)
                         .with(expertJwt(expertId)).contentType(MediaType.APPLICATION_JSON)
@@ -141,8 +156,59 @@ class ConsultationIntegrationTest {
         // Chuyên gia xem được đầy đủ review
         mockMvc.perform(get("/api/v1/expert/reviews").with(expertJwt(expertId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].rating").value(4))
-                .andExpect(jsonPath("$.data[0].comment").value("tot"));
+                .andExpect(jsonPath("$.data.items[0].rating").value(4))
+                .andExpect(jsonPath("$.data.items[0].comment").value("tot"));
+
+        // Lọc review theo số sao
+        mockMvc.perform(get("/api/v1/expert/reviews").param("rating", "4")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1));
+        mockMvc.perform(get("/api/v1/expert/reviews").param("rating", "5")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(0));
+        // Lọc chỉ đánh giá có nhận xét
+        mockMvc.perform(get("/api/v1/expert/reviews").param("has_comment", "true")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1));
+    }
+
+    @Test
+    void assignedListSortsByAppointmentAndFiltersHistory() throws Exception {
+        String expertId = createExpert("0912000071", "OBSTETRICS", "BS G");
+        String slotLater = createSlot(expertId, "2026-12-12", "09:00:00", "09:30:00");
+        String slotEarlier = createSlot(expertId, "2026-12-11", "09:00:00", "09:30:00");
+        String user1 = createUserAccount("0912000072", "Alice");
+        String user2 = createUserAccount("0912000073", "Bob");
+
+        String reqLater = bookDirect(user1, expertId, slotLater);
+        bookDirect(user2, expertId, slotEarlier);
+
+        // Mặc định PENDING_CONSULTATION, sắp theo giờ hẹn tăng dần (11/12 trước 12/12)
+        mockMvc.perform(get("/api/v1/expert/consultation-requests").with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(2))
+                .andExpect(jsonPath("$.data.items[0].slot.slot_date").value("2026-12-11"))
+                .andExpect(jsonPath("$.data.items[1].slot.slot_date").value("2026-12-12"));
+
+        // Tìm theo tên user
+        mockMvc.perform(get("/api/v1/expert/consultation-requests").param("q", "ali")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1))
+                .andExpect(jsonPath("$.data.items[0].user_display_name").value("Alice"));
+
+        // Hoàn thành 1 buổi rồi lọc lịch sử COMPLETED
+        mockMvc.perform(post("/api/v1/expert/consultation-requests/{id}/complete", reqLater)
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/expert/consultation-requests").param("status", "COMPLETED")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(reqLater));
     }
 
     @Test
@@ -225,6 +291,17 @@ class ConsultationIntegrationTest {
                         .content("""
                                 {"slot_date":"%s","start_time":"%s","end_time":"%s"}
                                 """.formatted(date, start, end)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return readData(result, "/data/id");
+    }
+
+    private String bookDirect(String userId, String expertUserId, String slotId) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/consultation-requests")
+                        .with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assignment_type":"DIRECT","expert_user_id":"%s","slot_id":"%s"}
+                                """.formatted(expertUserId, slotId)))
                 .andExpect(status().isCreated())
                 .andReturn();
         return readData(result, "/data/id");

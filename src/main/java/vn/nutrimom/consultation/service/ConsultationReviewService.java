@@ -2,6 +2,8 @@ package vn.nutrimom.consultation.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +14,7 @@ import vn.nutrimom.consultation.domain.ConsultationRequestEntity;
 import vn.nutrimom.consultation.domain.ConsultationReviewEntity;
 import vn.nutrimom.consultation.domain.ConsultationStatus;
 import vn.nutrimom.consultation.domain.ExpertProfileEntity;
+import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.ReviewDtos.CreateReviewRequest;
 import vn.nutrimom.consultation.dto.ReviewDtos.ReviewResponse;
 import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
@@ -65,11 +68,38 @@ public class ConsultationReviewService {
         return toResponse(review);
     }
 
+    /**
+     * @param rating     lọc theo số sao (1-5) nếu khác null.
+     * @param from       ngày bắt đầu (giờ VN, bao gồm) nếu khác null.
+     * @param to         ngày kết thúc (giờ VN, bao gồm) nếu khác null.
+     * @param sort       "newest" (mặc định), "rating_desc" hoặc "rating_asc".
+     * @param hasComment true → chỉ lấy đánh giá có nhận xét (text).
+     */
     @Transactional(readOnly = true)
-    public List<ReviewResponse> listForExpert(String expertUserId) {
-        return reviews.findByExpertUserIdOrderByCreatedAtDesc(expertUserId).stream()
+    public PageResponse<ReviewResponse> listForExpert(String expertUserId, Integer rating,
+                                                      LocalDate from, LocalDate to, String sort,
+                                                      Boolean hasComment, int page, int pageSize) {
+        Short ratingFilter = rating == null ? null : (short) (int) rating;
+        List<ReviewResponse> all = reviews.search(expertUserId, ratingFilter,
+                        ConsultationClock.startOfDay(from), ConsultationClock.startOfNextDay(to)).stream()
                 .map(ConsultationReviewService::toResponse)
+                .filter(review -> !Boolean.TRUE.equals(hasComment)
+                        || (review.comment() != null && !review.comment().isBlank()))
+                .sorted(comparatorFor(sort))
                 .toList();
+        return PageResponse.of(all, page, pageSize);
+    }
+
+    private static Comparator<ReviewResponse> comparatorFor(String sort) {
+        Comparator<ReviewResponse> newest =
+                Comparator.comparing(ReviewResponse::createdAt).reversed();
+        if ("rating_desc".equalsIgnoreCase(sort)) {
+            return Comparator.comparingInt((ReviewResponse r) -> r.rating()).reversed().thenComparing(newest);
+        }
+        if ("rating_asc".equalsIgnoreCase(sort)) {
+            return Comparator.comparingInt((ReviewResponse r) -> r.rating()).thenComparing(newest);
+        }
+        return newest;
     }
 
     private void recomputeExpertRating(String expertUserId, int newRating) {

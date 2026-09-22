@@ -16,8 +16,20 @@ public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySl
     List<AvailabilitySlotEntity> findByExpertUserIdAndSlotDateOrderByStartTimeAsc(
             String expertUserId, LocalDate slotDate);
 
-    List<AvailabilitySlotEntity> findByExpertUserIdAndStatusOrderBySlotDateAscStartTimeAsc(
-            String expertUserId, SlotStatus status);
+    /** Lọc slot của chuyên gia theo khoảng ngày và/hoặc trạng thái (mọi tham số đều tùy chọn). */
+    @Query("""
+            select slot from AvailabilitySlotEntity slot
+            where slot.expertUserId = :expertUserId
+              and (:from is null or slot.slotDate >= :from)
+              and (:to is null or slot.slotDate <= :to)
+              and (:status is null or slot.status = :status)
+            order by slot.slotDate asc, slot.startTime asc
+            """)
+    List<AvailabilitySlotEntity> search(
+            @Param("expertUserId") String expertUserId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("status") SlotStatus status);
 
     Optional<AvailabilitySlotEntity> findByIdAndExpertUserId(String id, String expertUserId);
 
