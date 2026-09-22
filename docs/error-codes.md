@@ -57,7 +57,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | UNSUPPORTED_FILE_TYPE | 415 | false | Định dạng tệp không hỗ trợ | **reserved** (07) |
 | MALWARE_DETECTED | 422 | false | Tệp nghi chứa mã độc | **reserved** (07) |
 | UPLOAD_NOT_COMPLETE | 409 | false | Tệp chưa hoàn tất upload | **reserved** (07) |
-| SLOT_UNAVAILABLE | 409 | false | Khung giờ tư vấn đã bị đặt | **reserved** (13) |
+| SLOT_UNAVAILABLE | 409 | false | Khung giờ tư vấn đã bị đặt | dùng (consultation) |
 | QUOTA_EXCEEDED | 429 | false | Hết hạn mức (scan/subscription) | **reserved** (15/17) |
 | SCAN_FAILED | 422 | false | Xử lý ảnh/tài liệu thất bại | **reserved** (15) |
 | SHARING_SCOPE_REQUIRED | 403 | false | Chưa được cấp scope chia sẻ | dùng |
@@ -99,6 +99,10 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | INVALID_IMAGE_DIMENSIONS | 422 | false | knowledge (image upload) |
 | IMAGE_PROCESSING_FAILED | 422 | false | knowledge (image upload) |
 | IMAGE_PROCESSING_BUSY | 429 | true | knowledge (image upload) |
+| REQUEST_ALREADY_CLAIMED | 409 | false | consultation (yêu cầu ngẫu nhiên đã bị chuyên gia khác nhận) |
+| REVIEW_ALREADY_EXISTS | 409 | false | consultation (đã đánh giá buổi tư vấn) |
+| REVIEW_NOT_ALLOWED | 409 | false | consultation (chưa hoàn thành, không được đánh giá) |
+| INVALID_CONSULTATION_STATE | 409 | false | consultation (thao tác sai trạng thái yêu cầu) |
 | INVALID_MULTIPART | 400 | false | handler (multipart hỏng/thiếu part) |
 | INVALID_CONTENT_TYPE | 415 | false | handler (Content-Type không hỗ trợ) |
 | INVALID_REQUEST_PARAMETER | 400 | false | handler (query param sai kiểu/thiếu) |
