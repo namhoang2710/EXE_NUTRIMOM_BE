@@ -1,6 +1,8 @@
 package vn.nutrimom.consultation.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
@@ -45,19 +47,22 @@ public class ConsultationRequestService {
     private final ConsultationReviewRepository reviews;
     private final UserRepository users;
     private final AccessGuard guard;
+    private final Clock clock;
 
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
                                       ExpertProfileRepository experts,
                                       ConsultationReviewRepository reviews,
                                       UserRepository users,
-                                      AccessGuard guard) {
+                                      AccessGuard guard,
+                                      Clock clock) {
         this.requests = requests;
         this.slots = slots;
         this.experts = experts;
         this.reviews = reviews;
         this.users = users;
         this.guard = guard;
+        this.clock = clock;
     }
 
     // ----- User -----
@@ -95,6 +100,7 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                     "Khung giờ đã được đặt. Vui lòng chọn khung khác.");
         }
+        requireFutureSlot(slot);
         slot.setStatus(SlotStatus.BOOKED);
         slots.saveAndFlush(slot);
 
@@ -230,6 +236,7 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                     "Khung giờ đã được đặt. Vui lòng chọn khung khác.");
         }
+        requireFutureSlot(slot);
         slot.setStatus(SlotStatus.BOOKED);
         slots.saveAndFlush(slot);
 
@@ -260,6 +267,15 @@ public class ConsultationRequestService {
     }
 
     // ----- Helpers -----
+
+    /** Chặn xếp lịch vào khung giờ đã trôi qua (so với hiện tại theo giờ VN). */
+    private void requireFutureSlot(AvailabilitySlotEntity slot) {
+        LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
+        if (!start.isAfter(ConsultationClock.nowVietnam(clock))) {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    "Khung giờ đã trôi qua. Vui lòng chọn khung giờ khác.");
+        }
+    }
 
     private void releaseSlot(String slotId) {
         if (slotId == null) {

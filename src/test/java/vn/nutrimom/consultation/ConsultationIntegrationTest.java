@@ -6,6 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,9 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.consultation.domain.AvailabilitySlotEntity;
+import vn.nutrimom.consultation.domain.SlotStatus;
+import vn.nutrimom.consultation.repository.AvailabilitySlotRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,9 +37,12 @@ import vn.nutrimom.auth.repository.UserRepository;
 @Transactional
 class ConsultationIntegrationTest {
 
+    private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
+
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository users;
+    @Autowired AvailabilitySlotRepository slotRepository;
 
     @Test
     void adminCreatesExpertThenUserDiscoversAndSeesSpecialties() throws Exception {
@@ -100,6 +109,39 @@ class ConsultationIntegrationTest {
                         .with(expertJwt(expertId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void pastSlotCannotBeCreatedOrBooked() throws Exception {
+        String expertId = createExpert("0912000051", "HEALTH", "BS E");
+        String userId = createUserAccount("0912000052", "Mom P");
+
+        // Tạo slot ngày hôm qua -> 422
+        String yesterday = LocalDate.now(VN).minusDays(1).toString();
+        mockMvc.perform(post("/api/v1/expert/slots")
+                        .with(expertJwt(expertId)).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"slot_date":"%s","start_time":"09:00:00","end_time":"09:30:00"}
+                                """.formatted(yesterday)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+        // Slot quá khứ tồn tại sẵn (mô phỏng slot tạo từ trước, giờ đã trôi qua) -> không đặt được
+        AvailabilitySlotEntity pastSlot = new AvailabilitySlotEntity();
+        pastSlot.setExpertUserId(expertId);
+        pastSlot.setSlotDate(LocalDate.now(VN).minusDays(1));
+        pastSlot.setStartTime(LocalTime.of(10, 0));
+        pastSlot.setEndTime(LocalTime.of(10, 30));
+        pastSlot.setStatus(SlotStatus.OPEN);
+        String pastSlotId = slotRepository.saveAndFlush(pastSlot).getId();
+
+        mockMvc.perform(post("/api/v1/consultation-requests")
+                        .with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assignment_type":"DIRECT","expert_user_id":"%s","slot_id":"%s"}
+                                """.formatted(expertId, pastSlotId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("SLOT_UNAVAILABLE"));
     }
 
     @Test
@@ -173,6 +215,20 @@ class ConsultationIntegrationTest {
                         .with(expertJwt(expertId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total_items").value(1));
+    }
+
+    @Test
+    void overlappingSlotIsRejected() throws Exception {
+        String expertId = createExpert("0912000061", "HEALTH", "BS F");
+        createSlot(expertId, "2026-12-10", "09:00:00", "09:30:00");
+
+        mockMvc.perform(post("/api/v1/expert/slots")
+                        .with(expertJwt(expertId)).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"slot_date":"2026-12-10","start_time":"09:15:00","end_time":"09:45:00"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("SLOT_UNAVAILABLE"));
     }
 
     @Test

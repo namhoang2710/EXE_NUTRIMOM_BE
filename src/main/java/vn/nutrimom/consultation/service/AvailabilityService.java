@@ -41,6 +41,20 @@ public class AvailabilityService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "Giờ kết thúc phải sau giờ bắt đầu.");
         }
+        LocalDateTime start = request.slotDate().atTime(request.startTime());
+        if (!start.isAfter(ConsultationClock.nowVietnam(clock))) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "Không thể tạo khung giờ trong quá khứ.");
+        }
+        boolean overlaps = slots
+                .findByExpertUserIdAndSlotDateOrderByStartTimeAsc(expertUserId, request.slotDate())
+                .stream()
+                .anyMatch(existing -> request.startTime().isBefore(existing.getEndTime())
+                        && existing.getStartTime().isBefore(request.endTime()));
+        if (overlaps) {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    "Khung giờ chồng lấn với một khung giờ đã có.");
+        }
         AvailabilitySlotEntity slot = new AvailabilitySlotEntity();
         slot.setExpertUserId(expertUserId);
         slot.setSlotDate(request.slotDate());
