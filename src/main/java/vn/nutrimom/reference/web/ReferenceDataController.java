@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
 import vn.nutrimom.reference.dto.ReferenceRoleResponse;
+import vn.nutrimom.reference.dto.ReferenceSpecialtyResponse;
 import vn.nutrimom.reference.service.ReferenceDataService;
 
 @RestController
@@ -27,5 +28,11 @@ public class ReferenceDataController {
     @Operation(summary = "List self-selectable roles; privileged roles are excluded")
     public ApiResponse<List<ReferenceRoleResponse>> roles() {
         return ApiResponses.success(service.getSelfSelectableRoles());
+    }
+
+    @GetMapping("/specialties")
+    @Operation(summary = "Danh sách chuyên khoa của chuyên gia tư vấn")
+    public ApiResponse<List<ReferenceSpecialtyResponse>> specialties() {
+        return ApiResponses.success(service.getSpecialties());
     }
 }
