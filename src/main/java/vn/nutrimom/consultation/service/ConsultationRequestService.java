@@ -93,10 +93,22 @@ public class ConsultationRequestService {
                 .findByUserIdAndStatus(request.expertUserId(), ExpertStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "Không tìm thấy chuyên gia."));
+        if (entity.getUserId().equals(expert.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN,
+                    "Bạn không thể tự đặt lịch tư vấn với chính mình.");
+        }
+        if (request.specialty() != null && request.specialty() != expert.getSpecialty()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN,
+                    "Chuyên khoa đã chọn không khớp với chuyên gia này.");
+        }
         AvailabilitySlotEntity slot = slots.findByIdForUpdate(request.slotId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                         "Khung giờ không tồn tại."));
-        if (!slot.getExpertUserId().equals(expert.getUserId()) || slot.getStatus() != SlotStatus.OPEN) {
+        if (!slot.getExpertUserId().equals(expert.getUserId())) {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    "Khung giờ không thuộc chuyên gia này.");
+        }
+        if (slot.getStatus() != SlotStatus.OPEN) {
             throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                     "Khung giờ đã được đặt. Vui lòng chọn khung khác.");
         }
@@ -229,10 +241,18 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.FORBIDDEN,
                     "Yêu cầu này thuộc chuyên khoa khác.");
         }
+        if (expertUserId.equals(entity.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN,
+                    "Bạn không thể tiếp nhận yêu cầu do chính mình tạo.");
+        }
         AvailabilitySlotEntity slot = slots.findByIdForUpdate(body.slotId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                         "Khung giờ không tồn tại."));
-        if (!slot.getExpertUserId().equals(expertUserId) || slot.getStatus() != SlotStatus.OPEN) {
+        if (!slot.getExpertUserId().equals(expertUserId)) {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    "Khung giờ không thuộc chuyên gia này.");
+        }
+        if (slot.getStatus() != SlotStatus.OPEN) {
             throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                     "Khung giờ đã được đặt. Vui lòng chọn khung khác.");
         }
