@@ -128,3 +128,4 @@ GO
 CREATE INDEX ix_consultation_reviews_expert_created
     ON app.consultation_reviews(expert_user_id, created_at DESC);
 GO
+-- Version 25: consultation expert, availability, booking, and review schema.
