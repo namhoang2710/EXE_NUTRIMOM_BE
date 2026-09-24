@@ -1,8 +1,12 @@
 package vn.nutrimom.care.service;
 
 import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
@@ -28,6 +32,7 @@ import vn.nutrimom.care.repository.VerifiedGuidanceRepository;
 import vn.nutrimom.common.api.CursorPage;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.pregnancy.domain.PregnancyEntity;
+import vn.nutrimom.pregnancy.domain.PregnancyCalculationSource;
 import vn.nutrimom.pregnancy.domain.PregnancyStatus;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
 
@@ -197,9 +202,31 @@ public class CarePlanService {
     }
 
     private long gestationalWeek(PregnancyEntity pregnancy) {
-        long days = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(
-                pregnancy.getLastMenstrualPeriod(), java.time.LocalDate.now(ZoneOffset.UTC)));
-        return days / 7;
+        return gestationalDays(pregnancy) / 7;
+    }
+
+    private long gestationalDays(PregnancyEntity pregnancy) {
+        LocalDate today = LocalDate.now(zone(pregnancy.getTimezone()));
+        long days;
+        if (pregnancy.getCalculationSource() == PregnancyCalculationSource.MANUAL
+                && pregnancy.getGestationalAgeAnchorDays() != null
+                && pregnancy.getGestationalAgeAnchorDate() != null) {
+            days = pregnancy.getGestationalAgeAnchorDays()
+                    + ChronoUnit.DAYS.between(pregnancy.getGestationalAgeAnchorDate(), today);
+        } else if (pregnancy.getLastMenstrualPeriod() != null) {
+            days = ChronoUnit.DAYS.between(pregnancy.getLastMenstrualPeriod(), today);
+        } else if (pregnancy.getEstimatedDueDate() != null) {
+            days = 280L - ChronoUnit.DAYS.between(today, pregnancy.getEstimatedDueDate());
+        } else {
+            days = 0;
+        }
+        return Math.max(0, days);
+    }
+
+    private ZoneId zone(String timezone) {
+        if (timezone == null || timezone.isBlank()) return ZoneOffset.UTC;
+        try { return ZoneId.of(timezone); }
+        catch (DateTimeException ex) { return ZoneOffset.UTC; }
     }
 
     private int progress(List<PreparationItemEntity> items) {

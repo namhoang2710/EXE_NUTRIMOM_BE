@@ -109,6 +109,7 @@ class PregnancyProfileDeltaIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.gestational_week").value(20))
                 .andExpect(jsonPath("$.data.gestational_day").value(3))
+                .andExpect(jsonPath("$.data.last_menstrual_period").doesNotExist())
                 .andExpect(jsonPath("$.data.calculation_source").value("MANUAL"))
                 .andReturn().getResponse().getContentAsString();
         String pregnancyId = objectMapper.readTree(response).at("/data/id").stringValue();

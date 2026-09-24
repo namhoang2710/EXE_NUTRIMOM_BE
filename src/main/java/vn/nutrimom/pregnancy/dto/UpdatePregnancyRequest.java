@@ -13,7 +13,8 @@ public record UpdatePregnancyRequest(
         LocalDate lastMenstrualPeriod,
         LocalDate conceptionDate,
 
-        @Min(value = 0, message = "gestational_week must be non-negative")
+        @Min(value = 0, message = "gestational_week must be between 0 and 42")
+        @Max(value = 42, message = "gestational_week must be between 0 and 42")
         Integer gestationalWeek,
 
         @Min(value = 0, message = "gestational_day must be between 0 and 6")

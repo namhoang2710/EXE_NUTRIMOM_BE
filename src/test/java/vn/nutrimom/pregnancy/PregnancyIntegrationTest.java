@@ -6,13 +6,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MvcResult;
@@ -25,7 +32,12 @@ import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(PregnancyIntegrationTest.FixedTimeConfig.class)
 class PregnancyIntegrationTest extends ApiIntegrationTestSupport {
+    private static final ZoneId PREGNANCY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
+        @Autowired
+        Clock clock;
         @Autowired
         PregnancyAuditRepository pregnancyAudits;
         @Autowired
@@ -309,7 +321,16 @@ class PregnancyIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     private LocalDate today() {
-        return LocalDate.now(ZoneOffset.UTC);
+        return LocalDate.now(clock.withZone(PREGNANCY_ZONE));
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class FixedTimeConfig {
+        @Bean
+        @Primary
+        Clock fixedPregnancyClock() {
+            return Clock.fixed(Instant.parse("2026-09-23T18:00:00Z"), ZoneOffset.UTC);
+        }
     }
 
     private record CreateBody(
