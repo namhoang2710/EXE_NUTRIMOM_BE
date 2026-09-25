@@ -96,6 +96,12 @@ public enum ErrorCode {
     INVALID_CONSULTATION_STATE(HttpStatus.CONFLICT, false,
             "Không thể thực hiện thao tác này với trạng thái hiện tại của yêu cầu."),
 
+    // --- Contact (hộp thư hỗ trợ) ---
+    INVALID_CONTACT_REQUEST_STATE(HttpStatus.CONFLICT, false,
+            "Không thể thực hiện thao tác này với trạng thái hiện tại của yêu cầu hỗ trợ."),
+    CONTACT_REQUEST_LIMIT_REACHED(HttpStatus.CONFLICT, false,
+            "Bạn đang có quá nhiều yêu cầu hỗ trợ chờ xử lý. Vui lòng chờ phản hồi trước khi gửi thêm."),
+
     // --- Handler-level (extension, ngoài spec — giữ nguyên hành vi hiện tại) ---
     INVALID_MULTIPART(HttpStatus.BAD_REQUEST, false, "Cần một tệp ảnh multipart hợp lệ."),
     INVALID_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, false, "Content-Type của yêu cầu không được hỗ trợ."),
