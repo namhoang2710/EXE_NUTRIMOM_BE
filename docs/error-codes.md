@@ -103,6 +103,8 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | REVIEW_ALREADY_EXISTS | 409 | false | consultation (đã đánh giá buổi tư vấn) |
 | REVIEW_NOT_ALLOWED | 409 | false | consultation (chưa hoàn thành, không được đánh giá) |
 | INVALID_CONSULTATION_STATE | 409 | false | consultation (thao tác sai trạng thái yêu cầu) |
+| INVALID_CONTACT_REQUEST_STATE | 409 | false | contact (huỷ/hoàn tất yêu cầu hỗ trợ không còn ở PENDING) |
+| CONTACT_REQUEST_LIMIT_REACHED | 409 | false | contact (user đã có 3 yêu cầu hỗ trợ đang chờ) |
 | INVALID_MULTIPART | 400 | false | handler (multipart hỏng/thiếu part) |
 | INVALID_CONTENT_TYPE | 415 | false | handler (Content-Type không hỗ trợ) |
 | INVALID_REQUEST_PARAMETER | 400 | false | handler (query param sai kiểu/thiếu) |
