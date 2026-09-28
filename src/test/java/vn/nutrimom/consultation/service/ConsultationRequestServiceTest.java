@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,35 +22,39 @@ import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
 import vn.nutrimom.consultation.domain.AssignmentType;
-import vn.nutrimom.consultation.domain.AvailabilitySlotEntity;
 import vn.nutrimom.consultation.domain.ConsultationRequestEntity;
 import vn.nutrimom.consultation.domain.ConsultationStatus;
 import vn.nutrimom.consultation.domain.ExpertProfileEntity;
 import vn.nutrimom.consultation.domain.ExpertStatus;
-import vn.nutrimom.consultation.domain.SlotStatus;
 import vn.nutrimom.consultation.domain.Specialty;
 import vn.nutrimom.consultation.dto.RequestDtos.AcceptConsultationRequest;
 import vn.nutrimom.consultation.dto.RequestDtos.CreateConsultationRequest;
 import vn.nutrimom.consultation.repository.AvailabilitySlotRepository;
 import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
+import vn.nutrimom.consultation.repository.ExpertDayOffRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 
 /**
- * Unit test cho các guard nghiệp vụ mới của {@link ConsultationRequestService}:
+ * Unit test cho các guard nghiệp vụ của {@link ConsultationRequestService}:
  * <ul>
  *   <li>DIRECT: không được tự đặt lịch với chính mình.</li>
  *   <li>DIRECT: chuyên khoa đã chọn phải khớp chuyên gia được chỉ định.</li>
+ *   <li>DIRECT: giờ bắt đầu phải đúng một mốc trong lưới mặc định.</li>
+ *   <li>DIRECT: chuyên gia nghỉ cả ngày thì không đặt được.</li>
  *   <li>accept: chuyên gia không được tiếp nhận yêu cầu do chính mình tạo.</li>
  * </ul>
- * Các guard đều ném {@link BusinessException} với {@link ErrorCode#FORBIDDEN} trước khi chạm slot,
- * nên slot repository không bị gọi.
+ * Mọi guard đều chặn trước khi chạm bảng slot, nên slot repository không bị gọi.
  */
 @ExtendWith(MockitoExtension.class)
 class ConsultationRequestServiceTest {
+    /** 2026-01-01T07:00 giờ VN, nên 2026-01-02 09:00 vừa là tương lai vừa trong horizon. */
+    private static final LocalDate TOMORROW = LocalDate.of(2026, 1, 2);
+    private static final LocalTime NINE = LocalTime.of(9, 0);
 
     @Mock private ConsultationRequestRepository requests;
     @Mock private AvailabilitySlotRepository slots;
+    @Mock private ExpertDayOffRepository dayOffs;
     @Mock private ExpertProfileRepository experts;
     @Mock private ConsultationReviewRepository reviews;
     @Mock private UserRepository users;
@@ -59,7 +65,7 @@ class ConsultationRequestServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         service = new ConsultationRequestService(
-                requests, slots, experts, reviews, users, new AccessGuard(), clock);
+                requests, slots, dayOffs, experts, reviews, users, new AccessGuard(), clock);
     }
 
     private static ExpertProfileEntity expert(String userId, Specialty specialty) {
@@ -69,16 +75,19 @@ class ConsultationRequestServiceTest {
         return expert;
     }
 
+    private static CreateConsultationRequest direct(String expertUserId, LocalTime startTime,
+                                                    Specialty specialty) {
+        return new CreateConsultationRequest(
+                AssignmentType.DIRECT, expertUserId, TOMORROW, startTime, specialty, null);
+    }
+
     @Test
     void directBookingRejectsSelfAssignment() {
         String userId = "user-1";
         when(experts.findByUserIdAndStatus(userId, ExpertStatus.ACTIVE))
                 .thenReturn(Optional.of(expert(userId, Specialty.PSYCHOLOGY)));
 
-        CreateConsultationRequest request = new CreateConsultationRequest(
-                AssignmentType.DIRECT, userId, "slot-1", null, null);
-
-        assertThatThrownBy(() -> service.create(userId, request))
+        assertThatThrownBy(() -> service.create(userId, direct(userId, NINE, null)))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> {
                     BusinessException business = (BusinessException) ex;
@@ -92,15 +101,12 @@ class ConsultationRequestServiceTest {
 
     @Test
     void directBookingRejectsSpecialtyMismatch() {
-        String userId = "user-1";
         String expertUserId = "expert-9";
         when(experts.findByUserIdAndStatus(expertUserId, ExpertStatus.ACTIVE))
                 .thenReturn(Optional.of(expert(expertUserId, Specialty.PSYCHOLOGY)));
 
-        CreateConsultationRequest request = new CreateConsultationRequest(
-                AssignmentType.DIRECT, expertUserId, "slot-1", Specialty.HEALTH, null);
-
-        assertThatThrownBy(() -> service.create(userId, request))
+        assertThatThrownBy(() ->
+                service.create("user-1", direct(expertUserId, NINE, Specialty.HEALTH)))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> {
                     BusinessException business = (BusinessException) ex;
@@ -113,27 +119,39 @@ class ConsultationRequestServiceTest {
     }
 
     @Test
-    void directBookingRejectsSlotOfAnotherExpert() {
-        String userId = "user-1";
+    void directBookingRejectsStartTimeOutsideGrid() {
         String expertUserId = "expert-9";
         when(experts.findByUserIdAndStatus(expertUserId, ExpertStatus.ACTIVE))
                 .thenReturn(Optional.of(expert(expertUserId, Specialty.PSYCHOLOGY)));
 
-        AvailabilitySlotEntity slot = new AvailabilitySlotEntity();
-        slot.setExpertUserId("other-expert"); // slot thuộc chuyên gia khác
-        slot.setStatus(SlotStatus.OPEN);
-        when(slots.findByIdForUpdate("slot-x")).thenReturn(Optional.of(slot));
+        assertThatThrownBy(() ->
+                service.create("user-1", direct(expertUserId, LocalTime.of(9, 15), null)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException business = (BusinessException) ex;
+                    assertThat(business.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.code());
+                    assertThat(business.getMessage()).contains("Khung giờ không hợp lệ");
+                });
 
-        CreateConsultationRequest request = new CreateConsultationRequest(
-                AssignmentType.DIRECT, expertUserId, "slot-x", null, null);
+        verifyNoInteractions(slots);
+    }
 
-        assertThatThrownBy(() -> service.create(userId, request))
+    @Test
+    void directBookingRejectsDayOff() {
+        String expertUserId = "expert-9";
+        when(experts.findByUserIdAndStatus(expertUserId, ExpertStatus.ACTIVE))
+                .thenReturn(Optional.of(expert(expertUserId, Specialty.PSYCHOLOGY)));
+        when(dayOffs.existsByExpertUserIdAndOffDate(expertUserId, TOMORROW)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.create("user-1", direct(expertUserId, NINE, null)))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> {
                     BusinessException business = (BusinessException) ex;
                     assertThat(business.getCode()).isEqualTo(ErrorCode.SLOT_UNAVAILABLE.code());
-                    assertThat(business.getMessage()).contains("không thuộc chuyên gia");
+                    assertThat(business.getMessage()).contains("nghỉ trong ngày này");
                 });
+
+        verifyNoInteractions(slots);
     }
 
     @Test
@@ -150,7 +168,7 @@ class ConsultationRequestServiceTest {
         entity.setSpecialty(Specialty.PSYCHOLOGY);
         when(requests.findByIdForUpdate(requestId)).thenReturn(Optional.of(entity));
 
-        AcceptConsultationRequest body = new AcceptConsultationRequest("slot-1");
+        AcceptConsultationRequest body = new AcceptConsultationRequest(TOMORROW, NINE);
 
         assertThatThrownBy(() -> service.accept(expertUserId, requestId, body))
                 .isInstanceOf(BusinessException.class)

@@ -16,8 +16,9 @@ import vn.nutrimom.common.api.ApiResponses;
 import vn.nutrimom.consultation.domain.Specialty;
 import vn.nutrimom.consultation.dto.ExpertDtos.ExpertDetailResponse;
 import vn.nutrimom.consultation.dto.ExpertDtos.ExpertSummaryResponse;
-import vn.nutrimom.consultation.dto.SlotDtos.SlotResponse;
+import vn.nutrimom.consultation.dto.SlotDtos.DayAvailabilityResponse;
 import vn.nutrimom.consultation.service.ExpertDirectoryService;
+import vn.nutrimom.consultation.service.ExpertScheduleService;
 
 @RestController
 @RequestMapping("/api/v1/experts")
@@ -25,9 +26,11 @@ import vn.nutrimom.consultation.service.ExpertDirectoryService;
 @SecurityRequirement(name = "bearerAuth")
 public class ExpertController {
     private final ExpertDirectoryService service;
+    private final ExpertScheduleService scheduleService;
 
-    public ExpertController(ExpertDirectoryService service) {
+    public ExpertController(ExpertDirectoryService service, ExpertScheduleService scheduleService) {
         this.service = service;
+        this.scheduleService = scheduleService;
     }
 
     @GetMapping
@@ -43,11 +46,12 @@ public class ExpertController {
         return ApiResponses.success(service.detail(userId));
     }
 
-    @GetMapping("/{userId}/slots")
-    @Operation(summary = "Khung giờ của chuyên gia trong một ngày (BOOKED không chọn được)")
-    public ApiResponse<List<SlotResponse>> slots(
+    @GetMapping("/{userId}/availability")
+    @Operation(summary = "Lịch của chuyên gia trong một ngày. Luôn trả đủ các khung giờ "
+            + "08:00–20:00; ô không đặt được kèm reason (PAST/DAY_OFF/BOOKED/CLOSED)")
+    public ApiResponse<DayAvailabilityResponse> availability(
             @PathVariable String userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return ApiResponses.success(service.slotsForDate(userId, date));
+        return ApiResponses.success(scheduleService.availabilityForUser(userId, date));
     }
 }

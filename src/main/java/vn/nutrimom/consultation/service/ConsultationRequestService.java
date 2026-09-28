@@ -3,11 +3,13 @@ package vn.nutrimom.consultation.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.repository.UserRepository;
@@ -20,6 +22,7 @@ import vn.nutrimom.consultation.domain.ConsultationRequestEntity;
 import vn.nutrimom.consultation.domain.ConsultationStatus;
 import vn.nutrimom.consultation.domain.ExpertProfileEntity;
 import vn.nutrimom.consultation.domain.ExpertStatus;
+import vn.nutrimom.consultation.domain.SlotGrid;
 import vn.nutrimom.consultation.domain.SlotStatus;
 import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.AcceptConsultationRequest;
@@ -29,6 +32,7 @@ import vn.nutrimom.consultation.dto.RequestDtos.SlotInfo;
 import vn.nutrimom.consultation.repository.AvailabilitySlotRepository;
 import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
+import vn.nutrimom.consultation.repository.ExpertDayOffRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 
 /** Tạo/theo dõi yêu cầu tư vấn (user) và tiếp nhận/hoàn thành (chuyên gia). */
@@ -43,6 +47,7 @@ public class ConsultationRequestService {
 
     private final ConsultationRequestRepository requests;
     private final AvailabilitySlotRepository slots;
+    private final ExpertDayOffRepository dayOffs;
     private final ExpertProfileRepository experts;
     private final ConsultationReviewRepository reviews;
     private final UserRepository users;
@@ -51,6 +56,7 @@ public class ConsultationRequestService {
 
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
+                                      ExpertDayOffRepository dayOffs,
                                       ExpertProfileRepository experts,
                                       ConsultationReviewRepository reviews,
                                       UserRepository users,
@@ -58,6 +64,7 @@ public class ConsultationRequestService {
                                       Clock clock) {
         this.requests = requests;
         this.slots = slots;
+        this.dayOffs = dayOffs;
         this.experts = experts;
         this.reviews = reviews;
         this.users = users;
@@ -85,9 +92,9 @@ public class ConsultationRequestService {
 
     private void createDirect(ConsultationRequestEntity entity, CreateConsultationRequest request) {
         if (request.expertUserId() == null || request.expertUserId().isBlank()
-                || request.slotId() == null || request.slotId().isBlank()) {
+                || request.slotDate() == null || request.startTime() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
-                    "Đặt lịch trực tiếp cần chọn chuyên gia và khung giờ.");
+                    "Đặt lịch trực tiếp cần chọn chuyên gia, ngày và khung giờ.");
         }
         ExpertProfileEntity expert = experts
                 .findByUserIdAndStatus(request.expertUserId(), ExpertStatus.ACTIVE)
@@ -101,20 +108,8 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.FORBIDDEN,
                     "Chuyên khoa đã chọn không khớp với chuyên gia này.");
         }
-        AvailabilitySlotEntity slot = slots.findByIdForUpdate(request.slotId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
-                        "Khung giờ không tồn tại."));
-        if (!slot.getExpertUserId().equals(expert.getUserId())) {
-            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
-                    "Khung giờ không thuộc chuyên gia này.");
-        }
-        if (slot.getStatus() != SlotStatus.OPEN) {
-            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
-                    "Khung giờ đã được đặt. Vui lòng chọn khung khác.");
-        }
-        requireFutureSlot(slot);
-        slot.setStatus(SlotStatus.BOOKED);
-        slots.saveAndFlush(slot);
+        AvailabilitySlotEntity slot =
+                reserveSlot(expert.getUserId(), request.slotDate(), request.startTime());
 
         entity.setExpertUserId(expert.getUserId());
         entity.setSpecialty(expert.getSpecialty());
@@ -156,10 +151,11 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.INVALID_CONSULTATION_STATE,
                     "Yêu cầu này không thể hủy.");
         }
-        releaseSlot(entity.getSlotId());
+        String slotId = entity.getSlotId();
         entity.setSlotId(null);
         entity.setStatus(ConsultationStatus.CANCELLED);
         requests.saveAndFlush(entity);
+        releaseSlot(slotId);
         return toResponse(entity, userId);
     }
 
@@ -245,20 +241,7 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.FORBIDDEN,
                     "Bạn không thể tiếp nhận yêu cầu do chính mình tạo.");
         }
-        AvailabilitySlotEntity slot = slots.findByIdForUpdate(body.slotId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
-                        "Khung giờ không tồn tại."));
-        if (!slot.getExpertUserId().equals(expertUserId)) {
-            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
-                    "Khung giờ không thuộc chuyên gia này.");
-        }
-        if (slot.getStatus() != SlotStatus.OPEN) {
-            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
-                    "Khung giờ đã được đặt. Vui lòng chọn khung khác.");
-        }
-        requireFutureSlot(slot);
-        slot.setStatus(SlotStatus.BOOKED);
-        slots.saveAndFlush(slot);
+        AvailabilitySlotEntity slot = reserveSlot(expertUserId, body.slotDate(), body.startTime());
 
         entity.setExpertUserId(expertUserId);
         entity.setSlotId(slot.getId());
@@ -288,22 +271,64 @@ public class ConsultationRequestService {
 
     // ----- Helpers -----
 
-    /** Chặn xếp lịch vào khung giờ đã trôi qua (so với hiện tại theo giờ VN). */
-    private void requireFutureSlot(AvailabilitySlotEntity slot) {
-        LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
-        if (!start.isAfter(ConsultationClock.nowVietnam(clock))) {
+    /**
+     * Chiếm một ô trong lưới mặc định của chuyên gia. Ô là ảo cho tới lúc có người đặt, nên
+     * việc chiếm chỗ chính là chèn một dòng {@code BOOKED}: unique
+     * {@code (expert, ngày, giờ bắt đầu)} là chốt chặn thật sự cho hai lượt đặt song song,
+     * vì khóa bi quan không giữ được dòng chưa tồn tại.
+     */
+    private AvailabilitySlotEntity reserveSlot(String expertUserId, LocalDate date,
+                                               LocalTime startTime) {
+        if (!SlotGrid.isValidStart(startTime)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "Khung giờ không hợp lệ. Lịch chia theo từng " + SlotGrid.SLOT_MINUTES
+                            + " phút, từ " + SlotGrid.OPENING + " đến " + SlotGrid.CLOSING + ".");
+        }
+        LocalDateTime now = ConsultationClock.nowVietnam(clock);
+        if (!SlotGrid.isWithinHorizon(date, now.toLocalDate())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "Chỉ đặt lịch được trong vòng " + SlotGrid.HORIZON_DAYS + " ngày tới.");
+        }
+        if (!date.atTime(startTime).isAfter(now)) {
             throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
                     "Khung giờ đã trôi qua. Vui lòng chọn khung giờ khác.");
         }
+        if (dayOffs.existsByExpertUserIdAndOffDate(expertUserId, date)) {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    "Chuyên gia nghỉ trong ngày này. Vui lòng chọn ngày khác.");
+        }
+        slots.findForUpdate(expertUserId, date, startTime).ifPresent(existing -> {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    existing.getStatus() == SlotStatus.BOOKED
+                            ? "Khung giờ đã được đặt. Vui lòng chọn khung khác."
+                            : "Chuyên gia không nhận lịch vào khung giờ này.");
+        });
+
+        AvailabilitySlotEntity slot = new AvailabilitySlotEntity();
+        slot.setExpertUserId(expertUserId);
+        slot.setSlotDate(date);
+        slot.setStartTime(startTime);
+        slot.setEndTime(SlotGrid.endOf(startTime));
+        slot.setStatus(SlotStatus.BOOKED);
+        try {
+            return slots.saveAndFlush(slot);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE,
+                    "Khung giờ vừa được đặt. Vui lòng chọn khung khác.");
+        }
     }
 
+    /**
+     * Trả ô về trạng thái trống bằng cách xóa dòng đã chiếm. Gọi sau khi yêu cầu đã bỏ trỏ
+     * tới slot, nếu không khóa ngoại {@code consultation_requests.slot_id} sẽ chặn.
+     */
     private void releaseSlot(String slotId) {
         if (slotId == null) {
             return;
         }
-        slots.findByIdForUpdate(slotId).ifPresent(slot -> {
-            slot.setStatus(SlotStatus.OPEN);
-            slots.saveAndFlush(slot);
+        slots.findById(slotId).ifPresent(slot -> {
+            slots.delete(slot);
+            slots.flush();
         });
     }
 
