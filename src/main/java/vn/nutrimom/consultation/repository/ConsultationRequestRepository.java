@@ -1,6 +1,7 @@
 package vn.nutrimom.consultation.repository;
 
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,6 +27,9 @@ public interface ConsultationRequestRepository
             Specialty specialty, AssignmentType assignmentType, ConsultationStatus status);
 
     List<ConsultationRequestEntity> findByStatusOrderByCreatedAtDesc(ConsultationStatus status);
+
+    /** Yêu cầu gắn với các ô đã đặt, để hiện tên khách trên lịch làm việc của chuyên gia. */
+    List<ConsultationRequestEntity> findBySlotIdIn(Collection<String> slotIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select request from ConsultationRequestEntity request where request.id = :id")

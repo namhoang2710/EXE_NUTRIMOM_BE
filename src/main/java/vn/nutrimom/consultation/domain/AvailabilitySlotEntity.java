@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -16,11 +17,15 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
- * Một khung giờ trống mà chuyên gia mở cho user đặt lịch. Unique
- * {@code (expert_user_id, slot_date, start_time)} chống trùng slot ở tầng DB.
+ * Một ô đã bị chiếm trong lưới giờ của chuyên gia: {@code BOOKED} khi user đặt,
+ * {@code CLOSED} khi chuyên gia tự đóng. Không có dòng nghĩa là ô còn trống — lưới mặc định
+ * xem {@link SlotGrid}. Unique {@code (expert_user_id, slot_date, start_time)} là chốt chặn ở
+ * tầng DB cho cả hai trường hợp: đặt trùng và đóng trùng.
  */
 @Entity
-@Table(name = "consultation_slots", schema = "app")
+@Table(name = "consultation_slots", schema = "app",
+        uniqueConstraints = @UniqueConstraint(name = "ux_consultation_slots_expert_date_start",
+                columnNames = {"expert_user_id", "slot_date", "start_time"}))
 public class AvailabilitySlotEntity {
     @Id
     @Column(name = "id", nullable = false, length = 36)
@@ -40,7 +45,7 @@ public class AvailabilitySlotEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private SlotStatus status = SlotStatus.OPEN;
+    private SlotStatus status;
 
     @Version
     @Column(name = "version", nullable = false)

@@ -44,7 +44,7 @@ public class ConsultationRequestController {
     }
 
     @PostMapping
-    @Operation(summary = "Tạo yêu cầu tư vấn (DIRECT: chọn chuyên gia + slot; RANDOM: chọn chuyên khoa)")
+    @Operation(summary = "Tạo yêu cầu tư vấn (DIRECT: chọn chuyên gia + slot_date + start_time; RANDOM: chọn chuyên khoa)")
     public ResponseEntity<ApiResponse<ConsultationRequestResponse>> create(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateConsultationRequest request) {

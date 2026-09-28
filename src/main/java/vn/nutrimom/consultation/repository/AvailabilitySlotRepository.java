@@ -2,6 +2,7 @@ package vn.nutrimom.consultation.repository;
 
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,31 +10,45 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.nutrimom.consultation.domain.AvailabilitySlotEntity;
-import vn.nutrimom.consultation.domain.SlotStatus;
 
 public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySlotEntity, String> {
 
+    /** Các ô đã bị chiếm trong một ngày (BOOKED hoặc CLOSED). */
     List<AvailabilitySlotEntity> findByExpertUserIdAndSlotDateOrderByStartTimeAsc(
             String expertUserId, LocalDate slotDate);
 
-    /** Lọc slot của chuyên gia theo khoảng ngày và/hoặc trạng thái (mọi tham số đều tùy chọn). */
+    /** Các ô đã bị chiếm trong một khoảng ngày, dùng cho bảng tổng hợp theo ngày. */
+    List<AvailabilitySlotEntity> findByExpertUserIdAndSlotDateBetweenOrderBySlotDateAscStartTimeAsc(
+            String expertUserId, LocalDate from, LocalDate to);
+
+    /**
+     * Khóa ghi mọi ô đã bị chiếm của chuyên gia trong một ngày.
+     *
+     * <p>Cố ý <strong>không</strong> lọc {@code startTime} trong mệnh đề WHERE: driver SQL
+     * Server mặc định {@code sendTimeAsDatetime=true} nên tham số {@code LocalTime} được gửi
+     * dưới dạng {@code datetime}, và SQL Server từ chối so sánh {@code time = datetime}
+     * (lỗi 402). Lọc mốc giờ trong bộ nhớ ở {@link #findForUpdate} thay vì vậy — tối đa 24
+     * dòng một ngày nên không đáng kể.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select slot from AvailabilitySlotEntity slot
             where slot.expertUserId = :expertUserId
-              and (:from is null or slot.slotDate >= :from)
-              and (:to is null or slot.slotDate <= :to)
-              and (:status is null or slot.status = :status)
-            order by slot.slotDate asc, slot.startTime asc
+              and slot.slotDate = :slotDate
             """)
-    List<AvailabilitySlotEntity> search(
+    List<AvailabilitySlotEntity> lockDay(
             @Param("expertUserId") String expertUserId,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            @Param("status") SlotStatus status);
+            @Param("slotDate") LocalDate slotDate);
 
-    Optional<AvailabilitySlotEntity> findByIdAndExpertUserId(String id, String expertUserId);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select slot from AvailabilitySlotEntity slot where slot.id = :id")
-    Optional<AvailabilitySlotEntity> findByIdForUpdate(@Param("id") String id);
+    /**
+     * Khóa ghi ngày đó rồi lấy đúng ô cần đặt/đóng. Lưu ý: khóa bi quan không giữ được dòng
+     * chưa tồn tại, nên chốt chặn thật sự cho hai lượt đặt song song vẫn là unique index
+     * {@code ux_consultation_slots_expert_date_start}.
+     */
+    default Optional<AvailabilitySlotEntity> findForUpdate(
+            String expertUserId, LocalDate slotDate, LocalTime startTime) {
+        return lockDay(expertUserId, slotDate).stream()
+                .filter(slot -> startTime.equals(slot.getStartTime()))
+                .findFirst();
+    }
 }

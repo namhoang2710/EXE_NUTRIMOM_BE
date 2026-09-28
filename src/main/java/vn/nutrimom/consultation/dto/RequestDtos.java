@@ -1,6 +1,5 @@
 package vn.nutrimom.consultation.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -19,23 +18,26 @@ public final class RequestDtos {
     /**
      * User tạo yêu cầu tư vấn.
      * <ul>
-     *   <li>DIRECT: bắt buộc {@code expertUserId} + {@code slotId}.</li>
-     *   <li>RANDOM: bắt buộc {@code specialty}; không chọn slot.</li>
+     *   <li>DIRECT: bắt buộc {@code expertUserId} + {@code slotDate} + {@code startTime}.</li>
+     *   <li>RANDOM: bắt buộc {@code specialty}; không chọn khung giờ.</li>
      * </ul>
-     * Ràng buộc chéo được kiểm tra ở service.
+     * {@code startTime} phải là một mốc trong lưới mặc định ({@code SlotGrid}). Ràng buộc chéo
+     * được kiểm tra ở service.
      */
     public record CreateConsultationRequest(
             @NotNull(message = "Thiếu hình thức chọn chuyên gia (DIRECT/RANDOM).")
             AssignmentType assignmentType,
             String expertUserId,
-            String slotId,
+            LocalDate slotDate,
+            LocalTime startTime,
             Specialty specialty,
             @Size(max = 2000, message = "Ghi chú quá dài.") String note) {
     }
 
-    /** Chuyên gia nhận một yêu cầu RANDOM và xếp vào một slot trống của mình. */
+    /** Chuyên gia nhận một yêu cầu RANDOM và xếp vào một khung giờ còn trống của mình. */
     public record AcceptConsultationRequest(
-            @NotBlank(message = "Thiếu khung giờ để xếp lịch.") String slotId) {
+            @NotNull(message = "Thiếu ngày để xếp lịch.") LocalDate slotDate,
+            @NotNull(message = "Thiếu khung giờ để xếp lịch.") LocalTime startTime) {
     }
 
     /** Thông tin khung giờ gắn với yêu cầu (null khi chưa có lịch). */
