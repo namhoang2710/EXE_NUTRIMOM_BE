@@ -19,6 +19,10 @@ spring:
         enabled: false
 
 app:
+  notification:
+    # Base64 của 32 byte cố định — chỉ dùng cho test, không phải secret thật.
+    push-token-key: bnV0cmltb20tdGVzdC1wdXNoLXRva2VuLWtleS0zMmI=
+    push-enabled: true
   security:
     issuer: nutrimom-test
     jwt-secret: nutrimom-test-jwt-secret-with-at-least-thirty-two-characters
