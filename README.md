@@ -82,6 +82,15 @@ Tài khoản password demo khi `NUTRIMOM_DEMO_USER_ENABLED=true`:
 
 Chi tiết contract: [docs/AUTH_API.md](docs/AUTH_API.md).
 
+## Thông báo và activity feed
+
+Đăng ký push token (`POST /api/v1/devices`, token lưu mã hoá AES-256-GCM), hộp thông báo in-app
+phân trang bằng cursor, đánh dấu đã đọc idempotent và activity feed lọc theo quyền chia sẻ gia đình.
+Contract: [docs/NOTIFICATION_API.md](docs/NOTIFICATION_API.md).
+
+Cần biến môi trường `NUTRIMOM_PUSH_TOKEN_KEY` (base64 của 32 byte, sinh bằng `openssl rand -base64 32`);
+thiếu key thì ứng dụng không khởi động.
+
 ## Test và build
 
 ```powershell
