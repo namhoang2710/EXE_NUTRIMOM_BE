@@ -45,7 +45,7 @@ public class ConsultationRequestEntity {
     @Column(name = "status", nullable = false, length = 30)
     private ConsultationStatus status;
 
-    @Column(name = "note", columnDefinition = "nvarchar(max)")
+    @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
     @Column(name = "completed_at")

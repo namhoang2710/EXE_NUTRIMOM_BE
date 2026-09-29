@@ -42,10 +42,10 @@ public class MedicalRecordEntity {
     @Column(name = "clinician_name", length = 255)
     private String clinicianName;
 
-    @Column(name = "summary", columnDefinition = "nvarchar(max)")
+    @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
-    @Column(name = "note", columnDefinition = "nvarchar(max)")
+    @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
     @Column(name = "deleted_at")

@@ -169,10 +169,10 @@ class KnowledgeCmsIntegrationTest {
             migration = new String(resource.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
         try (var connection = java.sql.DriverManager.getConnection(
-                "jdbc:h2:mem:knowledge_v14_migration;MODE=MSSQLServer;DB_CLOSE_DELAY=-1");
+                "jdbc:h2:mem:knowledge_v14_migration;MODE=PostgreSQL;DB_CLOSE_DELAY=-1");
                 var statement = connection.createStatement()) {
             statement.execute("CREATE SCHEMA IF NOT EXISTS app");
-            statement.execute("CREATE TABLE app.knowledge_articles (id NVARCHAR(36) PRIMARY KEY)");
+            statement.execute("CREATE TABLE app.knowledge_articles (id VARCHAR(36) PRIMARY KEY)");
             statement.execute("INSERT INTO app.knowledge_articles (id) VALUES ('existing')");
             statement.execute(migration);
             try (var rows = statement.executeQuery("SELECT youtube_video_id FROM app.knowledge_articles WHERE id='existing'")) {

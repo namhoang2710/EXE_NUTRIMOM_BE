@@ -27,13 +27,13 @@ public class BirthPlanEntity {
     @Column(name = "preferred_facility", length = 255)
     private String preferredFacility;
 
-    @Column(name = "pain_management_note", columnDefinition = "nvarchar(max)")
+    @Column(name = "pain_management_note", columnDefinition = "TEXT")
     private String painManagementNote;
 
-    @Column(name = "newborn_care_note", columnDefinition = "nvarchar(max)")
+    @Column(name = "newborn_care_note", columnDefinition = "TEXT")
     private String newbornCareNote;
 
-    @Column(name = "free_text_note", columnDefinition = "nvarchar(max)")
+    @Column(name = "free_text_note", columnDefinition = "TEXT")
     private String freeTextNote;
 
     @Version

@@ -29,7 +29,7 @@ public class VerifiedGuidanceEntity {
     @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    @Column(name = "summary", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "summary", nullable = false, columnDefinition = "TEXT")
     private String summary;
 
     @Column(name = "source_name", nullable = false, length = 255)
@@ -50,7 +50,7 @@ public class VerifiedGuidanceEntity {
     @Column(name = "evidence_level", length = 50)
     private String evidenceLevel;
 
-    @Column(name = "disclaimer", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "disclaimer", nullable = false, columnDefinition = "TEXT")
     private String disclaimer;
 
     @Column(name = "created_at", nullable = false)

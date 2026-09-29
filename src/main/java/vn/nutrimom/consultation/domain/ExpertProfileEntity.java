@@ -40,7 +40,7 @@ public class ExpertProfileEntity {
     @Column(name = "years_of_experience", nullable = false)
     private int yearsOfExperience;
 
-    @Column(name = "bio", columnDefinition = "nvarchar(max)")
+    @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
 
     @Column(name = "avatar_key", length = 200)

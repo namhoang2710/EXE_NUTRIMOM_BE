@@ -31,7 +31,7 @@ public class ContactRequestEntity {
     @Column(name = "topic", nullable = false, length = 20)
     private ContactTopic topic;
 
-    @Column(name = "message", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
     @Enumerated(EnumType.STRING)
