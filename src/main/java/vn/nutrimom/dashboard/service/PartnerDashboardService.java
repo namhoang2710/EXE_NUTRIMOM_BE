@@ -23,6 +23,7 @@ import vn.nutrimom.family.domain.FamilyScope;
 import vn.nutrimom.family.repository.FamilyGroupRepository;
 import vn.nutrimom.family.repository.FamilyMemberRepository;
 import vn.nutrimom.family.repository.FamilyTaskRepository;
+import vn.nutrimom.notification.service.ActivityFeedService;
 import vn.nutrimom.pregnancy.domain.PregnancyEntity;
 import vn.nutrimom.pregnancy.domain.PregnancyCalculationSource;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
@@ -34,17 +35,23 @@ public class PartnerDashboardService {
     private final FamilyGroupRepository groups;
     private final FamilyTaskRepository tasks;
     private final PregnancyRepository pregnancies;
+    private final ActivityFeedService activityFeed;
+
+    /** Số dòng activity hiển thị trên dashboard partner; đủ cho một block ngắn, không phải feed đầy đủ. */
+    private static final int ACTIVITY_FEED_LIMIT = 20;
 
     public PartnerDashboardService(UserRepository users,
                                    FamilyMemberRepository members,
                                    FamilyGroupRepository groups,
                                    FamilyTaskRepository tasks,
-                                   PregnancyRepository pregnancies) {
+                                   PregnancyRepository pregnancies,
+                                   ActivityFeedService activityFeed) {
         this.users = users;
         this.members = members;
         this.groups = groups;
         this.tasks = tasks;
         this.pregnancies = pregnancies;
+        this.activityFeed = activityFeed;
     }
 
     @Transactional(readOnly = true)
@@ -68,7 +75,7 @@ public class PartnerDashboardService {
                 member.getScopes().contains(FamilyScope.ALERTS)
                         ? List.of() : null,
                 member.getScopes().contains(FamilyScope.ACTIVITY_FEED)
-                        ? List.of() : null);
+                        ? activityFeed.forPregnancy(pregnancy.getId(), ACTIVITY_FEED_LIMIT) : null);
     }
 
     private MembershipContext resolveMembership(String userId) {

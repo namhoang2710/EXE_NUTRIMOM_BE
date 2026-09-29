@@ -20,6 +20,11 @@ import vn.nutrimom.family.dto.FamilyTaskResponse;
 import vn.nutrimom.family.dto.UpdateFamilyTaskRequest;
 import vn.nutrimom.family.repository.FamilyMemberRepository;
 import vn.nutrimom.family.repository.FamilyTaskRepository;
+import vn.nutrimom.notification.domain.ActivityType;
+import vn.nutrimom.notification.domain.ActivityVisibility;
+import vn.nutrimom.notification.domain.NotificationType;
+import vn.nutrimom.notification.service.ActivityFeedService;
+import vn.nutrimom.notification.service.NotificationService;
 
 @Service
 public class FamilyTaskService {
@@ -27,15 +32,21 @@ public class FamilyTaskService {
     private final FamilyGroupService groupService;
     private final FamilyMemberRepository members;
     private final AccessGuard guard;
+    private final NotificationService notifications;
+    private final ActivityFeedService activityFeed;
 
     public FamilyTaskService(FamilyTaskRepository tasks,
                              FamilyGroupService groupService,
                              FamilyMemberRepository members,
-                             AccessGuard guard) {
+                             AccessGuard guard,
+                             NotificationService notifications,
+                             ActivityFeedService activityFeed) {
         this.tasks = tasks;
         this.groupService = groupService;
         this.members = members;
         this.guard = guard;
+        this.notifications = notifications;
+        this.activityFeed = activityFeed;
     }
 
     @Transactional(readOnly = true)
@@ -61,7 +72,42 @@ public class FamilyTaskService {
         task.setAssigneeId(resolveAssignee(group, request.assigneeId()));
         task.setStatus(FamilyTaskStatus.TODO);
         tasks.saveAndFlush(task);
+        announceAssignment(group, task, null, userId);
         return toResponse(task);
+    }
+
+    /**
+     * Báo cho người được giao việc và ghi một dòng activity chung của nhóm (task 18).
+     *
+     * <p>Chỉ báo khi người được giao thực sự đổi, nên gọi được từ cả lúc tạo ({@code previousAssigneeId}
+     * null) lẫn lúc giao lại; sửa tiêu đề hay hạn chót mà không đổi người thì không làm phiền ai.</p>
+     *
+     * <p>{@code assigneeId} là id của bản ghi family_member, không phải user id, nên phải tra ngược
+     * để biết gửi thông báo cho tài khoản nào. Tự giao việc cho mình thì bỏ qua — không ai cần được
+     * báo về thao tác vừa tự làm.</p>
+     *
+     * <p>Activity ở mức {@link ActivityVisibility#FAMILY}: việc nhà là thông tin chung của nhóm,
+     * không phải dữ liệu y tế. Tiêu đề vẫn chỉ nói "được giao một việc mới", không kèm tiêu đề việc
+     * do người dùng tự nhập.</p>
+     */
+    private void announceAssignment(FamilyGroupEntity group, FamilyTaskEntity task,
+                                    String previousAssigneeId, String actorUserId) {
+        if (task.getAssigneeId() == null || task.getAssigneeId().equals(previousAssigneeId)) {
+            return;
+        }
+        String assigneeUserId = members.findById(task.getAssigneeId())
+                .map(FamilyMemberEntity::getUserId)
+                .orElse(null);
+        if (assigneeUserId == null || assigneeUserId.equals(actorUserId)) {
+            return;
+        }
+        notifications.publish(assigneeUserId, NotificationType.FAMILY,
+                "Bạn được giao một việc mới",
+                "Một thành viên trong nhóm gia đình vừa giao cho bạn một việc. Mở ứng dụng để xem.",
+                "nutrimom://family/tasks/" + task.getId(), "FAMILY_TASK", task.getId());
+        activityFeed.record(group.getOwnerUserId(), actorUserId, group.getPregnancyId(),
+                ActivityType.FAMILY_TASK_ASSIGNED, "Một việc mới đã được giao trong nhóm gia đình",
+                ActivityVisibility.FAMILY);
     }
 
     @Transactional
@@ -75,6 +121,9 @@ public class FamilyTaskService {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT,
                     "Family task was updated elsewhere. Reload and try again.");
         }
+        // Ghi lại trước khi sửa để biết có thực sự đổi người phụ trách / trạng thái hay không.
+        String previousAssigneeId = task.getAssigneeId();
+        FamilyTaskStatus previousStatus = task.getStatus();
         if (request.title() != null) {
             task.setTitle(request.title().trim());
         }
@@ -94,7 +143,34 @@ public class FamilyTaskService {
             task.setStatus(request.status());
         }
         tasks.saveAndFlush(task);
+        announceAssignment(group, task, previousAssigneeId, userId);
+        announceCompletion(group, task, previousStatus, userId);
         return toResponse(task);
+    }
+
+    /**
+     * Việc chuyển sang {@link FamilyTaskStatus#COMPLETED} thì báo cho chủ nhóm — mẹ bầu là người
+     * cần biết việc nhà đã xong mà không phải tự vào kiểm tra.
+     *
+     * <p>Chỉ bắn ở lần đổi trạng thái đầu tiên: sửa tiếp một việc đã COMPLETED (đổi tiêu đề, hạn
+     * chót) không được bắn lại. Chủ nhóm tự bấm hoàn thành thì cũng không tự báo mình, nhưng dòng
+     * activity vẫn ghi để cả nhóm thấy.</p>
+     */
+    private void announceCompletion(FamilyGroupEntity group, FamilyTaskEntity task,
+                                    FamilyTaskStatus previousStatus, String actorUserId) {
+        if (task.getStatus() != FamilyTaskStatus.COMPLETED
+                || previousStatus == FamilyTaskStatus.COMPLETED) {
+            return;
+        }
+        if (!group.getOwnerUserId().equals(actorUserId)) {
+            notifications.publish(group.getOwnerUserId(), NotificationType.FAMILY,
+                    "Một việc trong nhóm đã hoàn thành",
+                    "Một thành viên vừa đánh dấu hoàn thành một việc trong nhóm gia đình.",
+                    "nutrimom://family/tasks/" + task.getId(), "FAMILY_TASK", task.getId());
+        }
+        activityFeed.record(group.getOwnerUserId(), actorUserId, group.getPregnancyId(),
+                ActivityType.FAMILY_TASK_COMPLETED, "Một việc trong nhóm gia đình đã hoàn thành",
+                ActivityVisibility.FAMILY);
     }
 
     @Transactional

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -34,10 +35,22 @@ import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
 import vn.nutrimom.consultation.repository.ExpertDayOffRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
+import vn.nutrimom.notification.domain.ActivityType;
+import vn.nutrimom.notification.domain.ActivityVisibility;
+import vn.nutrimom.notification.domain.NotificationType;
+import vn.nutrimom.notification.service.ActivityFeedService;
+import vn.nutrimom.notification.service.NotificationService;
 
 /** Tạo/theo dõi yêu cầu tư vấn (user) và tiếp nhận/hoàn thành (chuyên gia). */
 @Service
 public class ConsultationRequestService {
+    /** Nguồn của thông báo, để app tra ngược về yêu cầu tư vấn. */
+    private static final String CONSULTATION_SOURCE = "CONSULTATION";
+    /** Deep link vào console chuyên gia; khác màn hình user nên không dùng chung link. */
+    private static final String EXPERT_INBOX_LINK = "nutrimom://expert/consultations";
+    private static final DateTimeFormatter APPOINTMENT_DATE =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     /** Sắp xếp theo giờ hẹn tăng dần; yêu cầu chưa có slot xếp cuối. */
     private static final Comparator<ConsultationRequestResponse> BY_APPOINTMENT =
             Comparator.comparing(
@@ -53,6 +66,8 @@ public class ConsultationRequestService {
     private final UserRepository users;
     private final AccessGuard guard;
     private final Clock clock;
+    private final NotificationService notifications;
+    private final ActivityFeedService activityFeed;
 
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
@@ -61,7 +76,9 @@ public class ConsultationRequestService {
                                       ConsultationReviewRepository reviews,
                                       UserRepository users,
                                       AccessGuard guard,
-                                      Clock clock) {
+                                      Clock clock,
+                                      NotificationService notifications,
+                                      ActivityFeedService activityFeed) {
         this.requests = requests;
         this.slots = slots;
         this.dayOffs = dayOffs;
@@ -70,6 +87,8 @@ public class ConsultationRequestService {
         this.users = users;
         this.guard = guard;
         this.clock = clock;
+        this.notifications = notifications;
+        this.activityFeed = activityFeed;
     }
 
     // ----- User -----
@@ -81,16 +100,50 @@ public class ConsultationRequestService {
         entity.setAssignmentType(request.assignmentType());
         entity.setNote(request.note());
 
+        AvailabilitySlotEntity bookedSlot = null;
         if (request.assignmentType() == AssignmentType.DIRECT) {
-            createDirect(entity, request);
+            bookedSlot = createDirect(entity, request);
         } else {
             createRandom(entity, request);
         }
         requests.saveAndFlush(entity);
+
+        if (bookedSlot != null) {
+            // DIRECT: user đã chọn sẵn chuyên gia và khung giờ, nên người cần biết là chuyên gia.
+            notifyExpert(entity.getExpertUserId(), entity, "Bạn có lịch tư vấn mới",
+                    "Một người dùng vừa đặt lịch tư vấn với bạn lúc "
+                            + appointmentLabel(bookedSlot) + ".");
+        } else {
+            broadcastPendingRequest(entity);
+        }
         return toResponse(entity, userId);
     }
 
-    private void createDirect(ConsultationRequestEntity entity, CreateConsultationRequest request) {
+    /**
+     * Yêu cầu RANDOM chưa có chủ nên phát cho mọi chuyên gia ACTIVE cùng chuyên khoa, ai rảnh thì
+     * nhận trước (mô hình broadcast + claim).
+     *
+     * <p>Bỏ qua chính người đặt nếu họ cũng là chuyên gia — {@link #accept} vốn đã cấm tự nhận
+     * yêu cầu của mình, báo cho họ chỉ tạo thông báo không bấm được.</p>
+     *
+     * <p>Không nhắc chuyên khoa hay nội dung ghi chú trong body: thông báo này chỉ tới đúng các
+     * chuyên gia thuộc chuyên khoa đó nên họ đã biết, còn ghi chú là thông tin sức khoẻ của user.</p>
+     */
+    private void broadcastPendingRequest(ConsultationRequestEntity entity) {
+        experts.findByStatusAndSpecialtyOrderByFullNameAsc(ExpertStatus.ACTIVE, entity.getSpecialty())
+                .stream()
+                .map(ExpertProfileEntity::getUserId)
+                .filter(expertUserId -> !expertUserId.equals(entity.getUserId()))
+                .forEach(expertUserId -> notifications.publish(expertUserId,
+                        NotificationType.CONSULTATION,
+                        "Có yêu cầu tư vấn mới đang chờ",
+                        "Một yêu cầu tư vấn thuộc chuyên khoa của bạn đang chờ được tiếp nhận.",
+                        EXPERT_INBOX_LINK, CONSULTATION_SOURCE, entity.getId()));
+    }
+
+    /** Trả về khung giờ vừa giữ, để người gọi dựng được thông báo có mốc hẹn cụ thể. */
+    private AvailabilitySlotEntity createDirect(ConsultationRequestEntity entity,
+                                                CreateConsultationRequest request) {
         if (request.expertUserId() == null || request.expertUserId().isBlank()
                 || request.slotDate() == null || request.startTime() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
@@ -115,6 +168,7 @@ public class ConsultationRequestService {
         entity.setSpecialty(expert.getSpecialty());
         entity.setSlotId(slot.getId());
         entity.setStatus(ConsultationStatus.PENDING_CONSULTATION);
+        return slot;
     }
 
     private void createRandom(ConsultationRequestEntity entity, CreateConsultationRequest request) {
@@ -152,11 +206,51 @@ public class ConsultationRequestService {
                     "Yêu cầu này không thể hủy.");
         }
         String slotId = entity.getSlotId();
+        String assignedExpert = entity.getExpertUserId();
         entity.setSlotId(null);
         entity.setStatus(ConsultationStatus.CANCELLED);
         requests.saveAndFlush(entity);
         releaseSlot(slotId);
+        // Chỉ báo khi đã có chuyên gia nhận. Yêu cầu RANDOM còn PENDING_EXPERT thì chưa chuyên gia
+        // nào nhận nó, nên không có ai để báo — các chuyên gia khác chỉ thấy nó biến khỏi hàng chờ.
+        if (assignedExpert != null) {
+            notifyExpert(assignedExpert, entity, "Một buổi tư vấn đã bị huỷ",
+                    "Người dùng đã huỷ yêu cầu tư vấn. Khung giờ tương ứng đã được mở lại.");
+            recordActivity(entity, userId,
+                    ActivityType.CONSULTATION_CANCELLED, "Yêu cầu tư vấn đã được huỷ");
+        }
         return toResponse(entity, userId);
+    }
+
+    /** Thông báo cho người đặt; deep link vào màn hình yêu cầu tư vấn phía user. */
+    private void notifyUser(ConsultationRequestEntity entity, String title, String body) {
+        notifications.publish(entity.getUserId(), NotificationType.CONSULTATION, title, body,
+                "nutrimom://consultations/" + entity.getId(), CONSULTATION_SOURCE, entity.getId());
+    }
+
+    /** Thông báo cho chuyên gia; deep link vào console của chuyên gia, không phải màn hình user. */
+    private void notifyExpert(String expertUserId, ConsultationRequestEntity entity,
+                              String title, String body) {
+        notifications.publish(expertUserId, NotificationType.CONSULTATION, title, body,
+                EXPERT_INBOX_LINK + "/" + entity.getId(), CONSULTATION_SOURCE, entity.getId());
+    }
+
+    /**
+     * Ghi một dòng activity cho yêu cầu tư vấn.
+     *
+     * <p>Luôn {@link ActivityVisibility#OWNER_ONLY}: việc mẹ bầu đi tư vấn chuyên khoa nào là thông
+     * tin y tế, không đẩy sang feed chung của nhóm gia đình. {@code title} vì thế cũng chỉ mô tả
+     * trạng thái, không kèm chuyên khoa hay nội dung câu hỏi.</p>
+     */
+    private void recordActivity(ConsultationRequestEntity entity, String actorUserId,
+                                ActivityType activityType, String title) {
+        activityFeed.record(entity.getUserId(), actorUserId, null,
+                activityType, title, ActivityVisibility.OWNER_ONLY);
+    }
+
+    /** Mốc hẹn dạng người đọc được, vd "09:00 ngày 02/10/2026". */
+    private static String appointmentLabel(AvailabilitySlotEntity slot) {
+        return slot.getStartTime() + " ngày " + slot.getSlotDate().format(APPOINTMENT_DATE);
     }
 
     // ----- Expert -----
@@ -247,6 +341,13 @@ public class ConsultationRequestService {
         entity.setSlotId(slot.getId());
         entity.setStatus(ConsultationStatus.PENDING_CONSULTATION);
         requests.saveAndFlush(entity);
+        // Khung giờ do chuyên gia chọn chứ không phải user, nên thông báo phải nói thẳng mốc hẹn —
+        // bắt user mở app mới biết mình hẹn lúc nào là cách chắc chắn để họ lỡ buổi tư vấn.
+        notifyUser(entity, "Chuyên gia đã tiếp nhận yêu cầu tư vấn",
+                "Buổi tư vấn của bạn được xếp lúc " + appointmentLabel(slot)
+                        + ". Vui lòng có mặt đúng giờ.");
+        recordActivity(entity, expertUserId,
+                ActivityType.CONSULTATION_ACCEPTED, "Chuyên gia đã tiếp nhận yêu cầu tư vấn");
         return toResponse(entity, null);
     }
 
@@ -266,6 +367,10 @@ public class ConsultationRequestService {
         entity.setStatus(ConsultationStatus.COMPLETED);
         entity.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         requests.saveAndFlush(entity);
+        notifyUser(entity, "Buổi tư vấn đã hoàn tất",
+                "Buổi tư vấn của bạn đã kết thúc. Hãy dành ít phút đánh giá chuyên gia nhé.");
+        recordActivity(entity, expertUserId,
+                ActivityType.CONSULTATION_COMPLETED, "Buổi tư vấn đã hoàn tất");
         return toResponse(entity, null);
     }
 
