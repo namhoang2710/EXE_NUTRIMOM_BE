@@ -34,7 +34,7 @@ public class ExpertController {
     }
 
     @GetMapping
-    @Operation(summary = "Danh sách chuyên gia đang hoạt động, lọc theo chuyên khoa")
+    @Operation(summary = "Danh sách chuyên gia đang hoạt động, lọc theo chuyên khoa", security = {})
     public ApiResponse<List<ExpertSummaryResponse>> list(
             @RequestParam(required = false) Specialty specialty) {
         return ApiResponses.success(service.list(specialty));

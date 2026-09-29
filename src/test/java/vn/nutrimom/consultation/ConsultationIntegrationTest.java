@@ -47,6 +47,26 @@ class ConsultationIntegrationTest {
     @Autowired UserRepository users;
 
     @Test
+    void anonymousCanListExpertsButProtectedConsultationEndpointsStillRequireAuthentication()
+            throws Exception {
+        String expertId = createExpert("0912000091", "HEALTH", "BS Public");
+
+        mockMvc.perform(get("/api/v1/experts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].user_id").value(expertId));
+
+        mockMvc.perform(get("/api/v1/experts/{id}", expertId))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/experts/{id}/availability", expertId)
+                        .param("date", daysFromToday(1).toString()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/consultation-requests/{id}/review", "request-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":5}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void adminCreatesExpertThenUserDiscoversAndSeesSpecialties() throws Exception {
         String expertId = createExpert("0912000001", "PSYCHOLOGY", "BS Tam Ly");
         String userId = createUserAccount("0912000002", "Mom A");
