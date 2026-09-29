@@ -32,7 +32,7 @@ public class ConsultationReviewEntity {
     @Column(name = "rating", nullable = false)
     private short rating;
 
-    @Column(name = "comment", columnDefinition = "nvarchar(max)")
+    @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
     @Column(name = "created_at", nullable = false)

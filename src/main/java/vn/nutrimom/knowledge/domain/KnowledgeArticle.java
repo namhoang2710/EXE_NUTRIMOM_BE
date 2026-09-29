@@ -28,7 +28,7 @@ public class KnowledgeArticle {
  private String sourceLabel;
  @Column(name="source_href", length=2048)
  private String sourceHref;
- @Column(name="lead", columnDefinition="nvarchar(max)")
+ @Column(name="lead", columnDefinition="TEXT")
  private String lead;
  @Column(name="youtube_video_id", length=11)
  private String youtubeVideoId;

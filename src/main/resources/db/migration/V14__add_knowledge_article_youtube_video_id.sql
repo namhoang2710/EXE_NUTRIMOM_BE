@@ -1,1 +1,2 @@
-ALTER TABLE app.knowledge_articles ADD youtube_video_id NVARCHAR(11) NULL;
+ALTER TABLE app.knowledge_articles ADD COLUMN youtube_video_id VARCHAR(11) NULL;
+

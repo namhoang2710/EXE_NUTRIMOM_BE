@@ -38,7 +38,7 @@ public class FamilyMemberEntity {
     private FamilyMembershipRole membershipRole;
 
     @Convert(converter = FamilyScopeSetConverter.class)
-    @Column(name = "scopes", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "scopes", nullable = false, columnDefinition = "TEXT")
     private Set<FamilyScope> scopes = EnumSet.noneOf(FamilyScope.class);
 
     @Enumerated(EnumType.STRING)

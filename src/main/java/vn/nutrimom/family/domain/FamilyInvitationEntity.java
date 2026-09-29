@@ -30,8 +30,7 @@ public class FamilyInvitationEntity {
     @Column(name = "invited_email", length = 255)
     private String invitedEmail;
 
-    @Column(name = "token_hash", nullable = false, length = 64,
-            columnDefinition = "char(64)")
+    @Column(name = "token_hash", nullable = false, length = 64)
     private String tokenHash;
 
     @Enumerated(EnumType.STRING)
@@ -39,7 +38,7 @@ public class FamilyInvitationEntity {
     private FamilyRelationship relationship;
 
     @Convert(converter = FamilyScopeSetConverter.class)
-    @Column(name = "scopes", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "scopes", nullable = false, columnDefinition = "TEXT")
     private Set<FamilyScope> scopes = EnumSet.noneOf(FamilyScope.class);
 
     @Column(name = "expires_at", nullable = false)

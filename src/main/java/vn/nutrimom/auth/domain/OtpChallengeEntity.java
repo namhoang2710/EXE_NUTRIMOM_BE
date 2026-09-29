@@ -16,7 +16,7 @@ public class OtpChallengeEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose", nullable = false, length = 20)
     private OtpPurpose purpose;
-    @Column(name = "code_hash", nullable = false, length = 64, columnDefinition = "CHAR(64)")
+    @Column(name = "code_hash", nullable = false, length = 64)
     private String codeHash;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -27,7 +27,7 @@ public class OtpChallengeEntity {
     private int maxAttempts;
     @Column(name = "device_id", length = 100)
     private String deviceId;
-    @Column(name = "request_ip_hash", length = 64, columnDefinition = "CHAR(64)")
+    @Column(name = "request_ip_hash", length = 64)
     private String requestIpHash;
     @Column(name = "terms_accepted", nullable = false)
     private boolean termsAccepted;

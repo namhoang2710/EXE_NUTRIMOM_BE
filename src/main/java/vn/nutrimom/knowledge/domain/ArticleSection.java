@@ -13,9 +13,9 @@ public class ArticleSection {
  private ArticleMedia media;
  @Column(name="heading", length=300, nullable=false)
  private String heading;
- @Column(name="paragraphs", columnDefinition="nvarchar(max)", nullable=false)
+ @Column(name="paragraphs", columnDefinition="TEXT", nullable=false)
  private String paragraphs;
- @Column(name="bullets", columnDefinition="nvarchar(max)", nullable=false)
+ @Column(name="bullets", columnDefinition="TEXT", nullable=false)
  private String bullets;
  @Column(name="image_url", length=2048)
  private String imageUrl;

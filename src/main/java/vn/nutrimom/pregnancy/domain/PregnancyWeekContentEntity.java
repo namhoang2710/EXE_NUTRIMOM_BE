@@ -19,25 +19,25 @@ public class PregnancyWeekContentEntity {
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
-    @Column(name = "summary", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "summary", nullable = false, columnDefinition = "TEXT")
     private String summary;
 
-    @Column(name = "baby_development", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "baby_development", nullable = false, columnDefinition = "TEXT")
     private String babyDevelopment;
 
-    @Column(name = "mother_changes", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "mother_changes", nullable = false, columnDefinition = "TEXT")
     private String motherChanges;
 
-    @Column(name = "care_tips", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "care_tips", nullable = false, columnDefinition = "TEXT")
     private String careTips;
 
-    @Column(name = "warning_signs", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "warning_signs", nullable = false, columnDefinition = "TEXT")
     private String warningSigns;
 
-    @Column(name = "sources", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "sources", nullable = false, columnDefinition = "TEXT")
     private String sources;
 
-    @Column(name = "disclaimer", nullable = false, columnDefinition = "nvarchar(max)")
+    @Column(name = "disclaimer", nullable = false, columnDefinition = "TEXT")
     private String disclaimer;
 
     @Column(name = "review_status", nullable = false, length = 20)
