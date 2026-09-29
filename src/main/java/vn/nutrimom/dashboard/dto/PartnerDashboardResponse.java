@@ -2,6 +2,7 @@ package vn.nutrimom.dashboard.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import vn.nutrimom.notification.dto.NotificationDtos.ActivityEventResponse;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PartnerDashboardResponse(
@@ -10,4 +11,4 @@ public record PartnerDashboardResponse(
         List<FamilyTaskResponse> assignedTasks,
         List<Object> sharedCalendar,
         List<Object> allowedAlerts,
-        List<Object> activityFeed) { }
+        List<ActivityEventResponse> activityFeed) { }

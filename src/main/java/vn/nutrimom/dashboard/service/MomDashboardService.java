@@ -11,6 +11,7 @@ import vn.nutrimom.dashboard.dto.BabySummaryResponse;
 import vn.nutrimom.dashboard.dto.MomDashboardResponse;
 import vn.nutrimom.dashboard.dto.PregnancySummaryResponse;
 import vn.nutrimom.dashboard.dto.ProfileSummaryResponse;
+import vn.nutrimom.notification.service.NotificationService;
 import vn.nutrimom.pregnancy.dto.PregnancyResponse;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
 import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
@@ -27,17 +28,20 @@ public class MomDashboardService {
     private final PregnancyRepository pregnancies;
     private final PregnancyWeekContentRepository weekContents;
     private final CarePlanService carePlans;
+    private final NotificationService notifications;
 
     public MomDashboardService(UserProfileService profiles,
                                PregnancyService pregnancyService,
                                PregnancyRepository pregnancies,
                                PregnancyWeekContentRepository weekContents,
-                               CarePlanService carePlans) {
+                               CarePlanService carePlans,
+                               NotificationService notifications) {
         this.profiles = profiles;
         this.pregnancyService = pregnancyService;
         this.pregnancies = pregnancies;
         this.weekContents = weekContents;
         this.carePlans = carePlans;
+        this.notifications = notifications;
     }
 
     @Transactional(readOnly = true)
@@ -75,13 +79,14 @@ public class MomDashboardService {
                 List.of(),
                 null,
                 null,
-                0);
+                notifications.unreadCount(profile.id()));
     }
 
     private MomDashboardResponse noPregnancyDashboard(UserProfileResponse profile) {
         return new MomDashboardResponse(
                 profileSummary(profile), null, null, null, null, null,
-                List.of(), List.of(), List.of(), null, null, 0);
+                List.of(), List.of(), List.of(), null, null,
+                notifications.unreadCount(profile.id()));
     }
 
     private ProfileSummaryResponse profileSummary(UserProfileResponse profile) {

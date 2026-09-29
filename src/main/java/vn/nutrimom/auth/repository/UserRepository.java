@@ -69,6 +69,18 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
             """)
     Optional<UserEntity> findByIdWithRoles(@Param("id") String id);
 
+    /**
+     * Id của mọi tài khoản đang hoạt động mang một vai trò. Dùng khi phải phát thông báo cho cả một
+     * vai trò thay vì một người cụ thể (vd hộp thư hỗ trợ báo cho toàn bộ ADMIN).
+     */
+    @Query("""
+            select user.id
+            from UserEntity user
+            where :role member of user.roles and user.status = :status
+            """)
+    List<String> findIdsByRoleAndStatus(@Param("role") UserRole role,
+                                        @Param("status") UserStatus status);
+
     long countByStatus(UserStatus status);
 
     long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(

@@ -23,6 +23,11 @@ import vn.nutrimom.contact.dto.ContactDtos.AdminContactSummary;
 import vn.nutrimom.contact.dto.ContactDtos.ContactPage;
 import vn.nutrimom.contact.dto.ContactDtos.ContactUserInfo;
 import vn.nutrimom.contact.repository.ContactRequestRepository;
+import vn.nutrimom.notification.domain.ActivityType;
+import vn.nutrimom.notification.domain.ActivityVisibility;
+import vn.nutrimom.notification.domain.NotificationType;
+import vn.nutrimom.notification.service.ActivityFeedService;
+import vn.nutrimom.notification.service.NotificationService;
 
 /** Admin duyệt hộp thư hỗ trợ: xem thông tin user để gọi điện, rồi đánh dấu hoàn tất. */
 @Service
@@ -32,10 +37,15 @@ public class AdminContactService {
 
     private final ContactRequestRepository requests;
     private final UserRepository users;
+    private final NotificationService notifications;
+    private final ActivityFeedService activityFeed;
 
-    public AdminContactService(ContactRequestRepository requests, UserRepository users) {
+    public AdminContactService(ContactRequestRepository requests, UserRepository users,
+                               NotificationService notifications, ActivityFeedService activityFeed) {
         this.requests = requests;
         this.users = users;
+        this.notifications = notifications;
+        this.activityFeed = activityFeed;
     }
 
     /**
@@ -76,7 +86,17 @@ public class AdminContactService {
         entity.setStatus(ContactRequestStatus.COMPLETED);
         entity.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         entity.setCompletedBy(adminUserId);
-        return toDetail(requests.saveAndFlush(entity));
+        requests.saveAndFlush(entity);
+        // Báo cho người gửi biết đã được xử lý (task 18). Không nhắc lại nội dung thắc mắc trong
+        // body vì thông báo có thể hiện trên màn hình khoá.
+        notifications.publish(entity.getUserId(), NotificationType.CONTACT,
+                "Yêu cầu hỗ trợ đã được xử lý",
+                "Đội hỗ trợ đã hoàn tất yêu cầu của bạn. Mở ứng dụng để xem lại.",
+                "nutrimom://contact-requests/" + entity.getId(), "CONTACT_REQUEST", entity.getId());
+        activityFeed.record(entity.getUserId(), adminUserId, null,
+                ActivityType.CONTACT_COMPLETED, "Yêu cầu hỗ trợ đã được xử lý",
+                ActivityVisibility.OWNER_ONLY);
+        return toDetail(entity);
     }
 
     private AdminContactDetail toDetail(ContactRequestEntity entity) {

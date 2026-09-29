@@ -14,7 +14,12 @@ import vn.nutrimom.contact.domain.ContactRequestStatus;
 import vn.nutrimom.contact.dto.ContactDtos.ContactPage;
 import vn.nutrimom.contact.dto.ContactDtos.ContactRequestResponse;
 import vn.nutrimom.contact.dto.ContactDtos.CreateContactRequest;
+import vn.nutrimom.auth.domain.UserRole;
+import vn.nutrimom.auth.domain.UserStatus;
+import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.contact.repository.ContactRequestRepository;
+import vn.nutrimom.notification.domain.NotificationType;
+import vn.nutrimom.notification.service.NotificationService;
 
 /** User gửi, theo dõi và huỷ yêu cầu hỗ trợ của chính mình. */
 @Service
@@ -25,10 +30,15 @@ public class ContactRequestService {
 
     private final ContactRequestRepository requests;
     private final AccessGuard guard;
+    private final UserRepository users;
+    private final NotificationService notifications;
 
-    public ContactRequestService(ContactRequestRepository requests, AccessGuard guard) {
+    public ContactRequestService(ContactRequestRepository requests, AccessGuard guard,
+                                 UserRepository users, NotificationService notifications) {
         this.requests = requests;
         this.guard = guard;
+        this.users = users;
+        this.notifications = notifications;
     }
 
     @Transactional
@@ -41,7 +51,26 @@ public class ContactRequestService {
         entity.setTopic(request.topic());
         entity.setMessage(request.message().trim());
         entity.setStatus(ContactRequestStatus.PENDING);
-        return toResponse(requests.saveAndFlush(entity));
+        requests.saveAndFlush(entity);
+        notifyAdmins(entity);
+        return toResponse(entity);
+    }
+
+    /**
+     * Hộp thư hỗ trợ không thuộc về một admin cụ thể nên thông báo được phát cho mọi tài khoản
+     * ADMIN đang hoạt động; ai xử lý trước thì bấm hoàn tất trước.
+     *
+     * <p>Body cố ý không nhắc lại nội dung thắc mắc: thông báo có thể hiện trên màn hình khoá của
+     * máy admin, còn nội dung thì đã có sẵn trong hộp thư.</p>
+     */
+    private void notifyAdmins(ContactRequestEntity entity) {
+        users.findIdsByRoleAndStatus(UserRole.ADMIN, UserStatus.ACTIVE)
+                .forEach(adminUserId -> notifications.publish(adminUserId,
+                        NotificationType.CONTACT,
+                        "Có yêu cầu hỗ trợ mới",
+                        "Một người dùng vừa gửi yêu cầu hỗ trợ. Mở hộp thư để xem và liên hệ lại.",
+                        "nutrimom://admin/contact-requests/" + entity.getId(),
+                        "CONTACT_REQUEST", entity.getId()));
     }
 
     @Transactional(readOnly = true)
