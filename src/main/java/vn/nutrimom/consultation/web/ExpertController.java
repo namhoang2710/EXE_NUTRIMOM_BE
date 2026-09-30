@@ -41,7 +41,7 @@ public class ExpertController {
     }
 
     @GetMapping("/{userId}")
-    @Operation(summary = "Chi tiết một chuyên gia")
+    @Operation(summary = "Chi tiết một chuyên gia", security = {})
     public ApiResponse<ExpertDetailResponse> detail(@PathVariable String userId) {
         return ApiResponses.success(service.detail(userId));
     }

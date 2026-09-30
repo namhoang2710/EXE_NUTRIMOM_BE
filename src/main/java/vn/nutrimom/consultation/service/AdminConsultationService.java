@@ -76,7 +76,7 @@ public class AdminConsultationService {
                         .map(s -> new SlotInfo(s.getId(), s.getSlotDate(), s.getStartTime(), s.getEndTime()))
                         .orElse(null);
         ReviewResponse review = reviews.findByRequestId(entity.getId())
-                .map(ConsultationReviewService::toResponse)
+                .map(found -> ConsultationReviewService.toResponse(found, userName))
                 .orElse(null);
         return new AdminConsultationResponse(entity.getId(), entity.getUserId(), userName,
                 entity.getExpertUserId(), expertName, entity.getSpecialty(), entity.getAssignmentType(),

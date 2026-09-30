@@ -25,6 +25,7 @@ public final class ReviewDtos {
             String id,
             String requestId,
             String userId,
+            String userDisplayName,
             String expertUserId,
             short rating,
             String comment,
