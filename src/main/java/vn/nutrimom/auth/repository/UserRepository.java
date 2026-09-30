@@ -17,6 +17,11 @@ import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 
 public interface UserRepository extends JpaRepository<UserEntity, String> {
+    interface UserDisplayNameView {
+        String getId();
+        String getDisplayName();
+    }
+
     Optional<UserEntity> findByPhone(String phone);
     boolean existsByPhone(String phone);
 
@@ -68,6 +73,13 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
             where user.id = :id
             """)
     Optional<UserEntity> findByIdWithRoles(@Param("id") String id);
+
+    @Query("""
+            select user.id as id, user.displayName as displayName
+            from UserEntity user
+            where user.id in :ids
+            """)
+    List<UserDisplayNameView> findDisplayNamesByIdIn(@Param("ids") Collection<String> ids);
 
     /**
      * Id của mọi tài khoản đang hoạt động mang một vai trò. Dùng khi phải phát thông báo cho cả một

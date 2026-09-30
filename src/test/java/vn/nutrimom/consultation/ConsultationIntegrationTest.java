@@ -10,14 +10,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,7 +34,9 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.consultation.domain.ExpertStatus;
 import vn.nutrimom.consultation.domain.SlotGrid;
+import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -45,9 +51,11 @@ class ConsultationIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository users;
+    @Autowired ExpertProfileRepository experts;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
-    void anonymousCanListExpertsButProtectedConsultationEndpointsStillRequireAuthentication()
+    void anonymousCanListAndViewExpertButProtectedConsultationEndpointsStillRequireAuthentication()
             throws Exception {
         String expertId = createExpert("0912000091", "HEALTH", "BS Public");
 
@@ -56,14 +64,134 @@ class ConsultationIntegrationTest {
                 .andExpect(jsonPath("$.data[0].user_id").value(expertId));
 
         mockMvc.perform(get("/api/v1/experts/{id}", expertId))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user_id").value(expertId))
+                .andExpect(jsonPath("$.data.full_name").value("BS Public"))
+                .andExpect(jsonPath("$.data.specialty").value("HEALTH"))
+                .andExpect(jsonPath("$.data.title").value("Chuyen gia"))
+                .andExpect(jsonPath("$.data.workplace").value("NutriMom"))
+                .andExpect(jsonPath("$.data.years_of_experience").value(5))
+                .andExpect(jsonPath("$.data.bio").value("Gioi thieu chuyen gia"))
+                .andExpect(jsonPath("$.data.avatar_url").doesNotExist())
+                .andExpect(jsonPath("$.data.average_rating").value(0))
+                .andExpect(jsonPath("$.data.rating_count").value(0))
+                .andExpect(jsonPath("$.data.phone").doesNotExist())
+                .andExpect(jsonPath("$.data.email").doesNotExist())
+                .andExpect(jsonPath("$.data.avatar_key").doesNotExist())
+                .andExpect(jsonPath("$.data.version").doesNotExist());
         mockMvc.perform(get("/api/v1/experts/{id}/availability", expertId)
                         .param("date", daysFromToday(1).toString()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/expert/reviews"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/v1/consultation-requests/{id}/review", "request-id")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rating\":5}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void publicDetailDoesNotRevealInactiveOrMissingExpert() throws Exception {
+        String expertId = createExpert("0912000092", "HEALTH", "BS Hidden");
+        var profile = experts.findById(expertId).orElseThrow();
+        profile.setStatus(ExpertStatus.INACTIVE);
+        experts.saveAndFlush(profile);
+
+        mockMvc.perform(get("/api/v1/experts/{id}", expertId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+        mockMvc.perform(get("/api/v1/experts/{id}", UUID.randomUUID().toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    @Test
+    void expertReviewsWithoutFiltersReturnsEmptyPageAndAnonymousIsRejected() throws Exception {
+        String expertId = createExpert("0912000093", "HEALTH", "BS No Review");
+
+        mockMvc.perform(get("/api/v1/expert/reviews")
+                        .param("page", "1").param("pageSize", "10")
+                        .with(expertJwt(expertId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.page_size").value(10))
+                .andExpect(jsonPath("$.data.total_items").value(0))
+                .andExpect(jsonPath("$.data.total_pages").value(0));
+
+        mockMvc.perform(get("/api/v1/expert/reviews"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void expertReviewsFilterSortPaginateAndRemainIsolated() throws Exception {
+        String expertA = createExpert("0912000094", "HEALTH", "BS Review A");
+        String expertB = createExpert("0912000095", "HEALTH", "BS Review B");
+        String user1 = createUserAccount("0912000096", "Mom Review 1");
+        String user2 = createUserAccount("0912000097", "Mom Review 2");
+        String user3 = createUserAccount("0912000098", "Mom Review 3");
+        LocalDate day = LocalDate.now(VN).minusDays(2);
+        OffsetDateTime start = day.atStartOfDay(VN).toOffsetDateTime();
+        OffsetDateTime noon = day.atTime(12, 0).atZone(VN).toOffsetDateTime();
+        OffsetDateTime end = day.atTime(23, 59, 59).atZone(VN).toOffsetDateTime();
+        OffsetDateTime nextDay = day.plusDays(1).atStartOfDay(VN).toOffsetDateTime();
+
+        insertReview(expertA, user1, 2, null, start);
+        insertReview(expertA, user2, 5, "   ", noon);
+        insertReview(expertA, user3, 3, "useful", end);
+        insertReview(expertA, user1, 4, "next day", nextDay);
+        insertReview(expertB, user2, 5, "other expert", noon);
+
+        mockMvc.perform(get("/api/v1/expert/reviews")
+                        .param("page", "1").param("pageSize", "10")
+                        .with(expertJwt(expertA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(4))
+                .andExpect(jsonPath("$.data.items[0].user_id").value(user1))
+                .andExpect(jsonPath("$.data.items[0].user_display_name").value("Mom Review 1"))
+                .andExpect(jsonPath("$.data.items[0].rating").value(4))
+                .andExpect(jsonPath("$.data.items[0].comment").value("next day"))
+                .andExpect(jsonPath("$.data.items[0].created_at").exists());
+
+        mockMvc.perform(get("/api/v1/expert/reviews").param("rating", "5")
+                        .with(expertJwt(expertA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1))
+                .andExpect(jsonPath("$.data.items[0].user_id").value(user2));
+
+        mockMvc.perform(get("/api/v1/expert/reviews")
+                        .param("from", day.toString()).param("to", day.toString())
+                        .with(expertJwt(expertA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(3))
+                .andExpect(jsonPath("$.data.items[*].rating",
+                        Matchers.containsInAnyOrder(2, 5, 3)));
+
+        mockMvc.perform(get("/api/v1/expert/reviews").param("has_comment", "true")
+                        .with(expertJwt(expertA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(2))
+                .andExpect(jsonPath("$.data.items[*].comment",
+                        Matchers.containsInAnyOrder("useful", "next day")));
+
+        assertReviewRatings(expertA, "newest", 4, 3, 5, 2);
+        assertReviewRatings(expertA, "rating_asc", 2, 3, 4, 5);
+        assertReviewRatings(expertA, "rating_desc", 5, 4, 3, 2);
+
+        mockMvc.perform(get("/api/v1/expert/reviews")
+                        .param("page", "2").param("pageSize", "2")
+                        .with(expertJwt(expertA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.page_size").value(2))
+                .andExpect(jsonPath("$.data.total_items").value(4))
+                .andExpect(jsonPath("$.data.total_pages").value(2))
+                .andExpect(jsonPath("$.data.items[*].rating", Matchers.contains(5, 2)));
+
+        mockMvc.perform(get("/api/v1/expert/reviews").with(expertJwt(expertB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1))
+                .andExpect(jsonPath("$.data.items[0].comment").value("other expert"));
     }
 
     @Test
@@ -381,7 +509,9 @@ class ConsultationIntegrationTest {
                         .with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rating\":4,\"comment\":\"tot\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.rating").value(4));
+                .andExpect(jsonPath("$.data.rating").value(4))
+                .andExpect(jsonPath("$.data.user_id").value(userId))
+                .andExpect(jsonPath("$.data.user_display_name").value("Mom R"));
 
         mockMvc.perform(get("/api/v1/experts/{id}", expertId).with(userJwt(userId)))
                 .andExpect(status().isOk())
@@ -504,6 +634,25 @@ class ConsultationIntegrationTest {
 
     // ----- helpers -----
 
+    private void insertReview(String expertUserId, String userId, int rating,
+                              String comment, OffsetDateTime createdAt) {
+        jdbc.update("""
+                insert into app.consultation_reviews
+                    (id, request_id, user_id, expert_user_id, rating, comment, created_at)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID().toString(), UUID.randomUUID().toString(), userId,
+                expertUserId, rating, comment, createdAt);
+    }
+
+    private void assertReviewRatings(String expertUserId, String sort, int... ratings)
+            throws Exception {
+        mockMvc.perform(get("/api/v1/expert/reviews").param("sort", sort)
+                        .param("pageSize", "100").with(expertJwt(expertUserId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[*].rating", Matchers.contains(
+                        java.util.Arrays.stream(ratings).boxed().toArray())));
+    }
+
     /** Vị trí của một mốc "HH:mm" trong mảng 24 khung giờ trả về. */
     private static int index(String startTime) {
         return SlotGrid.startTimes().indexOf(LocalTime.parse(startTime));
@@ -562,7 +711,7 @@ class ConsultationIntegrationTest {
                         .content("""
                                 {"phone":"%s","password":"password123","full_name":"%s",
                                  "specialty":"%s","title":"Chuyen gia","workplace":"NutriMom",
-                                 "years_of_experience":5}
+                                 "years_of_experience":5,"bio":"Gioi thieu chuyen gia"}
                                 """.formatted(phone, fullName, specialty)))
                 .andExpect(status().isCreated())
                 .andReturn();
