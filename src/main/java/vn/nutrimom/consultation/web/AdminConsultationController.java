@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
-import vn.nutrimom.consultation.domain.ConsultationStatus;
 import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.AdminConsultationResponse;
 import vn.nutrimom.consultation.service.AdminConsultationService;
@@ -22,7 +21,8 @@ import vn.nutrimom.consultation.service.AdminConsultationService;
 @RestController
 @RequestMapping("/api/v1/admin/consultation-requests")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin consultations", description = "Admin xem tiếp nhận và đánh giá")
+@Tag(name = "Admin consultations",
+        description = "Read-only access to completed consultations and reviews")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminConsultationController {
     private final AdminConsultationService service;
@@ -32,12 +32,14 @@ public class AdminConsultationController {
     }
 
     @GetMapping
-    @Operation(summary = "Danh sách tiếp nhận (mặc định đã hoàn thành) kèm đánh giá; tìm theo tên user/chuyên gia; phân trang")
+    @Operation(
+            summary = "List completed consultations",
+            description = "Returns only consultations completed by an expert, with optional "
+                    + "case-insensitive user/expert name search and one-based pagination. Admin only.")
     public ApiResponse<PageResponse<AdminConsultationResponse>> list(
-            @RequestParam(required = false) ConsultationStatus status,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int pageSize) {
-        return ApiResponses.success(service.list(status, q, page, pageSize));
+        return ApiResponses.success(service.list(q, page, pageSize));
     }
 }
