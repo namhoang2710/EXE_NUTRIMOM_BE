@@ -4,6 +4,8 @@ import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -27,6 +29,33 @@ public interface ConsultationRequestRepository
             Specialty specialty, AssignmentType assignmentType, ConsultationStatus status);
 
     List<ConsultationRequestEntity> findByStatusOrderByCreatedAtDesc(ConsultationStatus status);
+
+    @Query(value = """
+            select request
+            from ConsultationRequestEntity request
+            where request.status = vn.nutrimom.consultation.domain.ConsultationStatus.COMPLETED
+              and (:search = ''
+                   or exists (select user.id from UserEntity user
+                              where user.id = request.userId
+                                and lower(user.displayName) like lower(concat('%', :search, '%')))
+                   or exists (select expert.userId from ExpertProfileEntity expert
+                              where expert.userId = request.expertUserId
+                                and lower(expert.fullName) like lower(concat('%', :search, '%'))))
+            """,
+            countQuery = """
+            select count(request.id)
+            from ConsultationRequestEntity request
+            where request.status = vn.nutrimom.consultation.domain.ConsultationStatus.COMPLETED
+              and (:search = ''
+                   or exists (select user.id from UserEntity user
+                              where user.id = request.userId
+                                and lower(user.displayName) like lower(concat('%', :search, '%')))
+                   or exists (select expert.userId from ExpertProfileEntity expert
+                              where expert.userId = request.expertUserId
+                                and lower(expert.fullName) like lower(concat('%', :search, '%'))))
+            """)
+    Page<ConsultationRequestEntity> findCompletedForAdmin(
+            @Param("search") String search, Pageable pageable);
 
     /** Yêu cầu gắn với các ô đã đặt, để hiện tên khách trên lịch làm việc của chuyên gia. */
     List<ConsultationRequestEntity> findBySlotIdIn(Collection<String> slotIds);

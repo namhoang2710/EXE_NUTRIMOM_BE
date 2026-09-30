@@ -75,8 +75,28 @@ class AdminUserIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/users").with(userJwt()))
                 .andExpect(status().isForbidden());
 
+        mockMvc.perform(get("/api/v1/admin/users").with(expertJwt()))
+                .andExpect(status().isForbidden());
+
         mockMvc.perform(get("/api/v1/admin/users").with(adminJwt()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void listTreatsMissingEmptyAndBlankQueryAsNoSearch() throws Exception {
+        createUser("Visible User", "+84900001000", "visible@example.com", UserStatus.ACTIVE,
+                OnboardingStatus.COMPLETED, Set.of(UserRole.USER),
+                at("2026-01-01T00:00:00Z"));
+
+        mockMvc.perform(get("/api/v1/admin/users").with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1));
+        mockMvc.perform(get("/api/v1/admin/users").param("q", "").with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1));
+        mockMvc.perform(get("/api/v1/admin/users").param("q", "   ").with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_items").value(1));
     }
 
     @Test
@@ -368,6 +388,12 @@ class AdminUserIntegrationTest {
         return jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
                         .claim("roles", List.of("USER")))
                 .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    private RequestPostProcessor expertJwt() {
+        return jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
+                        .claim("roles", List.of("EXPERT")))
+                .authorities(new SimpleGrantedAuthority("ROLE_EXPERT"));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

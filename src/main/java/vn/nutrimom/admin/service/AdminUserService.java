@@ -183,7 +183,7 @@ public class AdminUserService {
     }
 
     private String normalizeSearch(String query) {
-        if (query == null || query.isBlank()) return null;
+        if (query == null || query.isBlank()) return "";
         return query.trim();
     }
 

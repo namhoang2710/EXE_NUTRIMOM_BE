@@ -32,7 +32,7 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
     @Query(value = """
             select user.id
             from UserEntity user
-            where (:search is null
+            where (:search = ''
                     or lower(user.displayName) like lower(concat('%', :search, '%'))
                     or lower(user.phone) like lower(concat('%', :search, '%'))
                     or lower(user.email) like lower(concat('%', :search, '%')))
@@ -43,7 +43,7 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
             countQuery = """
             select count(user.id)
             from UserEntity user
-            where (:search is null
+            where (:search = ''
                     or lower(user.displayName) like lower(concat('%', :search, '%'))
                     or lower(user.phone) like lower(concat('%', :search, '%'))
                     or lower(user.email) like lower(concat('%', :search, '%')))

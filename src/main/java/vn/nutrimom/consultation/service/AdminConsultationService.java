@@ -1,12 +1,19 @@
 package vn.nutrimom.consultation.service;
 
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.consultation.domain.AvailabilitySlotEntity;
 import vn.nutrimom.consultation.domain.ConsultationRequestEntity;
-import vn.nutrimom.consultation.domain.ConsultationStatus;
+import vn.nutrimom.consultation.domain.ConsultationReviewEntity;
 import vn.nutrimom.consultation.domain.ExpertProfileEntity;
 import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.AdminConsultationResponse;
@@ -17,9 +24,12 @@ import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 
-/** Admin xem danh sách tiếp nhận (mặc định đã hoàn thành) kèm đánh giá đầy đủ. */
+/** Read-only admin view of consultations that experts have completed. */
 @Service
 public class AdminConsultationService {
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt")
+            .and(Sort.by(Sort.Direction.ASC, "id"));
+
     private final ConsultationRequestRepository requests;
     private final ConsultationReviewRepository reviews;
     private final ExpertProfileRepository experts;
@@ -38,46 +48,68 @@ public class AdminConsultationService {
         this.users = users;
     }
 
-    /**
-     * @param status lọc trạng thái; null → mặc định COMPLETED.
-     * @param q      tìm theo tên user hoặc tên chuyên gia (không phân biệt hoa thường).
-     */
     @Transactional(readOnly = true)
-    public PageResponse<AdminConsultationResponse> list(ConsultationStatus status, String q,
-                                                        int page, int pageSize) {
-        ConsultationStatus effective = status == null ? ConsultationStatus.COMPLETED : status;
-        String needle = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
-        List<AdminConsultationResponse> all = requests.findByStatusOrderByCreatedAtDesc(effective).stream()
-                .map(this::toResponse)
-                .filter(response -> matches(response, needle))
-                .toList();
-        return PageResponse.of(all, page, pageSize);
-    }
-
-    private static boolean matches(AdminConsultationResponse response, String needle) {
-        if (needle == null) {
-            return true;
+    public PageResponse<AdminConsultationResponse> list(String q, int page, int pageSize) {
+        String search = q == null || q.isBlank() ? "" : q.trim();
+        Page<ConsultationRequestEntity> result = requests.findCompletedForAdmin(
+                search, PageRequest.of(page - 1, pageSize, NEWEST_FIRST));
+        if (result.isEmpty()) {
+            return new PageResponse<>(List.of(), page, pageSize,
+                    result.getTotalElements(), result.getTotalPages());
         }
-        return contains(response.userDisplayName(), needle) || contains(response.expertName(), needle);
+
+        List<ConsultationRequestEntity> entities = result.getContent();
+        Set<String> userIds = entities.stream()
+                .map(ConsultationRequestEntity::getUserId)
+                .collect(Collectors.toSet());
+        Set<String> expertIds = entities.stream()
+                .map(ConsultationRequestEntity::getExpertUserId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Set<String> slotIds = entities.stream()
+                .map(ConsultationRequestEntity::getSlotId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Set<String> requestIds = entities.stream()
+                .map(ConsultationRequestEntity::getId)
+                .collect(Collectors.toSet());
+
+        Map<String, String> userNames = users.findDisplayNamesByIdIn(userIds).stream()
+                .collect(Collectors.toMap(
+                        UserRepository.UserDisplayNameView::getId,
+                        UserRepository.UserDisplayNameView::getDisplayName));
+        Map<String, ExpertProfileEntity> expertsById = experts.findAllById(expertIds).stream()
+                .collect(Collectors.toMap(ExpertProfileEntity::getUserId, Function.identity()));
+        Map<String, AvailabilitySlotEntity> slotsById = slots.findAllById(slotIds).stream()
+                .collect(Collectors.toMap(AvailabilitySlotEntity::getId, Function.identity()));
+        Map<String, ConsultationReviewEntity> reviewsByRequestId = reviews
+                .findByRequestIdIn(requestIds).stream()
+                .collect(Collectors.toMap(ConsultationReviewEntity::getRequestId, Function.identity()));
+
+        List<AdminConsultationResponse> items = entities.stream()
+                .map(entity -> toResponse(entity, userNames, expertsById, slotsById,
+                        reviewsByRequestId))
+                .toList();
+        return new PageResponse<>(items, page, pageSize,
+                result.getTotalElements(), result.getTotalPages());
     }
 
-    private static boolean contains(String value, String needle) {
-        return value != null && value.toLowerCase(Locale.ROOT).contains(needle);
-    }
-
-    private AdminConsultationResponse toResponse(ConsultationRequestEntity entity) {
-        String userName = users.findById(entity.getUserId())
-                .map(user -> user.getDisplayName()).orElse(null);
-        String expertName = entity.getExpertUserId() == null ? null
-                : experts.findById(entity.getExpertUserId())
-                        .map(ExpertProfileEntity::getFullName).orElse(null);
-        SlotInfo slot = entity.getSlotId() == null ? null
-                : slots.findById(entity.getSlotId())
-                        .map(s -> new SlotInfo(s.getId(), s.getSlotDate(), s.getStartTime(), s.getEndTime()))
-                        .orElse(null);
-        ReviewResponse review = reviews.findByRequestId(entity.getId())
-                .map(found -> ConsultationReviewService.toResponse(found, userName))
-                .orElse(null);
+    private AdminConsultationResponse toResponse(
+            ConsultationRequestEntity entity,
+            Map<String, String> userNames,
+            Map<String, ExpertProfileEntity> expertsById,
+            Map<String, AvailabilitySlotEntity> slotsById,
+            Map<String, ConsultationReviewEntity> reviewsByRequestId) {
+        String userName = userNames.get(entity.getUserId());
+        ExpertProfileEntity expert = expertsById.get(entity.getExpertUserId());
+        String expertName = expert == null ? null : expert.getFullName();
+        AvailabilitySlotEntity slotEntity = slotsById.get(entity.getSlotId());
+        SlotInfo slot = slotEntity == null ? null : new SlotInfo(
+                slotEntity.getId(), slotEntity.getSlotDate(),
+                slotEntity.getStartTime(), slotEntity.getEndTime());
+        ConsultationReviewEntity reviewEntity = reviewsByRequestId.get(entity.getId());
+        ReviewResponse review = reviewEntity == null ? null
+                : ConsultationReviewService.toResponse(reviewEntity, userName);
         return new AdminConsultationResponse(entity.getId(), entity.getUserId(), userName,
                 entity.getExpertUserId(), expertName, entity.getSpecialty(), entity.getAssignmentType(),
                 entity.getStatus(), slot, entity.getCompletedAt(), entity.getCreatedAt(), review);
