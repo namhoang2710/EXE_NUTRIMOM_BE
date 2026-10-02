@@ -63,4 +63,27 @@ class OpenApiSnakeCaseTest {
                 .andExpect(jsonPath("$.components.schemas.PartnerDashboardResponse.properties.pregnancy_overview").exists())
                 .andExpect(jsonPath("$.components.schemas.PartnerDashboardResponse.properties.membershipRole").doesNotExist());
     }
+
+    @Test
+    void calendarContractsArePublished() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/v1/calendar/events'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/calendar/month'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/calendar/reminders'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/calendar/reminders'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/calendar/reminders/{id}'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/calendar/reminders/{id}'].delete").exists())
+                // Nút "thêm vào lịch nhắc nhở" nằm dưới /medical-records nhưng do controller của
+                // module calendar phục vụ — hai controller cùng prefix phải cùng xuất hiện.
+                .andExpect(jsonPath("$.paths['/api/v1/medical-records/{id}/reminders'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/medical-records'].post").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateReminderRequest.properties.starts_at").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateReminderRequest.properties.remind_minutes_before").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateReminderRequest.properties.startsAt").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.ReminderResponse.properties.next_suggestion").exists())
+                .andExpect(jsonPath("$.components.schemas.CalendarEventItem.properties.source_id").exists())
+                .andExpect(jsonPath("$.components.schemas.CalendarEventItem.properties.deep_link").exists())
+                .andExpect(jsonPath("$.components.schemas.CalendarMonthDay.properties.event_count").exists());
+    }
 }

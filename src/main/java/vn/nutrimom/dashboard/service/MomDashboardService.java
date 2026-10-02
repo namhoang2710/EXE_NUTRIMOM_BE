@@ -1,11 +1,14 @@
 package vn.nutrimom.dashboard.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.calendar.service.CalendarQueryService;
 import vn.nutrimom.care.service.CarePlanService;
+import vn.nutrimom.config.CalendarProperties;
 import vn.nutrimom.dashboard.domain.DashboardBlock;
 import vn.nutrimom.dashboard.dto.BabySummaryResponse;
 import vn.nutrimom.dashboard.dto.MomDashboardResponse;
@@ -29,19 +32,25 @@ public class MomDashboardService {
     private final PregnancyWeekContentRepository weekContents;
     private final CarePlanService carePlans;
     private final NotificationService notifications;
+    private final CalendarQueryService calendar;
+    private final CalendarProperties calendarProperties;
 
     public MomDashboardService(UserProfileService profiles,
                                PregnancyService pregnancyService,
                                PregnancyRepository pregnancies,
                                PregnancyWeekContentRepository weekContents,
                                CarePlanService carePlans,
-                               NotificationService notifications) {
+                               NotificationService notifications,
+                               CalendarQueryService calendar,
+                               CalendarProperties calendarProperties) {
         this.profiles = profiles;
         this.pregnancyService = pregnancyService;
         this.pregnancies = pregnancies;
         this.weekContents = weekContents;
         this.carePlans = carePlans;
         this.notifications = notifications;
+        this.calendar = calendar;
+        this.calendarProperties = calendarProperties;
     }
 
     @Transactional(readOnly = true)
@@ -71,22 +80,48 @@ public class MomDashboardService {
                         pregnancy.estimatedDueDate(), pregnancy.daysUntilDue(),
                         pregnancy.careFacilityName()),
                 loadBabySummary(pregnancy.gestationalWeek()),
-                null,
+                loadNextAppointment(profile.id()),
                 null,
                 careProgress,
                 List.of(),
                 List.of(),
-                List.of(),
+                loadUpcomingReminders(profile.id()),
                 null,
                 null,
                 notifications.unreadCount(profile.id()));
     }
 
+    /** Lịch không phụ thuộc thai kỳ nên vẫn hiển thị được khi chưa tạo hồ sơ thai kỳ nào. */
     private MomDashboardResponse noPregnancyDashboard(UserProfileResponse profile) {
         return new MomDashboardResponse(
-                profileSummary(profile), null, null, null, null, null,
-                List.of(), List.of(), List.of(), null, null,
+                profileSummary(profile), null, null, loadNextAppointment(profile.id()), null, null,
+                List.of(), List.of(), loadUpcomingReminders(profile.id()), null, null,
                 notifications.unreadCount(profile.id()));
+    }
+
+    /**
+     * Mốc hẹn gần nhất từ module lịch.
+     *
+     * <p>Bọc try/catch giống {@link #loadBabySummary}: spec mục 05 yêu cầu một block phụ tạm lỗi
+     * không được làm đổ cả endpoint dashboard.</p>
+     */
+    private Object loadNextAppointment(String userId) {
+        try {
+            return calendar.nextAppointment(userId);
+        } catch (RuntimeException ex) {
+            log.warn("Optional dashboard block is unavailable: {}", DashboardBlock.NEXT_APPOINTMENT);
+            return null;
+        }
+    }
+
+    private List<Object> loadUpcomingReminders(String userId) {
+        try {
+            return new ArrayList<>(
+                    calendar.upcomingReminders(userId, calendarProperties.getDashboardReminderLimit()));
+        } catch (RuntimeException ex) {
+            log.warn("Optional dashboard block is unavailable: {}", DashboardBlock.UPCOMING_REMINDERS);
+            return List.of();
+        }
     }
 
     private ProfileSummaryResponse profileSummary(UserProfileResponse profile) {
