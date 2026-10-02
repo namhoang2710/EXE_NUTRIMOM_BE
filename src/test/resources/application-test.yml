@@ -23,6 +23,10 @@ app:
     # Base64 của 32 byte cố định — chỉ dùng cho test, không phải secret thật.
     push-token-key: bnV0cmltb20tdGVzdC1wdXNoLXRva2VuLWtleS0zMmI=
     push-enabled: true
+  calendar:
+    # Không để thread nền quét DB song song với integration test; mọi kiểm thử job gọi thẳng
+    # CalendarReminderJob/CalendarReminderDispatcher bằng Clock cố định.
+    reminder-job-enabled: false
   security:
     issuer: nutrimom-test
     jwt-secret: nutrimom-test-jwt-secret-with-at-least-thirty-two-characters

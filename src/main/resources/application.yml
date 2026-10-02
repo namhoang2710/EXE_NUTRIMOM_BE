@@ -94,6 +94,19 @@ app:
     push-token-key: ${NUTRIMOM_PUSH_TOKEN_KEY}
     # Tắt cờ này thì không gửi push nhưng vẫn ghi thông báo vào hộp in-app.
     push-enabled: ${NUTRIMOM_PUSH_ENABLED:true}
+  calendar:
+    # Tắt cờ này thì không có scheduler nào được tạo (xem CalendarSchedulingConfig) — nhắc nhở vẫn
+    # lưu được nhưng không có gì bắn thông báo khi tới hạn.
+    reminder-job-enabled: ${NUTRIMOM_CALENDAR_JOB_ENABLED:true}
+    # ISO-8601 duration. Sai định dạng thì context fail ngay lúc khởi động.
+    reminder-job-interval: ${NUTRIMOM_CALENDAR_JOB_INTERVAL:PT5M}
+    max-range-days: 366
+    # Phải khớp ck_calendar_reminders_remind_offset của V29.
+    max-remind-minutes-before: 10080
+    default-timezone: Asia/Ho_Chi_Minh
+    dashboard-lookahead-days: 90
+    dashboard-reminder-limit: 5
+    stale-after-hours: 24
   security:
     issuer: ${NUTRIMOM_JWT_ISSUER:nutrimom-api}
     jwt-secret: ${NUTRIMOM_JWT_SECRET}
