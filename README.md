@@ -91,6 +91,18 @@ Contract: [docs/NOTIFICATION_API.md](docs/NOTIFICATION_API.md).
 Cần biến môi trường `NUTRIMOM_PUSH_TOKEN_KEY` (base64 của 32 byte, sinh bằng `openssl rand -base64 32`);
 thiếu key thì ứng dụng không khởi động.
 
+## Lịch và nhắc nhở
+
+Lịch kiểu Google Calendar trộn ba nguồn: hồ sơ y tế, buổi tư vấn **đã được chuyên gia xác nhận**, và
+nhắc nhở (tái khám / khám định kỳ) do người dùng tự tạo — có nút tạo nhanh ngay trên một hồ sơ y tế.
+Job nền quét mỗi 5 phút để bắn thông báo khi tới hạn.
+Contract: [docs/CALENDAR_API.md](docs/CALENDAR_API.md).
+
+| Biến môi trường | Mặc định | Ý nghĩa |
+|---|---|---|
+| `NUTRIMOM_CALENDAR_JOB_ENABLED` | `true` | `false` thì không tạo scheduler nào; nhắc nhở vẫn lưu được nhưng không có thông báo khi tới hạn |
+| `NUTRIMOM_CALENDAR_JOB_INTERVAL` | `PT5M` | Khoảng giữa hai lượt quét, ISO-8601 duration. Sai định dạng thì ứng dụng không khởi động |
+
 ## Test và build
 
 ```powershell
