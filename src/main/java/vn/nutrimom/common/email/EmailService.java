@@ -55,15 +55,15 @@ public class EmailService {
         }
     }
 
-    public boolean sendMagicLink(String toEmail, String magicLinkUrl) {
-        String subject = "✨ Liên kết đăng nhập vào NutriMom";
+    public boolean sendEmailOtp(String toEmail, String code, String directLink) {
+        String subject = "🔐 Mã xác thực đăng nhập NutriMom: " + code;
         String html = """
             <!DOCTYPE html>
             <html lang="vi">
             <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Đăng nhập NutriMom</title>
+              <title>Mã xác thực NutriMom</title>
               <style>
                 body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; }
                 .wrapper { max-width: 560px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
@@ -71,34 +71,34 @@ public class EmailService {
                 .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
                 .header p { margin: 6px 0 0; opacity: 0.9; font-size: 14px; }
                 .content { padding: 32px 28px; line-height: 1.6; }
-                .btn-container { text-align: center; margin: 30px 0; }
-                .btn { display: inline-block; background: #7c3aed; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 16px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); }
+                .code-box { text-align: center; margin: 28px 0; }
+                .code { display: inline-block; font-size: 34px; font-weight: 800; letter-spacing: 10px; color: #7c3aed; background: #f5f3ff; border: 2px dashed #c4b5fd; padding: 14px 32px; border-radius: 12px; font-family: 'Courier New', monospace; }
                 .note { background: #f1f5f9; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #64748b; margin-top: 24px; }
                 .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
-                .raw-link { word-break: break-all; color: #7c3aed; font-size: 12px; }
+                .btn-link { display: inline-block; margin-top: 14px; color: #7c3aed; font-size: 14px; font-weight: 600; text-decoration: underline; }
               </style>
             </head>
             <body>
               <div class="wrapper">
                 <div class="header">
                   <h1>NutriMom</h1>
-                  <p>Đồng hành cùng hành trình làm mẹ trọn vẹn</p>
+                  <p>Đồng hành cùng hành trình thai kỳ trọn vẹn</p>
                 </div>
                 <div class="content">
                   <p>Xin chào,</p>
                   <p>Chúng tôi nhận được yêu cầu đăng nhập vào tài khoản NutriMom với email <strong>%s</strong>.</p>
-                  <p>Nhấn vào nút bên dưới để đăng nhập ngay mà không cần mật khẩu:</p>
-                  <div class="btn-container">
-                    <a href="%s" class="btn" target="_blank">👉 Đăng nhập vào NutriMom</a>
+                  <p>Mã xác thực 6 chữ số của bạn là:</p>
+                  <div class="code-box">
+                    <span class="code">%s</span>
                   </div>
-                  <div class="note">
-                    ⏱️ <strong>Lưu ý:</strong> Liên kết này chỉ có hiệu lực trong vòng <strong>15 phút</strong> và chỉ sử dụng được <strong>1 lần duy nhất</strong>.<br>
-                    Nếu bạn không yêu cầu đăng nhập, vui lòng bỏ qua email này.
-                  </div>
-                  <p style="margin-top: 24px; font-size: 13px; color: #64748b;">
-                    Nếu nút bấm không hoạt động, bạn có thể sao chép liên kết sau dán vào trình duyệt:<br>
-                    <a href="%s" class="raw-link">%s</a>
+                  <p style="text-align: center; font-size: 14px; color: #475569;">
+                    Hãy nhập mã xác thực này vào trang web để đăng nhập vào tài khoản của bạn.
                   </p>
+                  <div class="note">
+                    ⏱️ <strong>Lưu ý:</strong> Mã này có hiệu lực trong vòng <strong>10 phút</strong> và chỉ sử dụng được <strong>1 lần duy nhất</strong>.<br>
+                    Nếu bạn không yêu cầu đăng nhập, vui lòng bỏ qua email này để bảo vệ tài khoản.
+                  </div>
+                  %s
                 </div>
                 <div class="footer">
                   © 2026 NutriMom Health & Nutrition. Mọi quyền được bảo lưu.
@@ -106,9 +106,29 @@ public class EmailService {
               </div>
             </body>
             </html>
-            """.formatted(toEmail, magicLinkUrl, magicLinkUrl, magicLinkUrl);
+            """.formatted(
+                toEmail,
+                code,
+                directLink != null ? """
+                  <div style="text-align: center; margin-top: 20px;">
+                    <a href="%s" class="btn-link" target="_blank">👉 Hoặc bấm vào đây để đăng nhập trực tiếp</a>
+                  </div>
+                """.formatted(directLink) : ""
+            );
 
         return sendHtml(toEmail, subject, html);
+    }
+
+    public boolean sendMagicLink(String toEmail, String magicLinkUrl) {
+        String code = "123456";
+        if (magicLinkUrl != null && magicLinkUrl.contains("token=")) {
+            String tokenPart = magicLinkUrl.substring(magicLinkUrl.indexOf("token=") + 6);
+            if (tokenPart.contains("&")) tokenPart = tokenPart.substring(0, tokenPart.indexOf('&'));
+            if (tokenPart.length() == 6 && tokenPart.matches("\\d+")) {
+                code = tokenPart;
+            }
+        }
+        return sendEmailOtp(toEmail, code, magicLinkUrl);
     }
 
     public boolean sendRegistrationConfirmation(String toEmail, String displayName, String activationUrl) {

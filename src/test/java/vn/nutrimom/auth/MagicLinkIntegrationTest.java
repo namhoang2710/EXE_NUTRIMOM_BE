@@ -83,6 +83,38 @@ class MagicLinkIntegrationTest {
     }
 
     @Test
+    void testSixDigitCodeLoginFlow() throws Exception {
+        String email = "otp_user@nutrimom.vn";
+
+        // 1. Gửi yêu cầu mã xác thực 6 chữ số
+        MvcResult requestResult = mockMvc.perform(post("/api/v1/auth/magic-link/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","device_id":"otp-device"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sent").value(true))
+                .andExpect(jsonPath("$.data.debug_code").isNotEmpty())
+                .andReturn();
+
+        JsonNode responseNode = objectMapper.readTree(requestResult.getResponse().getContentAsString());
+        String code = responseNode.at("/data/debug_code").stringValue();
+        assertThat(code).matches("^\\d{6}$");
+
+        // 2. Xác thực bằng code 6 chữ số và email
+        mockMvc.perform(post("/api/v1/auth/magic-link/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"%s","email":"%s","device_id":"otp-device"}
+                                """.formatted(code, email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.access_token").isNotEmpty())
+                .andExpect(jsonPath("$.data.refresh_token").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.id").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.display_name").value("otp_user"));
+    }
+
+    @Test
     void testMagicLinkInvalidEmail() throws Exception {
         mockMvc.perform(post("/api/v1/auth/magic-link/request")
                         .contentType(MediaType.APPLICATION_JSON)

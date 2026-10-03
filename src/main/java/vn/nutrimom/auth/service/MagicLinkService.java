@@ -55,52 +55,68 @@ public class MagicLinkService {
                 .ifPresent(previous -> {
                     if (previous.getCreatedAt().plusSeconds(45).isAfter(now)) {
                         throw new BusinessException(ErrorCode.OTP_RESEND_TOO_SOON,
-                                "Vui lòng chờ ít giây trước khi yêu cầu liên kết mới.");
+                                "Vui lòng chờ ít giây trước khi yêu cầu mã xác thực mới.");
                     }
                     previous.setStatus(MagicLoginTokenStatus.EXPIRED);
                     tokenRepository.saveAndFlush(previous);
                 });
 
-        // Tạo 32-byte secure random token
-        byte[] bytes = new byte[32];
-        secureRandom.nextBytes(bytes);
-        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        // Tạo mã xác thực 6 chữ số ngẫu nhiên (không trùng token đang chờ)
+        String rawCode;
+        String tokenHash;
+        do {
+            int codeNum = secureRandom.nextInt(1_000_000);
+            rawCode = String.format("%06d", codeNum);
+            tokenHash = tokenService.hash(rawCode);
+        } while (tokenRepository.findByTokenHash(tokenHash).isPresent());
 
         // Lưu bản ghi token dạng hash SHA-256
         MagicLoginTokenEntity tokenEntity = new MagicLoginTokenEntity();
         tokenEntity.setEmail(email);
-        tokenEntity.setTokenHash(tokenService.hash(rawToken));
+        tokenEntity.setTokenHash(tokenHash);
         tokenEntity.setStatus(MagicLoginTokenStatus.PENDING);
         tokenEntity.setDeviceId(request.deviceId());
-        tokenEntity.setExpiresAt(now.plusMinutes(15));
+        tokenEntity.setExpiresAt(now.plusMinutes(10));
         tokenRepository.saveAndFlush(tokenEntity);
 
-        // Tạo đường link đăng nhập
-        String loginUrl = baseUrl + "?token=" + rawToken;
-        log.info("🔗 [MAGIC LINK] Đăng nhập cho {}: {}", email, loginUrl);
+        // Tạo đường link đăng nhập dự phòng nếu người dùng muốn mở trực tiếp
+        String loginUrl = baseUrl + "?token=" + rawCode;
+        log.info("🔐 [EMAIL OTP] Mã xác thực đăng nhập 6 chữ số cho {}: {}", email, rawCode);
 
-        // Gửi email
-        emailService.sendMagicLink(email, loginUrl);
+        // Gửi email chứa mã xác thực 6 chữ số
+        emailService.sendEmailOtp(email, rawCode, loginUrl);
 
         return new MagicLinkResponse(
                 true,
-                "Liên kết đăng nhập đã được gửi tới " + email + ". Vui lòng kiểm tra hộp thư của bạn.",
-                loginUrl
+                "Mã xác thực 6 chữ số đã được gửi tới " + email + ". Vui lòng kiểm tra hộp thư của bạn.",
+                loginUrl,
+                rawCode
         );
     }
 
     @Transactional
     public AuthResponse verifyMagicLink(MagicLinkVerifyRequest request) {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        String tokenHash = tokenService.hash(request.token().trim());
+        String codeOrToken = request.resolveCodeOrToken();
+        if (codeOrToken == null || codeOrToken.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Vui lòng cung cấp mã xác thực hợp lệ.");
+        }
+
+        String tokenHash = tokenService.hash(codeOrToken);
 
         MagicLoginTokenEntity tokenEntity = tokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS,
-                        "Liên kết đăng nhập không hợp lệ hoặc đã hết hạn."));
+                        "Mã xác thực không hợp lệ hoặc đã hết hạn."));
 
         if (!tokenEntity.isUsableAt(now)) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS,
-                    "Liên kết đăng nhập đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu liên kết mới.");
+                    "Mã xác thực đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu mã mới.");
+        }
+
+        if (request.email() != null && !request.email().isBlank()
+                && !tokenEntity.getEmail().equalsIgnoreCase(request.email().trim())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS,
+                    "Mã xác thực không khớp với email yêu cầu.");
         }
 
         // Đánh dấu token đã sử dụng (chỉ dùng 1 lần)
@@ -117,6 +133,7 @@ public class MagicLinkService {
                     String localPart = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
                     newUser.setDisplayName(localPart);
                     newUser.setStatus(UserStatus.ACTIVE);
+                    newUser.setEmailVerifiedAt(now);
                     newUser.setOnboardingStatus(OnboardingStatus.PROFILE_REQUIRED);
                     newUser.setTermsAcceptedAt(now);
                     newUser.setPrivacyAcceptedAt(now);
@@ -124,7 +141,13 @@ public class MagicLinkService {
                     return userRepository.saveAndFlush(newUser);
                 });
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
+            user.setStatus(UserStatus.ACTIVE);
+            user.setEmailVerifiedAt(now);
+            user.setEmailActivationTokenHash(null);
+            user.setEmailActivationExpiresAt(null);
+            userRepository.saveAndFlush(user);
+        } else if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ACCOUNT_UNAVAILABLE, "Tài khoản của bạn đang bị khóa hoặc vô hiệu hóa.");
         }
 
