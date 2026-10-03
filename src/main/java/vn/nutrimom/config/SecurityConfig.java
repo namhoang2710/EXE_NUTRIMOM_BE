@@ -49,6 +49,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
+                                "/api/v1/auth/activate", "/api/v1/auth/resend-activation",
                                 "/api/v1/auth/otp/request", "/api/v1/auth/otp/verify",
                                 "/api/v1/auth/magic-link/request", "/api/v1/auth/magic-link/verify",
                                 "/api/v1/auth/refresh", "/api/v1/auth/logout",

@@ -2,6 +2,7 @@ package vn.nutrimom.auth.service;
 
 import java.time.*;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.AuthenticationException;
@@ -69,11 +70,22 @@ public class AuthService {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setDisplayName(request.displayName().trim());
-        user.setStatus(UserStatus.ACTIVE);
+
         OffsetDateTime acceptedAt = OffsetDateTime.now(ZoneOffset.UTC);
         user.setTermsAcceptedAt(acceptedAt);
         user.setPrivacyAcceptedAt(acceptedAt);
         user.getRoles().add(UserRole.USER);
+
+        String rawActivationToken = null;
+        if (email != null) {
+            user.setStatus(UserStatus.PENDING_ACTIVATION);
+            rawActivationToken = tokenService.generateSecureRandomToken();
+            user.setEmailActivationTokenHash(tokenService.hash(rawActivationToken));
+            user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(1));
+        } else {
+            user.setStatus(UserStatus.ACTIVE);
+        }
+
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
@@ -81,13 +93,15 @@ public class AuthService {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email hoặc số điện thoại này đã được sử dụng.");
         }
 
-        if (email != null) {
+        if (email != null && rawActivationToken != null) {
             try {
-                String activationUrl = magicLinkBaseUrl + "/login";
+                String activationUrl = magicLinkBaseUrl + "/auth/activate?token=" + rawActivationToken;
                 emailService.sendRegistrationConfirmation(email, user.getDisplayName(), activationUrl);
             } catch (Exception ex) {
-                // Email sending failure should not prevent user registration
+                // Email sending failure logged inside EmailService
             }
+            // Return AuthResponse without tokens so client is NOT authenticated before activation
+            return new AuthResponse(null, 0, null, 0, null, toUserResponse(user));
         }
 
         return issueSession(user, request.deviceId());
@@ -107,16 +121,65 @@ public class AuthService {
             user = userRepository.findByPhone(usernameToAuth).orElseThrow(this::invalidCredentials);
         }
 
-        try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(usernameToAuth, request.password()));
-        } catch (AuthenticationException ex) {
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw invalidCredentials();
+        }
+
+        if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
+            throw new BusinessException(ErrorCode.ACCOUNT_PENDING_ACTIVATION,
+                    "Tài khoản của bạn chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt tài khoản trước khi đăng nhập.");
         }
 
         if (user.getStatus() == UserStatus.DISABLED || user.getStatus() == UserStatus.LOCKED) {
             throw invalidCredentials();
         }
+
         return issueSession(user, request.deviceId());
+    }
+
+    @Transactional
+    public AuthResponse activateAccount(vn.nutrimom.auth.dto.ActivateAccountRequest request) {
+        String tokenHash = tokenService.hash(request.token().trim());
+        UserEntity user = userRepository.findByEmailActivationTokenHash(tokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
+                        "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."));
+
+        if (user.getEmailActivationExpiresAt() != null
+                && user.getEmailActivationExpiresAt().isBefore(OffsetDateTime.now(ZoneOffset.UTC))) {
+            throw new BusinessException(ErrorCode.ACTIVATION_TOKEN_EXPIRED,
+                    "Liên kết kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại email kích hoạt.");
+        }
+
+        user.setStatus(UserStatus.ACTIVE);
+        user.setEmailVerifiedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        user.setEmailActivationTokenHash(null);
+        user.setEmailActivationExpiresAt(null);
+        userRepository.save(user);
+
+        return issueSession(user, request.deviceId());
+    }
+
+    @Transactional
+    public vn.nutrimom.auth.dto.ResendActivationResponse resendActivation(vn.nutrimom.auth.dto.ResendActivationRequest request) {
+        String email = request.email().trim().toLowerCase();
+        Optional<UserEntity> userOpt = userRepository.findByEmailIgnoreCase(email);
+        if (userOpt.isEmpty()) {
+            return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Nếu email tồn tại trong hệ thống, liên kết kích hoạt đã được gửi.");
+        }
+        UserEntity user = userOpt.get();
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            return new vn.nutrimom.auth.dto.ResendActivationResponse(false, "Tài khoản này đã được kích hoạt trước đó. Bạn có thể đăng nhập ngay.");
+        }
+
+        String rawActivationToken = tokenService.generateSecureRandomToken();
+        user.setEmailActivationTokenHash(tokenService.hash(rawActivationToken));
+        user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(1));
+        userRepository.save(user);
+
+        String activationUrl = magicLinkBaseUrl + "/auth/activate?token=" + rawActivationToken;
+        emailService.sendRegistrationConfirmation(email, user.getDisplayName(), activationUrl);
+
+        return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Email kích hoạt mới đã được gửi tới " + email);
     }
 
     @Transactional

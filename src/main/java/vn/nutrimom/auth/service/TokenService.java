@@ -74,6 +74,12 @@ public class TokenService {
         }
     }
 
+    public String generateSecureRandomToken() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     private String generateRefreshToken() {
         byte[] bytes = new byte[48];
         secureRandom.nextBytes(bytes);

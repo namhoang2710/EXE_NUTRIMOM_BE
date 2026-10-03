@@ -60,6 +60,18 @@ public class AuthController {
                 .body(ApiResponses.success(authService.register(request)));
     }
 
+    @PostMapping("/activate")
+    @Operation(summary = "Kích hoạt tài khoản qua liên kết trong email")
+    public ApiResponse<AuthResponse> activate(@Valid @RequestBody vn.nutrimom.auth.dto.ActivateAccountRequest request) {
+        return ApiResponses.success(authService.activateAccount(request));
+    }
+
+    @PostMapping("/resend-activation")
+    @Operation(summary = "Gửi lại email kích hoạt tài khoản")
+    public ApiResponse<vn.nutrimom.auth.dto.ResendActivationResponse> resendActivation(@Valid @RequestBody vn.nutrimom.auth.dto.ResendActivationRequest request) {
+        return ApiResponses.success(authService.resendActivation(request));
+    }
+
     @PostMapping("/login")
     @Operation(summary = "Đăng nhập bằng mật khẩu và nhận token")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {

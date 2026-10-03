@@ -57,6 +57,9 @@ public enum ErrorCode {
     OTP_CHALLENGE_NOT_FOUND(HttpStatus.UNAUTHORIZED, false, "Không tìm thấy phiên OTP."),
     ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy tài khoản."),
     ACCOUNT_UNAVAILABLE(HttpStatus.UNAUTHORIZED, false, "Tài khoản không khả dụng."),
+    ACCOUNT_PENDING_ACTIVATION(HttpStatus.FORBIDDEN, false, "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt tài khoản."),
+    INVALID_ACTIVATION_TOKEN(HttpStatus.BAD_REQUEST, false, "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."),
+    ACTIVATION_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, false, "Liên kết kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại email kích hoạt."),
     OTP_REAUTHENTICATION_MISMATCH(HttpStatus.UNAUTHORIZED, false, "Phiên xác thực lại không khớp."),
 
     // --- User (đang dùng) ---
