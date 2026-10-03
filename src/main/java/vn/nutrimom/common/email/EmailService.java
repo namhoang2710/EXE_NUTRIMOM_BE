@@ -19,9 +19,16 @@ public class EmailService {
     private final String fromEmail;
 
     public EmailService(@Autowired(required = false) JavaMailSender mailSender,
-                        @Value("${app.mail.from:no-reply@nutrimom.vn}") String fromEmail) {
+                        @Value("${app.mail.from:}") String fromEmail,
+                        @Value("${spring.mail.username:}") String mailUsername) {
         this.mailSender = Optional.ofNullable(mailSender);
-        this.fromEmail = fromEmail;
+        if (fromEmail != null && !fromEmail.isBlank()) {
+            this.fromEmail = fromEmail;
+        } else if (mailUsername != null && !mailUsername.isBlank()) {
+            this.fromEmail = mailUsername;
+        } else {
+            this.fromEmail = "no-reply@nutrimom.vn";
+        }
     }
 
     public boolean sendHtml(String to, String subject, String htmlContent) {
