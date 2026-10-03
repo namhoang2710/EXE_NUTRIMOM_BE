@@ -19,10 +19,25 @@ import vn.nutrimom.common.api.*;
 public class AuthController {
     private final AuthService authService;
     private final OtpService otpService;
+    private final MagicLinkService magicLinkService;
 
-    public AuthController(AuthService authService, OtpService otpService) {
+    public AuthController(AuthService authService, OtpService otpService, MagicLinkService magicLinkService) {
         this.authService = authService;
         this.otpService = otpService;
+        this.magicLinkService = magicLinkService;
+    }
+
+    @PostMapping("/magic-link/request")
+    @Operation(summary = "Yêu cầu gửi liên kết đăng nhập (Magic Link) qua Email")
+    public ApiResponse<MagicLinkResponse> requestMagicLink(@Valid @RequestBody MagicLinkRequest request,
+                                                           HttpServletRequest httpRequest) {
+        return ApiResponses.success(magicLinkService.requestMagicLink(request, httpRequest.getRemoteAddr()));
+    }
+
+    @PostMapping("/magic-link/verify")
+    @Operation(summary = "Xác thực Magic Link từ email và nhận phiên đăng nhập")
+    public ApiResponse<AuthResponse> verifyMagicLink(@Valid @RequestBody MagicLinkVerifyRequest request) {
+        return ApiResponses.success(magicLinkService.verifyMagicLink(request));
     }
 
     @PostMapping("/otp/request")
