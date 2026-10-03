@@ -94,6 +94,15 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  consultation:
+    video:
+      enabled: ${NUTRIMOM_VIDEO_ENABLED:true}
+      url: ${LIVEKIT_URL:}
+      api-key: ${LIVEKIT_API_KEY:}
+      api-secret: ${LIVEKIT_API_SECRET:}
+      join-early: PT5M
+      end-grace: PT5M
+      token-ttl: PT5M
   auth:
     magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:5173/auth/verify}
   mail:

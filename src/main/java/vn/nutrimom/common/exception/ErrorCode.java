@@ -19,6 +19,11 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
 
+    VIDEO_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, false, "Phòng tư vấn trực tuyến chưa sẵn sàng. Vui lòng liên hệ hỗ trợ."),
+    VIDEO_PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, true, "Chưa thể kết nối phòng tư vấn. Vui lòng thử lại sau."),
+    VIDEO_NOT_OPEN(HttpStatus.CONFLICT, false, "Chưa đến giờ vào phòng tư vấn."),
+    VIDEO_ENDED(HttpStatus.CONFLICT, false, "Phòng tư vấn đã kết thúc hoặc lịch đã bị hủy."),
+
     // --- Spec mục 20: code bắt buộc dùng chung ---
     VALIDATION_ERROR(HttpStatus.UNPROCESSABLE_CONTENT, false, "Dữ liệu gửi lên chưa hợp lệ."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, false, "Thông tin xác thực không hợp lệ."),

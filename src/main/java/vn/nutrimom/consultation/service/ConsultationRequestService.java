@@ -53,6 +53,7 @@ public class ConsultationRequestService {
     private final UserRepository users;
     private final AccessGuard guard;
     private final Clock clock;
+    private final vn.nutrimom.consultation.video.ConsultationVideoService video;
 
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
@@ -61,7 +62,7 @@ public class ConsultationRequestService {
                                       ConsultationReviewRepository reviews,
                                       UserRepository users,
                                       AccessGuard guard,
-                                      Clock clock) {
+                                      Clock clock, vn.nutrimom.consultation.video.ConsultationVideoService video) {
         this.requests = requests;
         this.slots = slots;
         this.dayOffs = dayOffs;
@@ -70,6 +71,7 @@ public class ConsultationRequestService {
         this.users = users;
         this.guard = guard;
         this.clock = clock;
+        this.video = video;
     }
 
     // ----- User -----
@@ -145,7 +147,7 @@ public class ConsultationRequestService {
     @Transactional
     public ConsultationRequestResponse cancel(String userId, String requestId) {
         ConsultationRequestEntity entity = guard.requireOwned(
-                requests.findByIdAndUserId(requestId, userId), "Không tìm thấy yêu cầu tư vấn.");
+                requests.findByIdForUpdate(requestId).filter(r -> userId.equals(r.getUserId())), "Không tìm thấy yêu cầu tư vấn.");
         if (entity.getStatus() == ConsultationStatus.COMPLETED
                 || entity.getStatus() == ConsultationStatus.CANCELLED) {
             throw new BusinessException(ErrorCode.INVALID_CONSULTATION_STATE,
@@ -154,6 +156,7 @@ public class ConsultationRequestService {
         String slotId = entity.getSlotId();
         entity.setSlotId(null);
         entity.setStatus(ConsultationStatus.CANCELLED);
+        video.stop(requestId);
         requests.saveAndFlush(entity);
         releaseSlot(slotId);
         return toResponse(entity, userId);
@@ -264,6 +267,7 @@ public class ConsultationRequestService {
                     "Chỉ hoàn thành được yêu cầu đang chờ tư vấn.");
         }
         entity.setStatus(ConsultationStatus.COMPLETED);
+        video.stop(requestId);
         entity.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         requests.saveAndFlush(entity);
         return toResponse(entity, null);

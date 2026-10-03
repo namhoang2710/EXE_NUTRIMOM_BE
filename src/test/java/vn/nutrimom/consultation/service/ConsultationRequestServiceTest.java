@@ -58,6 +58,7 @@ class ConsultationRequestServiceTest {
     @Mock private ExpertProfileRepository experts;
     @Mock private ConsultationReviewRepository reviews;
     @Mock private UserRepository users;
+    @Mock private vn.nutrimom.consultation.video.ConsultationVideoService video;
 
     private ConsultationRequestService service;
 
@@ -65,7 +66,7 @@ class ConsultationRequestServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         service = new ConsultationRequestService(
-                requests, slots, dayOffs, experts, reviews, users, new AccessGuard(), clock);
+                requests, slots, dayOffs, experts, reviews, users, new AccessGuard(), clock, video);
     }
 
     private static ExpertProfileEntity expert(String userId, Specialty specialty) {
