@@ -131,8 +131,8 @@ public class EmailService {
         return sendEmailOtp(toEmail, code, magicLinkUrl);
     }
 
-    public boolean sendRegistrationConfirmation(String toEmail, String displayName, String activationUrl) {
-        String subject = "✨ Chào mừng bạn đến với NutriMom - Xác nhận tài khoản";
+    public boolean sendRegistrationConfirmation(String toEmail, String displayName, String code) {
+        String subject = "✨ Mã xác thực kích hoạt tài khoản NutriMom: " + code;
         String html = """
             <!DOCTYPE html>
             <html lang="vi">
@@ -147,11 +147,10 @@ public class EmailService {
                 .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
                 .header p { margin: 6px 0 0; opacity: 0.9; font-size: 14px; }
                 .content { padding: 32px 28px; line-height: 1.6; }
-                .btn-container { text-align: center; margin: 30px 0; }
-                .btn { display: inline-block; background: #0d9488; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 16px; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35); }
+                .code-box { text-align: center; margin: 28px 0; }
+                .code { display: inline-block; font-size: 34px; font-weight: 800; letter-spacing: 10px; color: #0d9488; background: #f0fdf4; border: 2px dashed #86efac; padding: 14px 32px; border-radius: 12px; font-family: 'Courier New', monospace; }
                 .note { background: #f0fdf4; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #166534; border: 1px solid #bbf7d0; margin-top: 24px; }
                 .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
-                .raw-link { word-break: break-all; color: #0d9488; font-size: 12px; }
               </style>
             </head>
             <body>
@@ -162,17 +161,16 @@ public class EmailService {
                 </div>
                 <div class="content">
                   <p>Xin chào <strong>%s</strong>,</p>
-                  <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>NutriMom</strong>. Để hoàn tất kích hoạt tài khoản của bạn, vui lòng bấm vào nút bên dưới:</p>
-                  <div class="btn-container">
-                    <a href="%s" class="btn" target="_blank">👉 Kích hoạt tài khoản NutriMom</a>
+                  <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>NutriMom</strong>. Mã xác thực 6 chữ số để kích hoạt tài khoản của bạn là:</p>
+                  <div class="code-box">
+                    <span class="code">%s</span>
                   </div>
-                  <div class="note">
-                    🌱 Sau khi kích hoạt, bạn có thể dễ dàng đăng nhập bằng <strong>Email hoặc Số điện thoại</strong> cùng mật khẩu đã tạo.
-                  </div>
-                  <p style="margin-top: 24px; font-size: 13px; color: #64748b;">
-                    Nếu nút bấm không hoạt động, bạn có thể sao chép liên kết sau dán vào trình duyệt:<br>
-                    <a href="%s" class="raw-link">%s</a>
+                  <p style="text-align: center; font-size: 14px; color: #475569;">
+                    Hãy nhập mã xác thực này vào trang web để hoàn tất kích hoạt tài khoản và đăng nhập.
                   </p>
+                  <div class="note">
+                    ⏱️ <strong>Lưu ý:</strong> Mã có hiệu lực trong vòng <strong>15 phút</strong>. Sau khi kích hoạt, bạn có thể đăng nhập bằng Email hoặc Số điện thoại cùng mật khẩu đã tạo.
+                  </div>
                 </div>
                 <div class="footer">
                   © 2026 NutriMom Health & Nutrition. Mọi quyền được bảo lưu.
@@ -180,7 +178,7 @@ public class EmailService {
               </div>
             </body>
             </html>
-            """.formatted(displayName != null ? displayName : "Bạn", activationUrl, activationUrl, activationUrl);
+            """.formatted(displayName != null ? displayName : "Bạn", code);
 
         return sendHtml(toEmail, subject, html);
     }

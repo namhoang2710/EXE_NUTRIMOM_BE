@@ -27,6 +27,7 @@ public class AuthService {
     private final UserPersonaService personaService;
     private final vn.nutrimom.common.email.EmailService emailService;
     private final String magicLinkBaseUrl;
+    private final java.security.SecureRandom secureRandom = new java.security.SecureRandom();
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
@@ -79,9 +80,9 @@ public class AuthService {
         String rawActivationToken = null;
         if (email != null) {
             user.setStatus(UserStatus.PENDING_ACTIVATION);
-            rawActivationToken = tokenService.generateSecureRandomToken();
+            rawActivationToken = String.format("%06d", secureRandom.nextInt(1_000_000));
             user.setEmailActivationTokenHash(tokenService.hash(rawActivationToken));
-            user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(1));
+            user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(15));
         } else {
             user.setStatus(UserStatus.ACTIVE);
         }
@@ -95,8 +96,7 @@ public class AuthService {
 
         if (email != null && rawActivationToken != null) {
             try {
-                String activationUrl = magicLinkBaseUrl + "/auth/activate?token=" + rawActivationToken;
-                emailService.sendRegistrationConfirmation(email, user.getDisplayName(), activationUrl);
+                emailService.sendRegistrationConfirmation(email, user.getDisplayName(), rawActivationToken);
             } catch (Exception ex) {
                 // Email sending failure logged inside EmailService
             }
@@ -140,14 +140,31 @@ public class AuthService {
     @Transactional
     public AuthResponse activateAccount(vn.nutrimom.auth.dto.ActivateAccountRequest request) {
         String tokenHash = tokenService.hash(request.token().trim());
-        UserEntity user = userRepository.findByEmailActivationTokenHash(tokenHash)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
-                        "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."));
+        UserEntity user;
+
+        if (request.email() != null && !request.email().isBlank()) {
+            user = userRepository.findByEmailIgnoreCase(request.email().trim())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
+                            "Không tìm thấy tài khoản với email này."));
+
+            if (user.getStatus() == UserStatus.ACTIVE) {
+                return issueSession(user, request.deviceId());
+            }
+
+            if (user.getEmailActivationTokenHash() == null || !user.getEmailActivationTokenHash().equals(tokenHash)) {
+                throw new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
+                        "Mã xác thực kích hoạt không chính xác.");
+            }
+        } else {
+            user = userRepository.findByEmailActivationTokenHash(tokenHash)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
+                            "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."));
+        }
 
         if (user.getEmailActivationExpiresAt() != null
                 && user.getEmailActivationExpiresAt().isBefore(OffsetDateTime.now(ZoneOffset.UTC))) {
             throw new BusinessException(ErrorCode.ACTIVATION_TOKEN_EXPIRED,
-                    "Liên kết kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại email kích hoạt.");
+                    "Mã kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại mã mới.");
         }
 
         user.setStatus(UserStatus.ACTIVE);
@@ -164,22 +181,21 @@ public class AuthService {
         String email = request.email().trim().toLowerCase();
         Optional<UserEntity> userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
-            return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Nếu email tồn tại trong hệ thống, liên kết kích hoạt đã được gửi.");
+            return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Nếu email tồn tại trong hệ thống, mã kích hoạt đã được gửi.");
         }
         UserEntity user = userOpt.get();
         if (user.getStatus() == UserStatus.ACTIVE) {
             return new vn.nutrimom.auth.dto.ResendActivationResponse(false, "Tài khoản này đã được kích hoạt trước đó. Bạn có thể đăng nhập ngay.");
         }
 
-        String rawActivationToken = tokenService.generateSecureRandomToken();
+        String rawActivationToken = String.format("%06d", secureRandom.nextInt(1_000_000));
         user.setEmailActivationTokenHash(tokenService.hash(rawActivationToken));
-        user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(1));
+        user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(15));
         userRepository.save(user);
 
-        String activationUrl = magicLinkBaseUrl + "/auth/activate?token=" + rawActivationToken;
-        emailService.sendRegistrationConfirmation(email, user.getDisplayName(), activationUrl);
+        emailService.sendRegistrationConfirmation(email, user.getDisplayName(), rawActivationToken);
 
-        return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Email kích hoạt mới đã được gửi tới " + email);
+        return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Mã kích hoạt mới đã được gửi tới " + email);
     }
 
     @Transactional
