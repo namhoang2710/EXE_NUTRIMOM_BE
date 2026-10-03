@@ -3,8 +3,9 @@ package vn.nutrimom.auth.dto;
 import jakarta.validation.constraints.*;
 
 public record RegisterRequest(
-        @NotBlank(message = "Số điện thoại không được để trống")
         @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự") String phone,
+        @Email(message = "Định dạng email chưa hợp lệ")
+        @Size(max = 255, message = "Email tối đa 255 ký tự") String email,
         @NotBlank(message = "Mật khẩu không được để trống")
         @Size(min = 8, max = 72, message = "Mật khẩu phải dài từ 8 đến 72 ký tự")
         @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$",

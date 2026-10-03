@@ -110,4 +110,58 @@ public class EmailService {
 
         return sendHtml(toEmail, subject, html);
     }
+
+    public boolean sendRegistrationConfirmation(String toEmail, String displayName, String activationUrl) {
+        String subject = "✨ Chào mừng bạn đến với NutriMom - Xác nhận tài khoản";
+        String html = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Kích hoạt tài khoản NutriMom</title>
+              <style>
+                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; }
+                .wrapper { max-width: 560px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+                .header { background: linear-gradient(135deg, #0d9488 0%%, #14b8a6 100%%); padding: 32px 24px; text-align: center; color: #ffffff; }
+                .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+                .header p { margin: 6px 0 0; opacity: 0.9; font-size: 14px; }
+                .content { padding: 32px 28px; line-height: 1.6; }
+                .btn-container { text-align: center; margin: 30px 0; }
+                .btn { display: inline-block; background: #0d9488; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 16px; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35); }
+                .note { background: #f0fdf4; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #166534; border: 1px solid #bbf7d0; margin-top: 24px; }
+                .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+                .raw-link { word-break: break-all; color: #0d9488; font-size: 12px; }
+              </style>
+            </head>
+            <body>
+              <div class="wrapper">
+                <div class="header">
+                  <h1>NutriMom</h1>
+                  <p>Đồng hành cùng hành trình thai kỳ trọn vẹn</p>
+                </div>
+                <div class="content">
+                  <p>Xin chào <strong>%s</strong>,</p>
+                  <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>NutriMom</strong>. Để hoàn tất kích hoạt tài khoản của bạn, vui lòng bấm vào nút bên dưới:</p>
+                  <div class="btn-container">
+                    <a href="%s" class="btn" target="_blank">👉 Kích hoạt tài khoản NutriMom</a>
+                  </div>
+                  <div class="note">
+                    🌱 Sau khi kích hoạt, bạn có thể dễ dàng đăng nhập bằng <strong>Email hoặc Số điện thoại</strong> cùng mật khẩu đã tạo.
+                  </div>
+                  <p style="margin-top: 24px; font-size: 13px; color: #64748b;">
+                    Nếu nút bấm không hoạt động, bạn có thể sao chép liên kết sau dán vào trình duyệt:<br>
+                    <a href="%s" class="raw-link">%s</a>
+                  </p>
+                </div>
+                <div class="footer">
+                  © 2026 NutriMom Health & Nutrition. Mọi quyền được bảo lưu.
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(displayName != null ? displayName : "Bạn", activationUrl, activationUrl, activationUrl);
+
+        return sendHtml(toEmail, subject, html);
+    }
 }

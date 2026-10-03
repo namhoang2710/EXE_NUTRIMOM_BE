@@ -24,11 +24,15 @@ public class AuthService {
     private final PhoneNormalizer phoneNormalizer;
     private final TokenService tokenService;
     private final UserPersonaService personaService;
+    private final vn.nutrimom.common.email.EmailService emailService;
+    private final String magicLinkBaseUrl;
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
                        PhoneNormalizer phoneNormalizer, TokenService tokenService,
-                       UserPersonaService personaService) {
+                       UserPersonaService personaService,
+                       vn.nutrimom.common.email.EmailService emailService,
+                       @org.springframework.beans.factory.annotation.Value("${app.auth.magic-link-base-url:http://localhost:5173}") String magicLinkBaseUrl) {
         this.userRepository = users;
         this.refreshTokenRepository = refreshTokens;
         this.passwordEncoder = passwordEncoder;
@@ -36,14 +40,33 @@ public class AuthService {
         this.phoneNormalizer = phoneNormalizer;
         this.tokenService = tokenService;
         this.personaService = personaService;
+        this.emailService = emailService;
+        this.magicLinkBaseUrl = magicLinkBaseUrl;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        String phone = phoneNormalizer.normalizeVietnamesePhone(request.phone());
-        if (userRepository.existsByPhone(phone)) throw duplicatePhone();
+        String phone = null;
+        if (request.phone() != null && !request.phone().isBlank()) {
+            phone = phoneNormalizer.normalizeVietnamesePhone(request.phone());
+            if (userRepository.existsByPhone(phone)) throw duplicatePhone();
+        }
+
+        String email = null;
+        if (request.email() != null && !request.email().isBlank()) {
+            email = request.email().trim().toLowerCase();
+            if (userRepository.existsByEmailIgnoreCase(email)) {
+                throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email này đã được đăng ký.");
+            }
+        }
+
+        if (phone == null && email == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Vui lòng nhập email hoặc số điện thoại để đăng ký.");
+        }
+
         UserEntity user = new UserEntity();
         user.setPhone(phone);
+        user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setDisplayName(request.displayName().trim());
         user.setStatus(UserStatus.ACTIVE);
@@ -54,20 +77,45 @@ public class AuthService {
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
-            throw duplicatePhone();
+            if (phone != null && userRepository.existsByPhone(phone)) throw duplicatePhone();
+            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email hoặc số điện thoại này đã được sử dụng.");
         }
+
+        if (email != null) {
+            try {
+                String activationUrl = magicLinkBaseUrl + "/login";
+                emailService.sendRegistrationConfirmation(email, user.getDisplayName(), activationUrl);
+            } catch (Exception ex) {
+                // Email sending failure should not prevent user registration
+            }
+        }
+
         return issueSession(user, request.deviceId());
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        String phone = phoneNormalizer.normalizeVietnamesePhone(request.phone());
+        String input = request.phone() != null ? request.phone().trim() : "";
+        String usernameToAuth;
+        UserEntity user;
+
+        if (input.contains("@")) {
+            usernameToAuth = input.toLowerCase();
+            user = userRepository.findByEmailIgnoreCase(usernameToAuth).orElseThrow(this::invalidCredentials);
+        } else {
+            usernameToAuth = phoneNormalizer.normalizeVietnamesePhone(input);
+            user = userRepository.findByPhone(usernameToAuth).orElseThrow(this::invalidCredentials);
+        }
+
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(phone, request.password()));
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(usernameToAuth, request.password()));
         } catch (AuthenticationException ex) {
             throw invalidCredentials();
         }
-        UserEntity user = userRepository.findByPhone(phone).orElseThrow(this::invalidCredentials);
+
+        if (user.getStatus() == UserStatus.DISABLED || user.getStatus() == UserStatus.LOCKED) {
+            throw invalidCredentials();
+        }
         return issueSession(user, request.deviceId());
     }
 
@@ -129,7 +177,7 @@ public class AuthService {
         return new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS, "Số điện thoại này đã được đăng ký.");
     }
     private BusinessException invalidCredentials() {
-        return new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Số điện thoại hoặc mật khẩu không đúng.");
+        return new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Tài khoản hoặc mật khẩu không đúng.");
     }
     private BusinessException invalidRefreshToken() {
         return new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN, "Refresh token không hợp lệ hoặc đã hết hạn.");

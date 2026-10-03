@@ -47,6 +47,7 @@ public enum ErrorCode {
 
     // --- Auth (đang dùng) ---
     PHONE_ALREADY_EXISTS(HttpStatus.CONFLICT, false, "Số điện thoại đã được đăng ký."),
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, false, "Email này đã được đăng ký."),
     INVALID_PHONE(HttpStatus.UNPROCESSABLE_CONTENT, false, "Số điện thoại không hợp lệ."),
     TERMS_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Bạn cần đồng ý điều khoản trước khi tiếp tục."),
     OTP_RESEND_TOO_SOON(HttpStatus.TOO_MANY_REQUESTS, true, "Vui lòng chờ trước khi gửi lại OTP."),
