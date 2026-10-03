@@ -102,6 +102,16 @@ public enum ErrorCode {
     CONTACT_REQUEST_LIMIT_REACHED(HttpStatus.CONFLICT, false,
             "Bạn đang có quá nhiều yêu cầu hỗ trợ chờ xử lý. Vui lòng chờ phản hồi trước khi gửi thêm."),
 
+    // --- Payment & Subscription ---
+    PAYMENT_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy đơn hàng thanh toán."),
+    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, false, "Giao dịch thanh toán thất bại."),
+    PAYMENT_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, false, "Chữ ký webhook PayOS không hợp lệ."),
+    INVALID_PLAN_TIER(HttpStatus.BAD_REQUEST, false, "Gói dịch vụ không hợp lệ."),
+
+    // --- Assistant ---
+    ASSISTANT_BUSY(HttpStatus.CONFLICT, true, "Trợ lý đang xử lý một câu hỏi của bạn. Vui lòng chờ rồi thử lại."),
+    ASSISTANT_HISTORY_LIMIT(HttpStatus.CONFLICT, false, "Đã đạt giới hạn lịch sử. Hãy tạo cuộc trò chuyện mới hoặc xóa lịch sử cũ."),
+
     // --- Handler-level (extension, ngoài spec — giữ nguyên hành vi hiện tại) ---
     INVALID_MULTIPART(HttpStatus.BAD_REQUEST, false, "Cần một tệp ảnh multipart hợp lệ."),
     INVALID_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, false, "Content-Type của yêu cầu không được hỗ trợ."),

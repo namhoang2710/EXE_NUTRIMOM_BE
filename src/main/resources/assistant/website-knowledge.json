@@ -1,0 +1,213 @@
+{
+  "version": "2026-10-03",
+  "guides": [
+    {
+      "id": "guide:start",
+      "title": "Trang chủ NutriMom",
+      "href": "/app",
+      "keywords": "nutrimom huong dan bat dau su dung web chuc nang hanh trinh",
+      "status": "ACTIVE",
+      "text": "NutriMom kết nối hồ sơ cá nhân, thai kỳ, hồ sơ y tế, kế hoạch chăm sóc, bài viết, gia đình và tư vấn chuyên gia.\nBắt đầu: 1. Mở menu tài khoản → Hồ sơ cá nhân để kiểm tra tên, ngày sinh và giới tính. 2. Nếu đang mang thai, mở Thai kỳ & sức khỏe và lưu mốc tính tuổi thai. 3. Lưu kết quả khám trong Hồ sơ y tế. 4. Đọc và lưu bài ở Kiến thức. 5. Mở Chuyên gia khi cần trao đổi trực tiếp. Thai kỳ là thông tin tùy chọn; không tự giả định mọi tài khoản đều là mẹ bầu."
+    },
+    {
+      "id": "guide:profile",
+      "title": "Hồ sơ cá nhân",
+      "href": "/app/profile",
+      "keywords": "tai khoan ten tuoi thong tin ca nhan email ngay sinh gioi tinh",
+      "status": "ACTIVE",
+      "text": "Hồ sơ cá nhân lưu tên hiển thị, email, ngày sinh và giới tính; vai trò MOM/PARTNER/FAMILY_MEMBER được suy ra từ tài khoản và liên kết hiện có.\nCập nhật: mở menu tên/ảnh đại diện → Hồ sơ cá nhân → sửa trường cần thay đổi → Lưu. Số điện thoại đăng nhập không phải trường đổi trực tiếp trên biểu mẫu này. Nếu dữ liệu vừa được cập nhật ở nơi khác, tải lại rồi sửa trên phiên bản mới. Trợ lý nhận diện tài khoản bằng phiên đăng nhập, không cần người dùng nhập user ID."
+    },
+    {
+      "id": "guide:pregnancy",
+      "title": "Thai kỳ & sức khỏe",
+      "href": "/app/profile/health",
+      "keywords": "thai ky tuan thai ngay du sinh suc khoe tam ca nguyet tinh tuoi thai kinh cuoi thu thai",
+      "status": "ACTIVE",
+      "text": "Thai kỳ & sức khỏe quản lý thai kỳ hiện tại, tuổi thai tự tăng theo ngày, tam cá nguyệt và ngày dự sinh đã lưu.\nCách dùng: chọn Kỳ kinh cuối, Ngày thụ thai hoặc Nhập thủ công; nhập ngày hoặc tuần/ngày thai; bấm Tính kết quả; kiểm tra dự sinh và tuổi thai; bấm Dùng kết quả này rồi xác nhận lưu. Chỉ tính thử chưa cập nhật hồ sơ. Trang có nội dung tuần, biểu đồ và thông tin kiểm duyệt khi đã có dữ liệu. Nhập tay neo tuổi thai tại ngày lưu. Không suy đoán thai kỳ khi chưa có hồ sơ; đối chiếu mốc với người theo dõi thai kỳ."
+    },
+    {
+      "id": "guide:records",
+      "title": "Hồ sơ y tế",
+      "href": "/app/profile/records",
+      "keywords": "ho so y te ket qua kham xet nghiem sieu am tai lieu luu tep pdf anh them xoa sua",
+      "status": "ACTIVE",
+      "text": "Hồ sơ y tế lưu các lần khám, siêu âm, kết quả xét nghiệm, đơn thuốc, giấy ra viện và hồ sơ khác thuộc tài khoản.\nThêm: bấm Thêm hồ sơ → chọn loại → nhập tiêu đề, ngày diễn ra, nội dung tóm tắt → tải tệp đính kèm nếu có → lưu. Dùng bộ lọc loại, từ ngày và đến ngày để tìm lại; mở hồ sơ để xem, sửa hoặc xóa. Tệp phải tải lên hoàn tất mới gắn vào hồ sơ. Trợ lý tìm thông tin đã nhập và tóm tắt liên quan; chưa phân tích nội dung PDF/ảnh, không diễn giải kết quả thành chẩn đoán."
+    },
+    {
+      "id": "guide:knowledge",
+      "title": "Kiến thức",
+      "href": "/app/knowledge",
+      "keywords": "blog bai viet kien thuc doc dinh duong an uong mon an tim kiem chu de giai doan",
+      "status": "ACTIVE",
+      "text": "Kiến thức hiển thị bài viết đã xuất bản, với chủ đề, giai đoạn, nội dung, nguồn tham khảo và thông tin tác giả.\nCách dùng: vào Kiến thức → tìm/lọc theo chủ đề hoặc giai đoạn → mở bài để đọc; bấm biểu tượng lưu để xem lại. Trợ lý gợi ý từ nội dung bài thực tế, có dẫn nguồn và dựa trên tuần thai khi tài khoản có dữ liệu. Không dùng bài nháp hay bài hẹn giờ chưa đến ngày xuất bản. Khi kho bài chưa có nội dung phù hợp, nói rõ thay vì bịa tên bài hoặc nguồn."
+    },
+    {
+      "id": "guide:saved",
+      "title": "Bài viết đã lưu",
+      "href": "/app/profile/saved",
+      "keywords": "bookmark yeu thich danh dau bai viet da luu bo luu",
+      "status": "ACTIVE",
+      "text": "Bài viết đã lưu là bộ sưu tập cá nhân của tài khoản đang đăng nhập.\nLưu: mở bài trong Kiến thức và bấm biểu tượng lưu. Xem lại: menu tài khoản → Bài viết đã lưu. Bỏ lưu: bấm lại biểu tượng lưu. Các bài chưa công khai không được đưa vào gợi ý hoặc nguồn trả lời, kể cả từng được đánh dấu trước đó."
+    },
+    {
+      "id": "guide:care",
+      "title": "Kế hoạch chăm sóc",
+      "href": "/app/profile/care",
+      "keywords": "cham soc chuan bi sinh ke hoach checklist danh sach chuan bi ke hoach sinh",
+      "status": "ACTIVE",
+      "text": "Kế hoạch chăm sóc theo thai kỳ gồm hướng dẫn, danh sách chuẩn bị và kế hoạch sinh.\nCách dùng: tạo thai kỳ đang hoạt động trước → mở Kế hoạch chăm sóc → xem hướng dẫn → đánh dấu các mục chuẩn bị đã xong → ghi các mong muốn trong kế hoạch sinh và lưu. Trợ lý có thể nắm tiến độ và các mục còn lại đã lưu, không tự đánh dấu thay bạn. Xem kế hoạch trong chat không tạo hay thay đổi checklist. Những sở thích trong kế hoạch sinh cần trao đổi với đội ngũ theo dõi."
+    },
+    {
+      "id": "guide:experts",
+      "title": "Chuyên gia",
+      "href": "/app/experts",
+      "keywords": "bac si chuyen gia tu van dat lich hen thuoc lieu chan doan tam ly san khoa suc khoe",
+      "status": "ACTIVE",
+      "text": "Chuyên gia là danh sách người tư vấn với chuyên khoa Tâm lý, Sản khoa hoặc Sức khỏe.\nCách dùng: mở Chuyên gia → chọn chuyên khoa → xem chuyên gia phù hợp → bấm đặt tư vấn và chọn lịch còn trống. Người dùng cũng có thể gửi yêu cầu để một chuyên gia phù hợp nhận. Trợ lý hỗ trợ tìm đúng màn hình và chuẩn bị nội dung trao đổi; không thay chuyên gia đánh giá hồ sơ."
+    },
+    {
+      "id": "guide:consultations",
+      "title": "Đặt lịch tư vấn",
+      "href": "/app/consultations",
+      "keywords": "dat lich tu van truc tiep ngau nhien chon khung gio random direct cho chuyen gia",
+      "status": "ACTIVE",
+      "text": "Đặt lịch tư vấn hỗ trợ chọn một chuyên gia hoặc gửi yêu cầu chờ chuyên gia phù hợp nhận.\nTrực tiếp: chọn chuyên gia → chọn ngày → chọn ô thời gian còn trống → ghi chú ngắn → xác nhận. Yêu cầu chờ chuyên gia: chọn chuyên khoa, ghi nhu cầu rồi gửi; trạng thái ban đầu là Đang chờ chuyên gia. Khi được nhận và có lịch, trạng thái chuyển sang Đang chờ tư vấn. Ô đã bị người khác đặt có thể báo xung đột: tải lại lịch và chọn ô khác. Các buổi dùng ô 30 phút; hệ thống xác nhận chỗ trống lúc lưu, không chỉ dựa vào màn hình."
+    },
+    {
+      "id": "guide:consultation-history",
+      "title": "Lịch sử tư vấn",
+      "href": "/app/consultations/history",
+      "keywords": "lich su tu van huy lich danh gia sao review da tu van cho chuyen gia",
+      "status": "ACTIVE",
+      "text": "Lịch sử tư vấn hiển thị các yêu cầu, trạng thái, lịch hẹn và thao tác được phép của tài khoản.\nMở menu tài khoản → Lịch sử tư vấn. Có thể hủy khi yêu cầu còn chờ chuyên gia hoặc chờ tư vấn; lịch đã hoàn tất không dùng thao tác hủy này. Chỉ gửi đánh giá sau khi buổi tư vấn được đánh dấu hoàn thành. Đang chờ chuyên gia nghĩa là chưa có người nhận và chưa xác nhận giờ hẹn; Đang chờ tư vấn nghĩa là đã có lịch. Trợ lý xem dữ liệu hiện tại và chỉ hướng dẫn thao tác, không tự hủy/đặt lịch."
+    },
+    {
+      "id": "guide:pricing",
+      "title": "Bảng giá",
+      "href": "/app/pricing",
+      "keywords": "gia goi thanh toan payos nang cap premium gia han qr vietqr ma don",
+      "status": "ACTIVE",
+      "text": "Bảng giá cho phép chọn gói, xem lại đơn rồi chuyển sang payOS để thanh toán.\nLuồng: chọn gói → Tiếp tục → kiểm tra tóm tắt và phương thức VietQR → Thanh toán qua payOS → quét QR bằng ứng dụng ngân hàng → trở về NutriMom để xem trạng thái kích hoạt. Gói Miễn phí không thanh toán; gói trả phí có thời hạn 30 ngày. Gia hạn cộng thời hạn theo quy tắc hệ thống. Nút Xác nhận thử nghiệm chỉ thuộc giao dịch mô phỏng, không chuyển tiền thật. Không xác nhận đã nhận tiền từ ảnh chụp/lời kể; phải dựa vào trạng thái backend. Các quyền lợi quảng bá không chứng minh một trang đang phát triển đã có chức năng hoàn chỉnh."
+    },
+    {
+      "id": "guide:family",
+      "title": "Gia đình",
+      "href": "/app/family",
+      "keywords": "gia dinh chia se moi chong thanh vien token nhom tham gia quyen",
+      "status": "ACTIVE",
+      "text": "Gia đình liên kết tài khoản qua nhóm của một thai kỳ và quyền chia sẻ do chủ nhóm quản lý.\nChủ thai kỳ: có thai kỳ hoạt động → Gia đình → Tạo nhóm → mời người thân bằng thông tin người nhận và chọn quyền. Người được mời: đăng nhập đúng tài khoản nhận → Gia đình → Nhập token lời mời → xác nhận. Tab Nhóm gia đình quản lý thành viên; tab Việc cần làm theo quyền được cấp. Token có hạn và không dùng lại sau khi chấp nhận. Trợ lý biết số nhóm của chính người dùng; không tự đọc hồ sơ sức khỏe của người thân hay bỏ qua quyền chia sẻ."
+    },
+    {
+      "id": "guide:family-tasks",
+      "title": "Việc cần làm của gia đình",
+      "href": "/app/family",
+      "keywords": "viec can lam gia dinh giao viec assignee task hoan thanh",
+      "status": "ACTIVE",
+      "text": "Việc cần làm nằm trong Gia đình và yêu cầu quyền FAMILY_TASKS.\nMở Gia đình → Việc cần làm → xem, tạo hoặc cập nhật công việc theo quyền hiện có → giao cho thành viên trong cùng nhóm nếu được phép → đánh dấu hoàn thành. Không có quyền thì nhờ chủ nhóm điều chỉnh chia sẻ. Tab Hoạt động chưa phải lịch sử giao dịch đầy đủ của mọi thành viên. Trợ lý chưa tự tạo hoặc hoàn thành công việc."
+    },
+    {
+      "id": "guide:support",
+      "title": "Hỗ trợ",
+      "href": "/app/profile/support",
+      "keywords": "ho tro lien he loi web bao loi yeu cau phan hoi pending huy",
+      "status": "ACTIVE",
+      "text": "Hỗ trợ trong menu tài khoản gửi yêu cầu thật và theo dõi trạng thái xử lý.\nMở Hỗ trợ / Liên hệ → chọn chủ đề → nhập thắc mắc → gửi → xem trong lịch sử yêu cầu. Tối đa ba yêu cầu đang chờ; có thể hủy yêu cầu pending của mình. Khi có lỗi, nêu màn hình, thao tác, thông báo và mã đơn nếu cần; không gửi mật khẩu, OTP hay API key. Biểu mẫu Liên hệ công khai hiện là demo và không gửi dữ liệu đến hệ thống hỗ trợ."
+    },
+    {
+      "id": "guide:settings",
+      "title": "Cài đặt",
+      "href": "/app/settings",
+      "keywords": "cai dat ngon ngu mui gio thong bao giao dien theme don vi email sms push sao luu",
+      "status": "ACTIVE",
+      "text": "Cài đặt lưu tùy chọn ngôn ngữ, khu vực, múi giờ, giao diện, đơn vị và thông báo.\nMở Cài đặt → đổi trường cần thiết → Lưu cài đặt. Múi giờ dùng tên IANA như Asia/Ho_Chi_Minh; giờ nhắc có dạng HH:mm:ss. Nếu báo dữ liệu đã đổi ở nơi khác, bấm Tải lại trước khi sửa tiếp. Việc bật tùy chọn thông báo không đồng nghĩa mọi kênh gửi SMS/push đã được triển khai. Backend hiện chưa hỗ trợ xóa giờ nhắc đã lưu."
+    },
+    {
+      "id": "guide:password",
+      "title": "Mật khẩu",
+      "href": "/app/profile/account/password",
+      "keywords": "doi mat khau quen mat khau reset bao mat otp",
+      "status": "PLANNED",
+      "text": "Trang Mật khẩu hiện thông báo chưa hỗ trợ đổi hoặc đặt lại mật khẩu vì backend chưa có API tương ứng.\nKhông hướng dẫn người dùng bấm một nút lưu mật khẩu không tồn tại. Người dùng có thể dùng phương thức OTP khi nhà cung cấp OTP của môi trường đã được cấu hình; OTP local trong chế độ phát triển không phải dịch vụ SMS production. Cần hỗ trợ thì mở Hỗ trợ trong menu tài khoản. Không yêu cầu mật khẩu hoặc mã OTP trong chat."
+    },
+    {
+      "id": "guide:disable",
+      "title": "Vô hiệu hóa tài khoản",
+      "href": "/app/profile/account/disable",
+      "keywords": "vo hieu hoa tai khoan xoa tai khoan disable khoa",
+      "status": "ACTIVE",
+      "text": "Vô hiệu hóa tài khoản là thao tác có xác thực lại, không phải trợ lý tự xóa dữ liệu qua tin nhắn.\nMở menu tài khoản → Thiết lập tài khoản → Vô hiệu hóa tài khoản → đọc thông tin trên trang → xác thực theo biểu mẫu → xác nhận nếu muốn tiếp tục. Trạng thái tài khoản và phiên đăng nhập được hệ thống xử lý. Trợ lý chỉ dẫn tới trang; không hứa việc vô hiệu hóa đồng nghĩa đã xóa vĩnh viễn toàn bộ dữ liệu."
+    },
+    {
+      "id": "guide:assistant",
+      "title": "Trợ lý NutriMom",
+      "href": "/app/assistant",
+      "keywords": "assistant tro ly chat ai ca nhan hoa lich su ngu canh groq",
+      "status": "ACTIVE",
+      "text": "Trợ lý tự nhận diện tài khoản đăng nhập và nạp hồ sơ, thai kỳ, hồ sơ y tế cùng hoạt động liên quan để hỗ trợ cá nhân hóa.\nMở nút Hỏi NutriMom ở góc trang hoặc trang Trợ lý. Hỏi trực tiếp mà không nhập lại dữ liệu đã lưu. Mục Cá nhân hóa cho phép điều chỉnh nguồn dữ liệu và đồng ý xử lý câu hỏi qua AI; cloud AI vẫn cần được cấu hình và có sự đồng ý. Có lịch sử, nguồn và nút mở đúng chức năng. Khi đổi quyền, hội thoại cũ chỉ xem; bắt đầu hội thoại mới để tiếp tục. Mỗi câu hỏi lấy dữ liệu mới, không coi câu trả lời cũ là hồ sơ hiện tại."
+    },
+    {
+      "id": "guide:nutrition",
+      "title": "Dinh dưỡng",
+      "href": "/app/nutrition",
+      "keywords": "thuc don nhat ky bua an calo protein dinh duong scan mon an",
+      "status": "PLANNED",
+      "text": "Trang Dinh dưỡng hiện là giao diện đang phát triển, chưa có nhật ký bữa ăn, AI scan món ăn hoặc kế hoạch dinh dưỡng tự động hoàn chỉnh.\nĐể tìm kiến thức dinh dưỡng: vào Kiến thức, tìm bài thuộc chủ đề dinh dưỡng và giai đoạn phù hợp. Trợ lý dùng bài đã xuất bản và hồ sơ hiện có để giải thích, không giả định cân nặng, dị ứng, bệnh nền hay khẩu phần chưa được lưu. Muốn thực đơn điều trị hoặc đánh giá chuyên môn thì trao đổi với chuyên gia."
+    },
+    {
+      "id": "guide:calendar",
+      "title": "Lịch và nhắc việc",
+      "href": "/app/calendar",
+      "keywords": "lich nhac viec nhac nho event reminder lap lai",
+      "status": "PLANNED",
+      "text": "Lịch và nhắc việc hiện là trang chờ triển khai, chưa có luồng tạo sự kiện hay nhắc lặp hoàn chỉnh trên web.\nMuốn xem lịch tư vấn đã đặt, mở Lịch sử tư vấn. Tùy chọn giờ nhắc ở Cài đặt là một giá trị đã lưu, không chứng minh bộ lập lịch thông báo đã hoạt động. Trợ lý không tuyên bố đã tạo reminder hay sẽ tự nhắn người dùng vào một thời điểm."
+    },
+    {
+      "id": "guide:chat",
+      "title": "Chat với chuyên gia",
+      "href": "/app/chat",
+      "keywords": "chat chuyen gia tin nhan realtime tro chuyen",
+      "status": "PLANNED",
+      "text": "Trang Chat với chuyên gia hiện chưa có backend trao đổi tin nhắn realtime hoàn chỉnh.\nĐây là chức năng khác với NutriMom Assistant. Muốn gửi câu hỏi cho trợ lý web thì dùng Hỏi NutriMom; muốn trao đổi chuyên môn thì vào Chuyên gia / Đặt lịch tư vấn. Không tuyên bố tin nhắn trong Assistant đã được gửi cho bác sĩ."
+    },
+    {
+      "id": "guide:community",
+      "title": "Cộng đồng",
+      "href": "/app/community",
+      "keywords": "cong dong dang bai binh luan dien dan",
+      "status": "PLANNED",
+      "text": "Cộng đồng hiện hiển thị Sắp ra mắt, chưa có luồng đăng bài hoặc bình luận hoạt động.\nNgười dùng có thể đọc Kiến thức trong thời gian chờ. Không hướng dẫn tạo bài cộng đồng hay kết nối tài khoản khác bằng chức năng chưa có."
+    },
+    {
+      "id": "guide:dashboard",
+      "title": "Tổng quan",
+      "href": "/app/dashboard",
+      "keywords": "dashboard tong quan canh bao chi so suc khoe thong bao",
+      "status": "PARTIAL",
+      "text": "Trang Tổng quan có dữ liệu hiện có nhưng một số khối dashboard còn chưa được triển khai đầy đủ.\nKhông suy ra mọi chỉ số sức khỏe, lịch hẹn, cảnh báo hoặc số thông báo đã có dữ liệu chỉ từ một khung giao diện. Dùng hồ sơ thai kỳ, Hồ sơ y tế và Lịch sử tư vấn để kiểm tra thông tin thực tế. Trợ lý chỉ nêu chỉ số được lưu, không tạo chỉ số BMI/cân nặng/đường huyết chưa tồn tại."
+    },
+    {
+      "id": "guide:appointment-questions",
+      "title": "Câu hỏi cho buổi hẹn",
+      "href": "/app/appointment-questions",
+      "keywords": "cau hoi buoi hen chuan bi hoi bac si",
+      "status": "PLANNED",
+      "text": "Câu hỏi cho buổi hẹn hiện là trang chờ triển khai, chưa lưu danh sách câu hỏi bằng API hoàn chỉnh.\nNgười dùng có thể tự chuẩn bị nội dung trao đổi và ghi vào ghi chú khi đặt tư vấn. Trợ lý có thể giúp soạn câu hỏi trong chat nhưng không tuyên bố đã lưu chúng vào trang này."
+    },
+    {
+      "id": "guide:roles",
+      "title": "Vai trò và quyền truy cập",
+      "href": "/app",
+      "keywords": "vai tro mom partner family member admin expert doctor quyen truy cap",
+      "status": "ACTIVE",
+      "text": "NutriMom phân biệt vai trò người dùng trong hành trình chăm sóc và quyền hệ thống của chuyên gia/quản trị.\nHồ sơ persona MOM/PARTNER/FAMILY_MEMBER phụ thuộc thai kỳ và nhóm hiện có. Khu vực chuyên gia dành cho EXPERT/DOCTOR; khu vực quản trị dành cho ADMIN. Người dùng thông thường không có quyền xem dữ liệu quản trị hoặc tài khoản khác. Tham gia gia đình vẫn cần quyền chia sẻ cụ thể; trợ lý không tăng quyền bằng một câu lệnh."
+    },
+    {
+      "id": "guide:troubleshooting",
+      "title": "Xử lý lỗi thường gặp",
+      "href": "/app/profile/support",
+      "keywords": "loi khong tai duoc het phien 401 403 404 409 429 xung dot tai lai",
+      "status": "ACTIVE",
+      "text": "Lỗi cần được xử lý theo thông báo và dữ liệu hiện tại của web.\nHết phiên: đăng nhập lại. Không có quyền: kiểm tra đúng tài khoản và quyền chia sẻ. Dữ liệu đổi ở nơi khác / 409: tải lại rồi sửa trên bản mới. Lịch vừa bị đặt: chọn ô còn trống. Quá nhiều yêu cầu / 429: chờ rồi thử lại. Chưa có thai kỳ: tạo thai kỳ trong Thai kỳ & sức khỏe trước khi dùng trang phụ thuộc thai kỳ. Lỗi thanh toán: kiểm tra mã đơn và trạng thái xác nhận; gửi yêu cầu Hỗ trợ nếu chưa xử lý được. Không yêu cầu API key hay token để chẩn đoán lỗi."
+    }
+  ]
+}

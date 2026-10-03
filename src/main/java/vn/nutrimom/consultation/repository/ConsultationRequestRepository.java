@@ -17,6 +17,8 @@ public interface ConsultationRequestRepository
         extends JpaRepository<ConsultationRequestEntity, String> {
 
     List<ConsultationRequestEntity> findByUserIdOrderByCreatedAtDesc(String userId);
+    List<ConsultationRequestEntity> findTop5ByUserIdOrderByCreatedAtDesc(String userId);
+    long countByUserId(String userId);
 
     Optional<ConsultationRequestEntity> findByIdAndUserId(String id, String userId);
 
