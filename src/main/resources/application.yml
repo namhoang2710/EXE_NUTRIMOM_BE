@@ -43,6 +43,9 @@ spring:
           auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:false}
           starttls:
             enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+            required: true
+          ssl:
+            trust: smtp.gmail.com
   data:
     redis:
       repositories:
