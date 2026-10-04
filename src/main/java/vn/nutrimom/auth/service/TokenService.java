@@ -29,11 +29,14 @@ public class TokenService {
         Instant now = Instant.now();
         Instant accessExpiresAt = now.plus(properties.getAccessTokenTtl());
         List<String> roles = user.getRoles().stream().map(Enum::name).sorted().toList();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
                 .issuer(properties.getIssuer()).subject(user.getId())
                 .issuedAt(now).expiresAt(accessExpiresAt)
-                .claim("phone", user.getPhone()).claim("roles", roles)
-                .claim("type", "access").build();
+                .claim("roles", roles)
+                .claim("type", "access");
+        if (user.getPhone() != null) claimsBuilder.claim("phone", user.getPhone());
+        if (user.getEmail() != null) claimsBuilder.claim("email", user.getEmail());
+        JwtClaimsSet claims = claimsBuilder.build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 
@@ -69,6 +72,12 @@ public class TokenService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 is not available", ex);
         }
+    }
+
+    public String generateSecureRandomToken() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private String generateRefreshToken() {

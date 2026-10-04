@@ -49,11 +49,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
+                                "/api/v1/auth/activate", "/api/v1/auth/resend-activation",
                                 "/api/v1/auth/otp/request", "/api/v1/auth/otp/verify",
+                                "/api/v1/auth/magic-link/request", "/api/v1/auth/magic-link/verify",
                                 "/api/v1/auth/refresh", "/api/v1/auth/logout",
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
                                 "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/files/*/content").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/consultation-video/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/experts", "/api/v1/experts/*").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/knowledge/articles", "/api/v1/knowledge/articles/*").permitAll()
@@ -72,7 +76,8 @@ public class SecurityConfig {
     UserDetailsService userDetailsService(UserRepository users, PasswordEncoder encoder) {
         String unavailablePasswordHash = encoder.encode(UUID.randomUUID().toString());
         return username -> users.findByPhone(username)
-                .map(user -> User.withUsername(user.getPhone())
+                .or(() -> users.findByEmailIgnoreCase(username))
+                .map(user -> User.withUsername(user.getPhone() != null ? user.getPhone() : user.getEmail())
                         .password(user.getPasswordHash() == null ? unavailablePasswordHash : user.getPasswordHash())
                         .authorities(user.getRoles().stream()
                                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name())).toList())

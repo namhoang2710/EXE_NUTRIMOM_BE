@@ -34,6 +34,7 @@ import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
 import vn.nutrimom.consultation.repository.ExpertDayOffRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
+import vn.nutrimom.consultation.video.ConsultationVideoService;
 import vn.nutrimom.notification.service.ActivityFeedService;
 import vn.nutrimom.notification.service.NotificationService;
 
@@ -60,9 +61,10 @@ class ConsultationRequestServiceTest {
     @Mock private ExpertProfileRepository experts;
     @Mock private ConsultationReviewRepository reviews;
     @Mock private UserRepository users;
-    /** Mọi guard đều chặn trước khi tới bước báo tin, nên hai cộng tác viên này không bị gọi. */
+    /** Mọi guard đều chặn trước khi tới bước báo tin, nên các cộng tác viên này không bị gọi. */
     @Mock private NotificationService notifications;
     @Mock private ActivityFeedService activityFeed;
+    @Mock private ConsultationVideoService video;
 
     private ConsultationRequestService service;
 
@@ -71,7 +73,7 @@ class ConsultationRequestServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         service = new ConsultationRequestService(
                 requests, slots, dayOffs, experts, reviews, users, new AccessGuard(), clock,
-                notifications, activityFeed);
+                notifications, activityFeed, video);
     }
 
     private static ExpertProfileEntity expert(String userId, Specialty specialty) {

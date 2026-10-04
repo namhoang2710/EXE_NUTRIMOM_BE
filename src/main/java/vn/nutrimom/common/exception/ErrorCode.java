@@ -19,6 +19,11 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
 
+    VIDEO_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, false, "Phòng tư vấn trực tuyến chưa sẵn sàng. Vui lòng liên hệ hỗ trợ."),
+    VIDEO_PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, true, "Chưa thể kết nối phòng tư vấn. Vui lòng thử lại sau."),
+    VIDEO_NOT_OPEN(HttpStatus.CONFLICT, false, "Chưa đến giờ vào phòng tư vấn."),
+    VIDEO_ENDED(HttpStatus.CONFLICT, false, "Phòng tư vấn đã kết thúc hoặc lịch đã bị hủy."),
+
     // --- Spec mục 20: code bắt buộc dùng chung ---
     VALIDATION_ERROR(HttpStatus.UNPROCESSABLE_CONTENT, false, "Dữ liệu gửi lên chưa hợp lệ."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, false, "Thông tin xác thực không hợp lệ."),
@@ -47,6 +52,7 @@ public enum ErrorCode {
 
     // --- Auth (đang dùng) ---
     PHONE_ALREADY_EXISTS(HttpStatus.CONFLICT, false, "Số điện thoại đã được đăng ký."),
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, false, "Email này đã được đăng ký."),
     INVALID_PHONE(HttpStatus.UNPROCESSABLE_CONTENT, false, "Số điện thoại không hợp lệ."),
     TERMS_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Bạn cần đồng ý điều khoản trước khi tiếp tục."),
     OTP_RESEND_TOO_SOON(HttpStatus.TOO_MANY_REQUESTS, true, "Vui lòng chờ trước khi gửi lại OTP."),
@@ -56,6 +62,9 @@ public enum ErrorCode {
     OTP_CHALLENGE_NOT_FOUND(HttpStatus.UNAUTHORIZED, false, "Không tìm thấy phiên OTP."),
     ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy tài khoản."),
     ACCOUNT_UNAVAILABLE(HttpStatus.UNAUTHORIZED, false, "Tài khoản không khả dụng."),
+    ACCOUNT_PENDING_ACTIVATION(HttpStatus.FORBIDDEN, false, "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt tài khoản."),
+    INVALID_ACTIVATION_TOKEN(HttpStatus.BAD_REQUEST, false, "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."),
+    ACTIVATION_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, false, "Liên kết kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại email kích hoạt."),
     OTP_REAUTHENTICATION_MISMATCH(HttpStatus.UNAUTHORIZED, false, "Phiên xác thực lại không khớp."),
 
     // --- User (đang dùng) ---
@@ -101,6 +110,16 @@ public enum ErrorCode {
             "Không thể thực hiện thao tác này với trạng thái hiện tại của yêu cầu hỗ trợ."),
     CONTACT_REQUEST_LIMIT_REACHED(HttpStatus.CONFLICT, false,
             "Bạn đang có quá nhiều yêu cầu hỗ trợ chờ xử lý. Vui lòng chờ phản hồi trước khi gửi thêm."),
+
+    // --- Payment & Subscription ---
+    PAYMENT_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy đơn hàng thanh toán."),
+    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, false, "Giao dịch thanh toán thất bại."),
+    PAYMENT_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, false, "Chữ ký webhook PayOS không hợp lệ."),
+    INVALID_PLAN_TIER(HttpStatus.BAD_REQUEST, false, "Gói dịch vụ không hợp lệ."),
+
+    // --- Assistant ---
+    ASSISTANT_BUSY(HttpStatus.CONFLICT, true, "Trợ lý đang xử lý một câu hỏi của bạn. Vui lòng chờ rồi thử lại."),
+    ASSISTANT_HISTORY_LIMIT(HttpStatus.CONFLICT, false, "Đã đạt giới hạn lịch sử. Hãy tạo cuộc trò chuyện mới hoặc xóa lịch sử cũ."),
 
     // --- Handler-level (extension, ngoài spec — giữ nguyên hành vi hiện tại) ---
     INVALID_MULTIPART(HttpStatus.BAD_REQUEST, false, "Cần một tệp ảnh multipart hợp lệ."),

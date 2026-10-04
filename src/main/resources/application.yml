@@ -31,7 +31,21 @@ spring:
     create-schemas: true
     locations: classpath:db/migration
     baseline-on-migrate: false
-    validate-on-migrate: true
+    validate-on-migrate: false
+  mail:
+    host: ${SPRING_MAIL_HOST:}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+            required: true
+          ssl:
+            trust: smtp.gmail.com
   data:
     redis:
       repositories:
@@ -80,6 +94,29 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  consultation:
+    video:
+      enabled: ${NUTRIMOM_VIDEO_ENABLED:true}
+      url: ${LIVEKIT_URL:}
+      api-key: ${LIVEKIT_API_KEY:}
+      api-secret: ${LIVEKIT_API_SECRET:}
+      join-early: PT5M
+      end-grace: PT5M
+      token-ttl: PT5M
+  auth:
+    magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:5173/auth/verify}
+  mail:
+    from: ${APP_MAIL_FROM:no-reply@nutrimom.vn}
+  assistant:
+    enabled: ${NUTRIMOM_ASSISTANT_ENABLED:true}
+    api-key: ${GROQ_API_KEY:}
+    model: ${NUTRIMOM_ASSISTANT_MODEL:openai/gpt-oss-20b}
+    zero-data-retention-confirmed: ${GROQ_ZDR_CONFIRMED:false}
+    timeout: PT35S
+    daily-user-limit: ${NUTRIMOM_ASSISTANT_DAILY_USER_LIMIT:20}
+    daily-global-limit: ${NUTRIMOM_ASSISTANT_DAILY_GLOBAL_LIMIT:100}
+    daily-token-budget: ${NUTRIMOM_ASSISTANT_DAILY_TOKEN_BUDGET:150000}
+    retention-days: ${NUTRIMOM_ASSISTANT_RETENTION_DAYS:30}
   knowledge:
     r2:
       enabled: ${R2_ENABLED:false}
@@ -125,6 +162,9 @@ app:
         devices:
           capacity: 20
           window: PT1M
+        assistant:
+          capacity: 8
+          window: PT1M
         default:
           capacity: 100
           window: PT1M
@@ -135,6 +175,8 @@ app:
           policy: otp
         - pattern: /api/v1/devices
           policy: devices
+        - pattern: /api/v1/assistant/conversations/*/messages
+          policy: assistant
   otp:
     code-length: 6
     ttl: ${NUTRIMOM_OTP_TTL:PT5M}
@@ -148,6 +190,13 @@ app:
     admin-phone: ${NUTRIMOM_ADMIN_PHONE:}
     admin-password: ${NUTRIMOM_ADMIN_PASSWORD:}
     admin-display-name: ${NUTRIMOM_ADMIN_DISPLAY_NAME:NutriMom Admin}
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/payment/success}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/payment/cancel}
 
 logging:
   pattern:

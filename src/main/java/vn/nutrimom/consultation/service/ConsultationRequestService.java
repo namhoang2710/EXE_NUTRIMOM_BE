@@ -35,6 +35,7 @@ import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
 import vn.nutrimom.consultation.repository.ExpertDayOffRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
+import vn.nutrimom.consultation.video.ConsultationVideoService;
 import vn.nutrimom.notification.domain.ActivityType;
 import vn.nutrimom.notification.domain.ActivityVisibility;
 import vn.nutrimom.notification.domain.NotificationType;
@@ -68,6 +69,7 @@ public class ConsultationRequestService {
     private final Clock clock;
     private final NotificationService notifications;
     private final ActivityFeedService activityFeed;
+    private final ConsultationVideoService video;
 
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
@@ -78,7 +80,8 @@ public class ConsultationRequestService {
                                       AccessGuard guard,
                                       Clock clock,
                                       NotificationService notifications,
-                                      ActivityFeedService activityFeed) {
+                                      ActivityFeedService activityFeed,
+                                      ConsultationVideoService video) {
         this.requests = requests;
         this.slots = slots;
         this.dayOffs = dayOffs;
@@ -89,6 +92,7 @@ public class ConsultationRequestService {
         this.clock = clock;
         this.notifications = notifications;
         this.activityFeed = activityFeed;
+        this.video = video;
     }
 
     // ----- User -----
@@ -199,7 +203,7 @@ public class ConsultationRequestService {
     @Transactional
     public ConsultationRequestResponse cancel(String userId, String requestId) {
         ConsultationRequestEntity entity = guard.requireOwned(
-                requests.findByIdAndUserId(requestId, userId), "Không tìm thấy yêu cầu tư vấn.");
+                requests.findByIdForUpdate(requestId).filter(r -> userId.equals(r.getUserId())), "Không tìm thấy yêu cầu tư vấn.");
         if (entity.getStatus() == ConsultationStatus.COMPLETED
                 || entity.getStatus() == ConsultationStatus.CANCELLED) {
             throw new BusinessException(ErrorCode.INVALID_CONSULTATION_STATE,
@@ -209,6 +213,7 @@ public class ConsultationRequestService {
         String assignedExpert = entity.getExpertUserId();
         entity.setSlotId(null);
         entity.setStatus(ConsultationStatus.CANCELLED);
+        video.stop(requestId);
         requests.saveAndFlush(entity);
         releaseSlot(slotId);
         // Chỉ báo khi đã có chuyên gia nhận. Yêu cầu RANDOM còn PENDING_EXPERT thì chưa chuyên gia
@@ -365,6 +370,7 @@ public class ConsultationRequestService {
                     "Chỉ hoàn thành được yêu cầu đang chờ tư vấn.");
         }
         entity.setStatus(ConsultationStatus.COMPLETED);
+        video.stop(requestId);
         entity.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         requests.saveAndFlush(entity);
         notifyUser(entity, "Buổi tư vấn đã hoàn tất",

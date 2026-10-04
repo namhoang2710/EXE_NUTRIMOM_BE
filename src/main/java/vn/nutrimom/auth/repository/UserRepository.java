@@ -24,6 +24,9 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
 
     Optional<UserEntity> findByPhone(String phone);
     boolean existsByPhone(String phone);
+    Optional<UserEntity> findByEmailIgnoreCase(String email);
+    boolean existsByEmailIgnoreCase(String email);
+    Optional<UserEntity> findByEmailActivationTokenHash(String tokenHash);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select user from UserEntity user where user.id = :id")

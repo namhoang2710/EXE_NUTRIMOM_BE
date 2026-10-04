@@ -118,6 +118,12 @@ public class PregnancyService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Optional<PregnancyResponse> findCurrent(String userId) {
+        requireActiveUser(userId);
+        return pregnancies.findByOwnerUserIdAndStatus(userId, PregnancyStatus.ACTIVE).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public PregnancyResponse getById(String userId, String pregnancyId) {
         requireActiveUser(userId);
         return toResponse(loadOwned(userId, pregnancyId));

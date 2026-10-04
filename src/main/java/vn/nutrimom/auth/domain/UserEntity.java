@@ -15,7 +15,7 @@ public class UserEntity {
     @Column(name = "id", nullable = false, length = 36)
     private String id;
 
-    @Column(name = "phone", nullable = false, unique = true, length = 20)
+    @Column(name = "phone", length = 20)
     private String phone;
 
     @Column(name = "password_hash", length = 100)
@@ -63,6 +63,12 @@ public class UserEntity {
     private OffsetDateTime termsAcceptedAt;
     @Column(name = "privacy_accepted_at")
     private OffsetDateTime privacyAcceptedAt;
+    @Column(name = "email_verified_at")
+    private OffsetDateTime emailVerifiedAt;
+    @Column(name = "email_activation_token_hash", length = 64)
+    private String emailActivationTokenHash;
+    @Column(name = "email_activation_expires_at")
+    private OffsetDateTime emailActivationExpiresAt;
 
     @PrePersist
     void beforeInsert() {
@@ -104,4 +110,10 @@ public class UserEntity {
     public void setTermsAcceptedAt(OffsetDateTime value) { termsAcceptedAt = value; }
     public OffsetDateTime getPrivacyAcceptedAt() { return privacyAcceptedAt; }
     public void setPrivacyAcceptedAt(OffsetDateTime value) { privacyAcceptedAt = value; }
+    public OffsetDateTime getEmailVerifiedAt() { return emailVerifiedAt; }
+    public void setEmailVerifiedAt(OffsetDateTime emailVerifiedAt) { this.emailVerifiedAt = emailVerifiedAt; }
+    public String getEmailActivationTokenHash() { return emailActivationTokenHash; }
+    public void setEmailActivationTokenHash(String emailActivationTokenHash) { this.emailActivationTokenHash = emailActivationTokenHash; }
+    public OffsetDateTime getEmailActivationExpiresAt() { return emailActivationExpiresAt; }
+    public void setEmailActivationExpiresAt(OffsetDateTime emailActivationExpiresAt) { this.emailActivationExpiresAt = emailActivationExpiresAt; }
 }
