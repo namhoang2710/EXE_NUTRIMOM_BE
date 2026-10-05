@@ -19,6 +19,7 @@ import vn.nutrimom.common.api.ApiResponses;
 import vn.nutrimom.common.api.CursorPage;
 import vn.nutrimom.notification.dto.NotificationDtos.NotificationResponse;
 import vn.nutrimom.notification.dto.NotificationDtos.ReadAllResponse;
+import vn.nutrimom.notification.dto.NotificationDtos.UnreadCountResponse;
 import vn.nutrimom.notification.service.NotificationService;
 
 @Validated
@@ -41,6 +42,12 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int limit,
             @RequestParam(defaultValue = "false") boolean unreadOnly) {
         return ApiResponses.success(service.list(jwt.getSubject(), cursor, limit, unreadOnly));
+    }
+
+    @GetMapping("/unread-count")
+    @Operation(summary = "Số thông báo chưa đọc của chính người gọi; dùng cho chuông thông báo")
+    public ApiResponse<UnreadCountResponse> unreadCount(@AuthenticationPrincipal Jwt jwt) {
+        return ApiResponses.success(new UnreadCountResponse(service.unreadCount(jwt.getSubject())));
     }
 
     @PostMapping("/{id}/read")

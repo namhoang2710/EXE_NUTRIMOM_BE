@@ -63,6 +63,16 @@ public final class NotificationDtos {
     }
 
     /**
+     * Kết quả {@code GET /notifications/unread-count}; dùng cho chuông thông báo trên mọi trang.
+     *
+     * <p>Field cố ý đặt tên {@code count} chứ không phải {@code unreadCount}: Jackson của project
+     * chạy SNAKE_CASE nên {@code unreadCount} sẽ serialize thành {@code unread_count}, trong khi
+     * đường dẫn đã tên là {@code /unread-count} rồi nên {@code count} vừa gọn vừa không mơ hồ.</p>
+     */
+    public record UnreadCountResponse(long count) {
+    }
+
+    /**
      * Một dòng activity feed.
      *
      * <p>Chỉ có {@code title} đã render sẵn, không có body/preview — đúng yêu cầu "không làm rò dữ

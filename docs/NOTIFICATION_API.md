@@ -15,6 +15,7 @@ Module này **không thêm error code mới** — chỉ dùng `VALIDATION_ERROR`
 | POST | `/api/v1/devices` | User | Upsert theo `device_id`; 201 nếu tạo mới, 200 nếu cập nhật |
 | DELETE | `/api/v1/devices/{device_id}` | User | Gỡ khi đăng xuất; idempotent → 204 |
 | GET | `/api/v1/notifications?cursor=&limit=20&unreadOnly=false` | User | Mới nhất trước, cursor |
+| GET | `/api/v1/notifications/unread-count` | User | Chỉ số chưa đọc, cho chuông thông báo |
 | POST | `/api/v1/notifications/{id}/read` | User | Idempotent |
 | POST | `/api/v1/notifications/read-all` | User | Idempotent, trả số dòng vừa đổi |
 | GET | `/api/v1/activity-feed?cursor=&limit=20` | User | Của mình + phần được chia sẻ |
@@ -111,7 +112,21 @@ Cả hai đều idempotent: gọi lại `{id}/read` giữ nguyên `read_at` củ
 trả `{"updated": 0}`. Thông báo của người khác trả **404** `RESOURCE_NOT_FOUND` (không phải 403,
 để không lộ việc id đó có tồn tại).
 
-Số chưa đọc cũng xuất hiện ở `GET /api/v1/dashboard/mom` → `data.unread_notification_count`.
+```
+GET /api/v1/notifications/unread-count   → 200
+```
+
+```json
+{
+  "data": { "count": 3 }
+}
+```
+
+Chỉ đếm thông báo chưa đọc của chính người gọi. Đây là bản nhẹ của
+`unread_notification_count` trong `GET /api/v1/dashboard/mom`, dành cho chuông thông báo nằm trên
+mọi trang: FE poll endpoint này thay vì kéo cả payload dashboard chỉ để lấy một con số.
+Endpoint không nằm trong `app.security.rate-limit.routes` nên poll theo chu kỳ (60 giây) không bị
+chặn; nếu sau này cần siết thì thêm route rule riêng.
 
 ## 3. Activity feed
 
