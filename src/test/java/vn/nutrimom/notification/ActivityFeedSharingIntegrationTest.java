@@ -96,6 +96,9 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
         Session partner = registerViaOtp("0915000022", "Assign Partner");
         createPregnancyAndGroup(owner);
         String memberId = inviteAndAccept(owner, partner, Set.of("FAMILY_TASKS"));
+        // Chấp nhận lời mời đã báo cho chủ nhóm một lần rồi; dọn sạch để đoạn dưới đếm đúng
+        // những thông báo do CHÍNH thao tác giao việc sinh ra.
+        markAllRead(owner);
 
         createTaskAssignedTo(owner, memberId);
 
@@ -108,6 +111,7 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
 
         // Người giao việc không tự nhận thông báo về thao tác của chính mình.
         mockMvc.perform(get("/api/v1/notifications")
+                        .param("unreadOnly", "true")
                         .header("Authorization", "Bearer " + owner.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(0));
@@ -167,6 +171,7 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
         createPregnancyAndGroup(owner);
         String memberId = inviteAndAccept(owner, partner, Set.of("FAMILY_TASKS", "ACTIVITY_FEED"));
         String taskId = createTaskAssignedTo(owner, memberId);
+        markAllRead(owner);
 
         mockMvc.perform(patch("/api/v1/family/tasks/{id}", taskId)
                         .header("Authorization", "Bearer " + partner.accessToken())
@@ -175,6 +180,7 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/notifications")
+                        .param("unreadOnly", "true")
                         .header("Authorization", "Bearer " + owner.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
