@@ -84,6 +84,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | INVITATION_ALREADY_USED | 409 | false | family |
 | INVITATION_EXPIRED | 422 | false | family |
 | INVITATION_TARGET_MISMATCH | 403 | false | family |
+| INVITATION_REVOKED | 409 | false | family |
 | FAMILY_GROUP_NOT_FOUND | 404 | false | family |
 | OWNER_ALREADY_IN_GROUP | 409 | false | family |
 | FAMILY_MEMBER_EXISTS | 409 | false | family |
