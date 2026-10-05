@@ -47,6 +47,24 @@ public class FamilyInvitationEntity {
     @Column(name = "accepted_at")
     private OffsetDateTime acceptedAt;
 
+    /**
+     * Khởi tạo ngay ở đây chứ không dựa vào DEFAULT của DB: Hibernate luôn ghi cột trong INSERT
+     * nên DEFAULT sẽ không bao giờ có cơ hội chạy.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private FamilyInvitationStatus status = FamilyInvitationStatus.PENDING;
+
+    @Column(name = "revoked_at")
+    private OffsetDateTime revokedAt;
+
+    @Column(name = "sent_at")
+    private OffsetDateTime sentAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_status", length = 20)
+    private InvitationDeliveryStatus deliveryStatus;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -84,4 +102,12 @@ public class FamilyInvitationEntity {
     public OffsetDateTime getAcceptedAt() { return acceptedAt; }
     public void setAcceptedAt(OffsetDateTime value) { acceptedAt = value; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
+    public FamilyInvitationStatus getStatus() { return status; }
+    public void setStatus(FamilyInvitationStatus value) { status = value; }
+    public OffsetDateTime getRevokedAt() { return revokedAt; }
+    public void setRevokedAt(OffsetDateTime value) { revokedAt = value; }
+    public OffsetDateTime getSentAt() { return sentAt; }
+    public void setSentAt(OffsetDateTime value) { sentAt = value; }
+    public InvitationDeliveryStatus getDeliveryStatus() { return deliveryStatus; }
+    public void setDeliveryStatus(InvitationDeliveryStatus value) { deliveryStatus = value; }
 }
