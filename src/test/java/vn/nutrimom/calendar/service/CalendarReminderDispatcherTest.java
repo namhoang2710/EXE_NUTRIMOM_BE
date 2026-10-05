@@ -154,6 +154,29 @@ class CalendarReminderDispatcherTest {
         assertThat(nextRemindAt.getValue()).isEqualTo(OffsetDateTime.parse("2026-10-03T03:00:00Z"));
     }
 
+    /**
+     * Chu kỳ thưa (27 tháng) vẫn phải dời được {@code remind_at} sang mốc kế tiếp.
+     *
+     * <p>Trước đây lần lặp kế tiếp được tìm bằng cách dò từng ngày tới trần 800 ngày, nên mọi chuỗi
+     * xa hơn thế — WEEKLY từ 115 tuần, MONTHLY từ 27 tháng — bị coi như đã hết: dòng đó "đỗ" lại
+     * với {@code remind_at} null và không bao giờ kêu, dù lịch vẫn vẽ đủ mốc.</p>
+     */
+    @Test
+    void sparseMonthlySeriesStillAdvancesToTheNextOccurrence() {
+        CalendarReminderEntity reminder = reminder(OffsetDateTime.parse("2026-10-01T04:00:00Z"));
+        reminder.setRepeatRule(RepeatRule.MONTHLY);
+        reminder.setRepeatInterval(27);
+        when(reminders.findById(REMINDER_ID)).thenReturn(Optional.of(reminder));
+        when(reminders.claim(eq(REMINDER_ID), any(), any(), any())).thenReturn(1);
+
+        dispatcher.dispatch(REMINDER_ID);
+
+        ArgumentCaptor<OffsetDateTime> nextRemindAt = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(reminders).claim(eq(REMINDER_ID), any(), nextRemindAt.capture(), any());
+        // 11:00 giờ VN ngày 01/01/2029 (= 04:00Z), trừ đi 60 phút nhắc trước.
+        assertThat(nextRemindAt.getValue()).isEqualTo(OffsetDateTime.parse("2029-01-01T03:00:00Z"));
+    }
+
     /** Chuỗi đã hết hạn lặp: dọn {@code remind_at} về null để thôi quét dòng đó. */
     @Test
     void endedSeriesClearsTheNextRemindAt() {

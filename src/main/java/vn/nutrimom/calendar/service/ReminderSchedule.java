@@ -1,5 +1,6 @@
 package vn.nutrimom.calendar.service;
 
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -30,12 +31,21 @@ import vn.nutrimom.calendar.domain.RepeatRule;
 public final class ReminderSchedule {
 
     /**
-     * Trần số ngày dò tới khi tìm lần lặp kế tiếp.
+     * Trần số chu kỳ phải xét khi tìm lần lặp kế tiếp.
      *
-     * <p>Đủ cho mọi quy tắc hợp lệ (xa nhất là MONTHLY mỗi 12 tháng ≈ 366 ngày), và là chốt chặn để
-     * một quy tắc hỏng không biến vòng lặp thành vô hạn.</p>
+     * <p>Chu kỳ đầu tiên được tính <strong>thẳng</strong> bằng phép chia làm tròn lên, nên nó đã
+     * rơi vào đúng hoặc sau ngày địa phương của mốc đang đứng — không phải dò ngày nào cả. Chu kỳ
+     * đó chỉ có thể không ra mốc vì hai lý do: mọi giờ trong ngày của nó đã trôi qua, hoặc (WEEKLY)
+     * các thứ đã chọn trong tuần neo đều nằm trước ngày neo. Chu kỳ kế tiếp giải quyết cả hai vì
+     * mọi ngày của nó đều muộn hơn hẳn, nên 2 lượt là đủ — để 4 cho dư, phòng múi giờ nhảy nguyên
+     * một ngày lịch (Pacific/Apia bỏ hẳn ngày 2011-12-30).</p>
+     *
+     * <p>Khác trần dò theo ngày trước đây ở chỗ trần này <strong>không</strong> phụ thuộc
+     * {@code interval}: WEEKLY mỗi 365 tuần cũng chỉ tốn đúng từng ấy lượt. Trần cũ 800 ngày làm
+     * WEEKLY từ 115 tuần và MONTHLY từ 27 tháng âm thầm trả về rỗng — lịch vẫn vẽ đủ mốc nhưng
+     * thông báo không bao giờ bắn.</p>
      */
-    private static final int LOOKAHEAD_DAYS = 800;
+    private static final int MAX_PERIOD_PROBES = 4;
 
     private final ZoneId zone;
     private final LocalDate anchorDate;
@@ -121,29 +131,109 @@ public final class ReminderSchedule {
      *
      * <p>{@code watermark} null nghĩa là chưa bắn lần nào — khi đó lần lặp đầu tiên của chuỗi cũng
      * được tính, kể cả nếu nó rơi đúng vào mốc bắt đầu.</p>
+     *
+     * <p>Nhảy thẳng tới chu kỳ cần tìm bằng phép cộng ngày/tuần/tháng chứ không dò từng ngày: chi
+     * phí một lời gọi là hằng số, không tăng theo {@code interval}. Job nhắc lịch gọi method này
+     * trong vòng lặp đuổi kịp, và màn hình danh sách gọi nó cho từng dòng — dò từng ngày thì cả
+     * hai đều trả giá theo {@code interval}.</p>
      */
     public Optional<OffsetDateTime> nextOccurrenceAfter(OffsetDateTime watermark) {
         if (single != null) {
-            return watermark == null || single.isAfter(watermark) ? Optional.of(single) : Optional.empty();
+            return watermark == null || single.isAfter(watermark)
+                    ? Optional.of(single) : Optional.empty();
         }
-        LocalDate start = watermark == null ? anchorDate
-                : maxDate(anchorDate, watermark.atZoneSameInstant(zone).toLocalDate());
-        for (int step = 0; step <= LOOKAHEAD_DAYS; step++) {
-            LocalDate date = start.plusDays(step);
-            if (until != null && date.isAfter(until)) {
-                return Optional.empty();
-            }
-            if (date.isBefore(anchorDate) || !matches(date)) {
-                continue;
-            }
-            for (LocalTime time : timesOfDay) {
-                OffsetDateTime at = instantAt(date, time);
-                if (watermark == null || at.isAfter(watermark)) {
-                    return Optional.of(at);
+        long firstPeriod = watermark == null ? 0L
+                : firstPeriodOnOrAfter(watermark.atZoneSameInstant(zone).toLocalDate());
+        try {
+            for (int probe = 0; probe < MAX_PERIOD_PROBES; probe++) {
+                for (LocalDate date : periodDates(firstPeriod + probe)) {
+                    // Đúng bộ lọc của occurrencesBetween: hai đường phải công nhận cùng một tập
+                    // ngày. Lệch nhau thì người dùng nhận thông báo cho một mốc mà lịch không hiện
+                    // và API cũng từ chối đánh dấu đã làm.
+                    if (date.isBefore(anchorDate) || !matches(date)) {
+                        continue;
+                    }
+                    if (until != null && date.isAfter(until)) {
+                        // Ngày sinh ra theo thứ tự tăng dần nên phía sau không còn gì hợp lệ.
+                        return Optional.empty();
+                    }
+                    for (LocalTime time : timesOfDay) {
+                        OffsetDateTime at = instantAt(date, time);
+                        if (watermark == null || at.isAfter(watermark)) {
+                            return Optional.of(at);
+                        }
+                    }
                 }
             }
+        } catch (DateTimeException | ArithmeticException ex) {
+            // Chuỗi đã chạy khỏi miền ngày biểu diễn được: coi như hết chuỗi. Để exception lọt ra
+            // thì transaction của job nhắc lịch rollback rồi thử lại dòng đó mãi mãi.
+            return Optional.empty();
         }
         return Optional.empty();
+    }
+
+    /**
+     * Chỉ số chu kỳ nhỏ nhất mà ngày của nó rơi vào đúng hoặc sau {@code from}.
+     *
+     * <p>Lấy <em>ngày</em> chứ không phải mốc tuyệt đối làm chuẩn là cố ý: một ngày có thể có nhiều
+     * mốc giờ, nên chu kỳ chứa {@code from} vẫn phải được xét lại chứ không được nhảy qua.</p>
+     *
+     * <p>Trôi qua âm — mốc đang đứng nằm trước mốc neo vì lệch đồng hồ hoặc vì nhắc nhở được hẹn ở
+     * tương lai — kẹp về 0 để luôn bắt đầu từ chu kỳ đầu chuỗi.</p>
+     */
+    private long firstPeriodOnOrAfter(LocalDate from) {
+        long elapsed = switch (rule) {
+            case DAILY -> ChronoUnit.DAYS.between(anchorDate, from);
+            // Hai đầu đều là Thứ Hai nên phép trừ theo tuần chẵn, không bị cắt phần dư.
+            case WEEKLY -> ChronoUnit.WEEKS.between(weekStart(anchorDate), weekStart(from));
+            case MONTHLY -> ChronoUnit.MONTHS.between(anchorDate.withDayOfMonth(1),
+                    from.withDayOfMonth(1));
+        };
+        if (elapsed <= 0) {
+            return 0L;
+        }
+        // Chia làm tròn lên; elapsed đã chắc chắn dương nên không cần Math.ceilDiv (Java 18+).
+        return (elapsed + interval - 1) / interval;
+    }
+
+    /**
+     * Các ngày lặp <em>thô</em> của chu kỳ thứ {@code period}, tăng dần — chưa lọc theo mốc neo và
+     * {@code until}, phần đó người gọi làm cho giống hệt {@code occurrencesBetween}.
+     *
+     * <p>DAILY và MONTHLY mỗi chu kỳ đúng một ngày; WEEKLY trả về các thứ đã chọn trong tuần của
+     * chu kỳ, theo thứ tự Thứ Hai → Chủ Nhật.</p>
+     */
+    private List<LocalDate> periodDates(long period) {
+        long offset = period * interval;
+        return switch (rule) {
+            case DAILY -> List.of(anchorDate.plusDays(offset));
+            case WEEKLY -> weekDates(weekStart(anchorDate).plusWeeks(offset));
+            case MONTHLY -> List.of(monthDate(anchorDate.withDayOfMonth(1).plusMonths(offset)));
+        };
+    }
+
+    /** Các thứ đã chọn trong tuần bắt đầu từ {@code monday}, theo thứ tự trong tuần. */
+    private List<LocalDate> weekDates(LocalDate monday) {
+        List<LocalDate> dates = new ArrayList<>(daysOfWeek.size());
+        for (int offset = 0; offset < 7; offset++) {
+            LocalDate date = monday.plusDays(offset);
+            if (daysOfWeek.contains(date.getDayOfWeek())) {
+                dates.add(date);
+            }
+        }
+        return dates;
+    }
+
+    /**
+     * Ngày lặp trong {@code month} (truyền vào là ngày 1 của tháng).
+     *
+     * <p>Tháng ngắn hơn ngày neo (31 → tháng 2) thì lùi về ngày cuối tháng. Số thứ tự tháng vẫn
+     * đếm từ mốc neo chứ không cộng dồn từ lần trước, nên "ngày 31 hằng tháng" sau 28/2 quay lại
+     * đúng 31/3 thay vì trôi dần về cuối tháng.</p>
+     */
+    private LocalDate monthDate(LocalDate month) {
+        return month.withDayOfMonth(Math.min(anchorDate.getDayOfMonth(), month.lengthOfMonth()));
     }
 
     /** {@code true} nếu {@code at} đúng là một lần lặp của chuỗi — dùng khi người dùng đánh dấu một ngày. */
