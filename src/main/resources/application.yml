@@ -105,6 +105,14 @@ app:
       token-ttl: PT5M
   auth:
     magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:5173/auth/verify}
+  # base-url là ORIGIN thuần, khác magic-link-base-url ở trên (vốn là một đường dẫn đầy đủ).
+  frontend:
+    base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+    invite-path: ${APP_FRONTEND_INVITE_PATH:/family/invite}
+  family:
+    invitation:
+      default-expiry-hours: ${NUTRIMOM_FAMILY_INVITE_EXPIRY_HOURS:48}
+      send-enabled: ${NUTRIMOM_FAMILY_INVITE_SEND_ENABLED:true}
   mail:
     from: ${APP_MAIL_FROM:no-reply@nutrimom.vn}
   assistant:
@@ -165,6 +173,12 @@ app:
         assistant:
           capacity: 8
           window: PT1M
+        invitation-create:
+          capacity: 10
+          window: PT1H
+        invitation-token:
+          capacity: 20
+          window: PT1M
         default:
           capacity: 100
           window: PT1M
@@ -177,6 +191,13 @@ app:
           policy: devices
         - pattern: /api/v1/assistant/conversations/*/messages
           policy: assistant
+        # Pattern CỤ THỂ phải đứng trước: RateLimitFilter lấy rule khớp ĐẦU TIÊN.
+        - pattern: /api/v1/family-invitations/preview
+          policy: invitation-token
+        - pattern: /api/v1/family-invitations/accept
+          policy: invitation-token
+        - pattern: /api/v1/family-invitations
+          policy: invitation-create
   otp:
     code-length: 6
     ttl: ${NUTRIMOM_OTP_TTL:PT5M}

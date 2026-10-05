@@ -23,6 +23,11 @@ app:
     # Base64 của 32 byte cố định — chỉ dùng cho test, không phải secret thật.
     push-token-key: bnV0cmltb20tdGVzdC1wdXNoLXRva2VuLWtleS0zMmI=
     push-enabled: true
+  family:
+    invitation:
+      # Mặc định tắt gửi: EmailService khi chưa có SMTP sẽ log nguyên khối HTML ra log test.
+      # Bài kiểm luồng gửi tự bật lại bằng @TestPropertySource.
+      send-enabled: false
   calendar:
     # Không để thread nền quét DB song song với integration test; mọi kiểm thử job gọi thẳng
     # CalendarReminderJob/CalendarReminderDispatcher bằng Clock cố định.
