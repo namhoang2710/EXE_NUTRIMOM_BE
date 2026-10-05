@@ -13,13 +13,38 @@ Yêu cầu tư vấn còn `PENDING_EXPERT` chưa có mốc giờ nào nên khôn
 
 Tất cả endpoint cần JWT (`Authorization: Bearer <token>`). JSON dùng snake_case, bọc trong
 `ApiResponse` (`data`, `meta`); lỗi trả `error.code` theo [error-codes.md](error-codes.md).
-Module này **không thêm error code mới**.
+Module này **không thêm error code mới**; riêng lịch chia sẻ dùng lại `SHARING_SCOPE_REQUIRED` (403)
+đã có sẵn trong danh mục chung.
 
 **Nhắc nhở lặp được theo ngày/tuần/tháng** (vitamin hằng ngày, thuốc cách ngày, theo thứ như báo
 thức điện thoại) — xem mục [Lặp lại](#lặp-lại-repeat).
 
-**Phạm vi v1: chỉ chủ sở hữu.** `FamilyScope.SHARED_CALENDAR` đã có trong enum nhưng chưa mở cho
-thành viên gia đình.
+## Lịch chia sẻ cho người nhà
+
+`FamilyScope.SHARED_CALENDAR` **đã mở**. Thành viên gia đình xem lịch của mẹ bầu qua một cặp
+endpoint riêng, không phải qua `/api/v1/calendar/*`:
+
+| Method | Path |
+|---|---|
+| GET | `/api/v1/family/shared-calendar/events?from=&to=&timezone=&types=` |
+| GET | `/api/v1/family/shared-calendar/month?year=&month=&timezone=` |
+
+Response bọc thêm `family_group_id`, `owner_display_name` và `allowed_sources` để client biết nguồn
+nào bị cắt — nếu không nó sẽ vẽ chip lọc rồi lọc ra rỗng mà không hiểu vì sao.
+
+**Người nhà chỉ đọc được `REMINDER` và `CONSULTATION`.** `MEDICAL_RECORD` bị loại trừ hoàn toàn, kể
+cả khi thành viên được cấp thêm `FamilyScope.MEDICAL_RECORDS`: scope đó chưa được module
+`medicalrecord` thực thi, nên mở qua đường lịch sẽ cho ra một dòng bấm vào là 404, và `title` của hồ
+sơ do mẹ tự gõ nên chẩn đoán rò ngay ở tiêu đề. Gửi `types=MEDICAL_RECORD` trả **200 với mảng rỗng**,
+không phải 403 — trả 403 sẽ biến endpoint thành nơi dò "mẹ có hồ sơ y tế hay không".
+
+Thiếu membership hoặc thiếu scope đều trả **403 `SHARING_SCOPE_REQUIRED`**. Scope được đọc lại ở mỗi
+request nên mẹ gỡ quyền là có hiệu lực ngay lần gọi kế tiếp.
+
+Múi giờ lấy theo **người xem** (tham số `timezone` → tuỳ chọn của chính họ → mặc định), vì `date` là
+"ô lịch nào" trên màn hình của họ; `starts_at` vẫn là mốc tuyệt đối nên dữ liệu không méo.
+
+`GET /api/v1/dashboard/partner` cũng trả `shared_calendar` thật (trước đây luôn là `[]`).
 
 ## Endpoints
 

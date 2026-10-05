@@ -76,6 +76,7 @@ public enum ErrorCode {
     INVITATION_ALREADY_USED(HttpStatus.CONFLICT, false, "Mã lời mời đã được sử dụng."),
     INVITATION_EXPIRED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Mã lời mời đã hết hạn."),
     INVITATION_TARGET_MISMATCH(HttpStatus.FORBIDDEN, false, "Mã lời mời thuộc về một tài khoản khác."),
+    INVITATION_REVOKED(HttpStatus.CONFLICT, false, "Lời mời đã bị thu hồi."),
     FAMILY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy nhóm gia đình."),
     OWNER_ALREADY_IN_GROUP(HttpStatus.CONFLICT, false, "Chủ thai kỳ không cần tham gia nhóm."),
     FAMILY_MEMBER_EXISTS(HttpStatus.CONFLICT, false, "Tài khoản đã là thành viên của nhóm này."),

@@ -10,19 +10,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.calendar.service.SharedCalendarService;
+import vn.nutrimom.config.CalendarProperties;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.dashboard.dto.FamilyTaskResponse;
 import vn.nutrimom.dashboard.dto.PartnerDashboardResponse;
 import vn.nutrimom.dashboard.dto.PartnerPregnancyOverviewResponse;
-import vn.nutrimom.family.domain.FamilyGroupEntity;
-import vn.nutrimom.family.domain.FamilyGroupStatus;
 import vn.nutrimom.family.domain.FamilyMemberEntity;
-import vn.nutrimom.family.domain.FamilyMemberStatus;
 import vn.nutrimom.family.domain.FamilyScope;
-import vn.nutrimom.family.repository.FamilyGroupRepository;
-import vn.nutrimom.family.repository.FamilyMemberRepository;
 import vn.nutrimom.family.repository.FamilyTaskRepository;
+import vn.nutrimom.family.service.FamilySharingResolver;
+import vn.nutrimom.family.service.FamilySharingResolver.SharedContext;
 import vn.nutrimom.notification.service.ActivityFeedService;
 import vn.nutrimom.pregnancy.domain.PregnancyEntity;
 import vn.nutrimom.pregnancy.domain.PregnancyCalculationSource;
@@ -31,8 +30,9 @@ import vn.nutrimom.pregnancy.repository.PregnancyRepository;
 @Service
 public class PartnerDashboardService {
     private final UserRepository users;
-    private final FamilyMemberRepository members;
-    private final FamilyGroupRepository groups;
+    private final FamilySharingResolver sharing;
+    private final SharedCalendarService sharedCalendar;
+    private final CalendarProperties calendarProperties;
     private final FamilyTaskRepository tasks;
     private final PregnancyRepository pregnancies;
     private final ActivityFeedService activityFeed;
@@ -41,14 +41,16 @@ public class PartnerDashboardService {
     private static final int ACTIVITY_FEED_LIMIT = 20;
 
     public PartnerDashboardService(UserRepository users,
-                                   FamilyMemberRepository members,
-                                   FamilyGroupRepository groups,
+                                   FamilySharingResolver sharing,
+                                   SharedCalendarService sharedCalendar,
+                                   CalendarProperties calendarProperties,
                                    FamilyTaskRepository tasks,
                                    PregnancyRepository pregnancies,
                                    ActivityFeedService activityFeed) {
         this.users = users;
-        this.members = members;
-        this.groups = groups;
+        this.sharing = sharing;
+        this.sharedCalendar = sharedCalendar;
+        this.calendarProperties = calendarProperties;
         this.tasks = tasks;
         this.pregnancies = pregnancies;
         this.activityFeed = activityFeed;
@@ -59,7 +61,7 @@ public class PartnerDashboardService {
         users.findById(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
-        MembershipContext context = resolveMembership(userId);
+        SharedContext context = sharing.requireMembership(userId);
         FamilyMemberEntity member = context.member();
         PregnancyEntity pregnancy = pregnancies.findById(context.group().getPregnancyId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Shared pregnancy was not found."));
@@ -71,24 +73,16 @@ public class PartnerDashboardService {
                 member.getScopes().contains(FamilyScope.FAMILY_TASKS)
                         ? assignedTasks(member) : null,
                 member.getScopes().contains(FamilyScope.SHARED_CALENDAR)
-                        ? List.of() : null,
+                        ? sharedCalendar.upcomingFor(context, userId,
+                                calendarProperties.getDashboardReminderLimit()) : null,
+                // ALERTS vẫn là chỗ trống có chủ đích: repo chưa có nguồn "cảnh báo" nào, và nguồn
+                // gần nhất — bảng notifications của mẹ — mang cả tiêu đề buổi tư vấn lẫn hồ sơ y tế
+                // trong title/body mà không hề được lọc theo scope. Nối vào đây là rò dữ liệu y tế
+                // qua đường khác, nên để rỗng cho tới khi có nguồn đúng nghĩa.
                 member.getScopes().contains(FamilyScope.ALERTS)
                         ? List.of() : null,
                 member.getScopes().contains(FamilyScope.ACTIVITY_FEED)
                         ? activityFeed.forPregnancy(pregnancy.getId(), ACTIVITY_FEED_LIMIT) : null);
-    }
-
-    private MembershipContext resolveMembership(String userId) {
-        return members.findByUserIdAndStatusOrderByCreatedAtDesc(
-                        userId, FamilyMemberStatus.ACTIVE)
-                .stream()
-                .map(member -> groups.findByIdAndStatus(
-                                member.getFamilyGroupId(), FamilyGroupStatus.ACTIVE)
-                        .map(group -> new MembershipContext(member, group))
-                        .orElse(null))
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.SHARING_SCOPE_REQUIRED, "An active family membership is required for the partner dashboard."));
     }
 
     private PartnerPregnancyOverviewResponse pregnancyOverview(PregnancyEntity pregnancy) {
@@ -138,6 +132,4 @@ public class PartnerDashboardService {
                 .toList();
     }
 
-    private record MembershipContext(
-            FamilyMemberEntity member, FamilyGroupEntity group) { }
 }
