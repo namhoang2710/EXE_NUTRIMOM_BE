@@ -42,7 +42,10 @@ import vn.nutrimom.medicalrecord.domain.MedicalRecordCategory;
  * không nhân bản chúng sang bảng riêng: hai bản sự thật thì sớm muộn cũng lệch nhau. Nguồn thứ ba,
  * nhắc nhở người dùng tự tạo, do {@link CalendarReminderService} quản lý.</p>
  *
- * <p>Phạm vi v1 chỉ chủ sở hữu. {@code FamilyScope.SHARED_CALENDAR} đã có trong enum nhưng chưa mở.</p>
+ * <p>Chủ sở hữu đi qua {@link #events}/{@link #month}; thành viên gia đình có
+ * {@code FamilyScope.SHARED_CALENDAR} đi qua {@link #eventsFor}/{@link #monthFor} với tập nguồn
+ * do {@code SharedCalendarService} dẫn xuất. Hai lối vào dùng chung {@code collect}, khác nhau duy
+ * nhất ở chỗ id truy vấn là chủ thai kỳ chứ không phải người đang xem.</p>
  */
 @Service
 public class CalendarQueryService {
@@ -54,6 +57,10 @@ public class CalendarQueryService {
      */
     private static final Set<ConsultationStatus> CALENDAR_STATUSES =
             EnumSet.of(ConsultationStatus.PENDING_CONSULTATION, ConsultationStatus.COMPLETED);
+
+    /** Lối vào của chính chủ: không bị cắt nguồn nào. */
+    private static final Set<CalendarSource> ALL_SOURCES =
+            Set.copyOf(EnumSet.allOf(CalendarSource.class));
 
     /** Nhãn tiếng Việt của loại hồ sơ, dùng làm dòng phụ của ô lịch. */
     private static final Map<MedicalRecordCategory, String> CATEGORY_LABELS = Map.of(
@@ -101,19 +108,20 @@ public class CalendarQueryService {
     public List<CalendarEventItem> events(String userId, LocalDate from, LocalDate to,
                                           String timezone, Set<CalendarSource> types) {
         requireRange(from, to);
-        ZoneId zone = zones.resolve(timezone, userId);
-        return collect(userId, from.atStartOfDay(zone).toOffsetDateTime(),
-                to.plusDays(1).atStartOfDay(zone).toOffsetDateTime(), zone, types);
+        return eventsFor(userId, from, to, zones.resolve(timezone, userId), types, ALL_SOURCES);
     }
 
     /** Lưới tháng: chỉ những ngày có ít nhất một mốc (spec mục 10 "response gọn"). */
     @Transactional(readOnly = true)
     public List<CalendarMonthDay> month(String userId, int year, int month, String timezone) {
-        YearMonth target = yearMonth(year, month);
-        ZoneId zone = zones.resolve(timezone, userId);
-        List<CalendarEventItem> items = collect(userId,
+        return monthIn(userId, yearMonth(year, month), zones.resolve(timezone, userId), ALL_SOURCES);
+    }
+
+    private List<CalendarMonthDay> monthIn(String ownerUserId, YearMonth target, ZoneId zone,
+                                           Set<CalendarSource> sources) {
+        List<CalendarEventItem> items = collect(ownerUserId,
                 target.atDay(1).atStartOfDay(zone).toOffsetDateTime(),
-                target.plusMonths(1).atDay(1).atStartOfDay(zone).toOffsetDateTime(), zone, null);
+                target.plusMonths(1).atDay(1).atStartOfDay(zone).toOffsetDateTime(), zone, sources);
 
         // LinkedHashMap: items đã sắp theo thời gian nên ngày cũng ra theo thứ tự tăng dần.
         Map<LocalDate, EnumSet<CalendarSource>> byDate = new LinkedHashMap<>();
@@ -154,21 +162,81 @@ public class CalendarQueryService {
                 .stream().limit(limit).toList();
     }
 
+    // ----- Lối vào cho thành viên gia đình (FamilyScope.SHARED_CALENDAR) -----
+
+    /**
+     * Lịch của {@code ownerUserId} nhìn bằng múi giờ {@code zone} của người xem.
+     *
+     * <p>{@code requested} đến từ query param của người xem, {@code allowed} do server dẫn xuất từ
+     * scope. Hai thứ này KHÔNG được trộn trước khi vào {@link #resolveSources} — đó là chỗ duy nhất
+     * quyết định người xem thật sự được đọc nguồn nào.</p>
+     */
+    @Transactional(readOnly = true)
+    public List<CalendarEventItem> eventsFor(String ownerUserId, LocalDate from, LocalDate to,
+                                             ZoneId zone, Set<CalendarSource> requested,
+                                             Set<CalendarSource> allowed) {
+        requireRange(from, to);
+        return collect(ownerUserId, from.atStartOfDay(zone).toOffsetDateTime(),
+                to.plusDays(1).atStartOfDay(zone).toOffsetDateTime(), zone,
+                resolveSources(requested, allowed));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CalendarMonthDay> monthFor(String ownerUserId, int year, int month, ZoneId zone,
+                                           Set<CalendarSource> allowed) {
+        return monthIn(ownerUserId, yearMonth(year, month), zone, resolveSources(null, allowed));
+    }
+
+    /** Mốc sắp tới của chủ thai kỳ, cho khối lịch trên dashboard người nhà. */
+    @Transactional(readOnly = true)
+    public List<CalendarEventItem> upcomingFor(String ownerUserId, ZoneId zone,
+                                               Set<CalendarSource> allowed, int limit) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        return collect(ownerUserId, now, now.plusDays(properties.getDashboardLookaheadDays()), zone,
+                resolveSources(null, allowed))
+                .stream().limit(limit).toList();
+    }
+
+    /**
+     * Tập nguồn thật sự được đọc: {@code requested} null/rỗng nghĩa là lấy trọn {@code allowed},
+     * ngược lại là phần GIAO của hai tập.
+     *
+     * <p>Giao rỗng trả về rỗng. Đây là điểm mấu chốt: bản cũ coi "không lọc gì" đồng nghĩa "lấy tất
+     * cả", nên nếu giữ nguyên nếp đó thì một người xem chỉ được cấp nhắc nhở chỉ cần gửi
+     * {@code types=MEDICAL_RECORD} là giao thành rỗng rồi lại mở toang cả ba nguồn.</p>
+     */
+    static Set<CalendarSource> resolveSources(Set<CalendarSource> requested,
+                                              Set<CalendarSource> allowed) {
+        EnumSet<CalendarSource> effective = EnumSet.noneOf(CalendarSource.class);
+        effective.addAll(allowed);
+        if (requested != null && !requested.isEmpty()) {
+            effective.retainAll(requested);
+        }
+        return effective;
+    }
+
     // ----- Trộn -----
 
-    /** @param to biên trên LOẠI TRỪ — một mốc đúng 00:00 ngày kế tiếp thuộc về cửa sổ sau. */
-    private List<CalendarEventItem> collect(String userId, OffsetDateTime from, OffsetDateTime to,
-                                            ZoneId zone, Set<CalendarSource> types) {
+    /**
+     * @param to      biên trên LOẠI TRỪ — một mốc đúng 00:00 ngày kế tiếp thuộc về cửa sổ sau.
+     * @param sources tập nguồn ĐÃ CHỐT, không bao giờ null; rỗng nghĩa là không đọc gì cả.
+     */
+    private List<CalendarEventItem> collect(String ownerUserId, OffsetDateTime from,
+                                            OffsetDateTime to, ZoneId zone,
+                                            Set<CalendarSource> sources) {
+        if (sources.isEmpty()) {
+            return List.of();
+        }
         List<CalendarEventItem> items = new ArrayList<>();
-        if (wanted(types, CalendarSource.MEDICAL_RECORD)) {
-            medicalRecords.findWindow(userId, from, to).stream()
+        if (sources.contains(CalendarSource.MEDICAL_RECORD)) {
+            medicalRecords.findWindow(ownerUserId, from, to).stream()
                     .map(row -> toItem(row, zone)).forEach(items::add);
         }
-        if (wanted(types, CalendarSource.CONSULTATION)) {
-            items.addAll(consultationItems(userId, from, to, zone));
+        if (sources.contains(CalendarSource.CONSULTATION)) {
+            items.addAll(consultationItems(ownerUserId, from, to, zone));
         }
-        if (wanted(types, CalendarSource.REMINDER)) {
-            items.addAll(reminderItems(userId, from, to, zone));
+        if (sources.contains(CalendarSource.REMINDER)) {
+            items.addAll(reminderItems(ownerUserId, from, to, zone));
         }
         if (items.size() > properties.getMaxEventsPerResponse()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
@@ -232,10 +300,6 @@ public class CalendarQueryService {
                 .map(row -> toItem(row, zone))
                 .filter(item -> !item.startsAt().isBefore(from) && item.startsAt().isBefore(to))
                 .toList();
-    }
-
-    private static boolean wanted(Set<CalendarSource> types, CalendarSource source) {
-        return types == null || types.isEmpty() || types.contains(source);
     }
 
     private static CalendarEventItem toItem(MedicalRecordCalendarRow row, ZoneId zone) {
