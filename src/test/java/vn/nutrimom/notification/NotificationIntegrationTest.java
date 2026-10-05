@@ -288,6 +288,45 @@ class NotificationIntegrationTest {
                 .andExpect(jsonPath("$.data.items.length()").value(0));
     }
 
+    /** Hợp đồng của chuông thông báo: key là {@code data.count}, và chỉ đếm của chính người gọi. */
+    @Test
+    void unreadCountCountsOnlyOwnUnreadNotifications() throws Exception {
+        String userId = account("0914000071", "Bell Mom");
+        String stranger = account("0914000072", "Bell Stranger");
+        String firstId = publish(userId, "A");
+        publish(userId, "B");
+        publish(stranger, "Không phải của mình");
+
+        mockMvc.perform(get("/api/v1/notifications/unread-count").with(userJwt(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(2));
+
+        mockMvc.perform(post("/api/v1/notifications/{id}/read", firstId).with(userJwt(userId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/notifications/unread-count").with(userJwt(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(1));
+
+        // Người lạ chỉ thấy đúng thông báo của mình, không cộng dồn của người khác.
+        mockMvc.perform(get("/api/v1/notifications/unread-count").with(userJwt(stranger)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(1));
+
+        mockMvc.perform(post("/api/v1/notifications/read-all").with(userJwt(userId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/notifications/unread-count").with(userJwt(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(0));
+    }
+
+    @Test
+    void unreadCountRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/unread-count"))
+                .andExpect(status().isUnauthorized());
+    }
+
     /** Spec mục 22 "IDOR": người khác không đọc được, và trả 404 chứ không phải 403. */
     @Test
     void anotherUserCanNeitherSeeNorMarkTheNotification() throws Exception {
