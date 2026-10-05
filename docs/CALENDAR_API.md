@@ -136,7 +136,7 @@ Mô hình giống phần "Repeat" của báo thức điện thoại: chọn gi�
 | Trường | Ý nghĩa |
 |---|---|
 | `rule` | `DAILY` (mỗi N ngày) · `WEEKLY` (mỗi N tuần, vào các thứ đã chọn) · `MONTHLY` (mỗi N tháng, cùng ngày trong tháng) |
-| `interval` | 1–365; bỏ trống = 1. **`rule=DAILY, interval=2` chính là "uống thuốc cách ngày"** |
+| `interval` | 1–365 **cho cả ba rule**, tính theo đơn vị của rule; bỏ trống = 1. **`rule=DAILY, interval=2` chính là "uống thuốc cách ngày"**; `WEEKLY, interval=52` và `MONTHLY, interval=12` đều là "mỗi năm một lần". Mốc kế tiếp được tính thẳng theo đơn vị nên không có trần ẩn nào — chu kỳ thưa cỡ nào cũng vẫn bắn thông báo |
 | `days_of_week` | chỉ dùng cho `WEEKLY`; tên đầy đủ `MONDAY`…`SUNDAY`. Bỏ trống = lấy thứ của `starts_at`. Gửi kèm `rule` khác → 422 |
 | `times_of_day` | tối đa **6** mốc giờ trong ngày; thuốc sáng/tối là **một** nhắc nhở chứ không phải hai. Bỏ trống = lấy giờ của `starts_at` |
 | `until` | ngày cuối còn lặp; bỏ trống = không giới hạn. Trước ngày bắt đầu → 422 |
