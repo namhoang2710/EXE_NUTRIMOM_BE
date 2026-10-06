@@ -44,6 +44,7 @@ class ConsultationVideoIntegrationTest {
     @Autowired ExpertProfileRepository experts;
     @Autowired AvailabilitySlotRepository slots;
     @Autowired ConsultationRequestRepository requests;
+    @Autowired ConsultationReviewRepository reviews;
     @Autowired VideoSessionRepository sessions;
     @Autowired VideoProperties properties;
     @Autowired ConsultationVideoService video;
@@ -197,16 +198,31 @@ class ConsultationVideoIntegrationTest {
     }
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    void expiryCleanupClosesMediaWithoutFulfillingTheBooking() {
+    void expiryCleanupCompletesBookingAndAllowsOneReview() throws Exception {
         video.join(patient, id);
         when(clock.instant()).thenReturn(Instant.parse("2026-10-03T03:35:01Z"));
         cleanup.cleanup(id);
         assertThat(sessions.findById(id).orElseThrow().getCleanupAt()).isNotNull();
-        assertThat(requests.findById(id).orElseThrow().getStatus()).isEqualTo(ConsultationStatus.PENDING_CONSULTATION);
+        var completed = requests.findById(id).orElseThrow();
+        assertThat(completed.getStatus()).isEqualTo(ConsultationStatus.COMPLETED);
+        assertThat(completed.getCompletedAt()).isEqualTo(OffsetDateTime.parse("2026-10-03T03:35:00Z"));
+        cleanup.cleanup(id);
+        verify(livekit).closeRoom(anyString(), eq(patient), eq(expert), eq(Instant.parse("2026-10-03T03:35:01Z")));
+
+        mvc.perform(post("/api/v1/consultation-requests/{id}/review", id)
+                        .with(actor(patient, "USER")).contentType("application/json")
+                        .content("{\"rating\":5}"))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/consultation-requests/{id}/review", id)
+                        .with(actor(patient, "USER")).contentType("application/json")
+                        .content("{\"rating\":5}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("REVIEW_ALREADY_EXISTS"));
     }
     @AfterEach void cleanCommittedFixtures() {
         if (TransactionSynchronizationManager.isActualTransactionActive()) return;
         String slotId = requests.findById(id).map(ConsultationRequestEntity::getSlotId).orElse(null);
+        reviews.findByRequestId(id).ifPresent(reviews::delete);
         sessions.deleteById(id); requests.deleteById(id);
         if (slotId != null) slots.deleteById(slotId);
         experts.deleteById(expert); users.deleteById(expert); users.deleteById(patient);
