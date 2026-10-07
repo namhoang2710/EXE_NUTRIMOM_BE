@@ -1,6 +1,8 @@
 package vn.nutrimom.family;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -29,6 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.email.EmailService;
@@ -94,7 +97,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
         assertThat(users.findById(relative.userId()).orElseThrow().getEmail()).isNull();
         createPregnancyAndGroup(owner);
 
-        mockMvc.perform(post("/api/v1/family-invitations")
+        MvcResult created = mockMvc.perform(post("/api/v1/family-invitations")
                         .header("Authorization", "Bearer " + owner.accessToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new InvitationBody(
@@ -104,16 +107,27 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
                 .andExpect(jsonPath("$.data.delivery_status").value("SKIPPED"))
                 .andExpect(jsonPath("$.data.sent_at").doesNotExist())
                 // Chủ nhóm vẫn phải lấy được link để tự gửi.
-                .andExpect(jsonPath("$.data.invite_url").exists());
+                .andExpect(jsonPath("$.data.invite_url").exists())
+                .andReturn();
 
         verifyNoInteractions(email);
+
+        JsonNode data = objectMapper.readTree(created.getResponse().getContentAsString()).at("/data");
+        String invitationId = data.at("/id").stringValue();
+        String rawToken = data.at("/token").stringValue();
 
         mockMvc.perform(get("/api/v1/notifications")
                         .header("Authorization", "Bearer " + relative.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].type").value("FAMILY"))
                 .andExpect(jsonPath("$.data.items[0].title")
-                        .value("Lời mời tham gia nhóm gia đình"));
+                        .value("Lời mời tham gia nhóm gia đình"))
+                // Deep link mang id chứ không mang token: bản cũ ghi raw token vào DB notification,
+                // nơi nó nằm lại cả sau khi lời mời đã được dùng hoặc thu hồi.
+                .andExpect(jsonPath("$.data.items[0].deep_link")
+                        .value("nutrimom://family/invitations/" + invitationId))
+                .andExpect(jsonPath("$.data.items[0].deep_link",
+                        not(containsString(rawToken))));
     }
 
     /** SMTP hỏng không được phép làm hỏng cả lời mời — nó vẫn dùng được qua link. */

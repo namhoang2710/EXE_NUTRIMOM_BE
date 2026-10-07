@@ -24,6 +24,8 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyGroupStatus;
 import vn.nutrimom.family.domain.FamilyInvitationEntity;
@@ -150,6 +152,43 @@ class FamilyInvitationConcurrencyTest {
                         .as("revoke thắng thì không được có thành viên nào được tạo")
                         .isFalse();
             }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /**
+     * Hai thiết bị cùng bấm chấp nhận trên một lời mời — thông báo in-app và link email dẫn tới
+     * cùng một dòng, nên đây không phải tình huống giả định.
+     *
+     * <p>Hai lối vào khoá <em>cùng một dòng</em> bằng hai đường tra khác nhau
+     * ({@code findByIdForUpdate} và {@code findByTokenHashForUpdate}), nên phép kiểm
+     * {@code acceptedAt != null} bên trong khoá mới là thứ phân xử.</p>
+     */
+    @Test
+    void acceptingTwiceAtOnceCreatesOnlyOneMembership() throws Exception {
+        CyclicBarrier gate = new CyclicBarrier(2);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<Object> byId = pool.submit(attempt(gate,
+                    () -> invitationService.acceptById(inviteeId, invitationId)));
+            Future<Object> byToken = pool.submit(attempt(gate, () -> invitationService.accept(
+                    inviteeId, new AcceptFamilyInvitationRequest(rawToken))));
+
+            List<Object> outcomes = List.of(byId.get(20, TimeUnit.SECONDS),
+                    byToken.get(20, TimeUnit.SECONDS));
+
+            assertThat(outcomes.stream().filter(o -> !(o instanceof Throwable)).count())
+                    .as("đúng một lần chấp nhận thành công")
+                    .isEqualTo(1);
+            assertThat(outcomes.stream().filter(BusinessException.class::isInstance)
+                    .map(BusinessException.class::cast).map(BusinessException::getCode))
+                    .as("lần còn lại bị từ chối bằng INVITATION_ALREADY_USED, không phải lỗi hệ thống")
+                    .containsExactly(ErrorCode.INVITATION_ALREADY_USED.code());
+            assertThat(members.findByFamilyGroupIdAndUserIdAndStatus(
+                    groupId, inviteeId, FamilyMemberStatus.ACTIVE))
+                    .as("chỉ một thành viên được tạo")
+                    .isPresent();
         } finally {
             pool.shutdownNow();
         }

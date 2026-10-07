@@ -2,8 +2,10 @@ package vn.nutrimom.family.service;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,7 @@ import vn.nutrimom.family.dto.FamilyInvitationPreviewResponse;
 import vn.nutrimom.family.dto.FamilyInvitationResponse;
 import vn.nutrimom.family.dto.FamilyInvitationSummaryResponse;
 import vn.nutrimom.family.dto.FamilyMemberResponse;
+import vn.nutrimom.family.dto.ReceivedFamilyInvitationResponse;
 import vn.nutrimom.family.repository.FamilyGroupRepository;
 import vn.nutrimom.family.repository.FamilyInvitationRepository;
 import vn.nutrimom.family.repository.FamilyMemberRepository;
@@ -136,24 +139,59 @@ public class FamilyInvitationService {
         FamilyInvitationEntity invitation = invitations.findByTokenHash(tokens.hash(rawToken))
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid."));
-        FamilyGroupEntity group = groups.findById(invitation.getFamilyGroupId())
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid."));
-        String inviter = users.findById(group.getOwnerUserId())
-                .map(UserEntity::getDisplayName)
-                .orElse(null);
-        boolean byEmail = invitation.getInvitedEmail() != null;
-        return new FamilyInvitationPreviewResponse(
-                inviter,
-                invitation.getRelationship().name(),
-                FamilyScopeLabels.of(invitation.getRelationship()),
-                scopeNames(invitation.getScopes()),
-                FamilyScopeLabels.of(invitation.getScopes()),
-                byEmail ? "EMAIL" : "PHONE",
-                byEmail ? maskEmail(invitation.getInvitedEmail())
-                        : maskPhone(invitation.getInvitedPhone()),
-                invitation.getExpiresAt(),
-                effectiveStatus(invitation));
+        return toPreview(invitation);
+    }
+
+    /**
+     * Xem trước theo id, cho người được mời đi từ thông báo in-app.
+     *
+     * <p>Không lọc trạng thái như {@link #received}: hết hạn / đã thu hồi / đã dùng đều trả 200
+     * kèm {@code status}. Hai endpoint bất đối xứng là cố ý — danh sách chỉ chứa thứ bấm được, màn
+     * chi tiết thì luôn giải thích được, kể cả khi người ta mở một thông báo cũ.</p>
+     */
+    @Transactional(readOnly = true)
+    public FamilyInvitationPreviewResponse previewById(String viewerUserId, String invitationId) {
+        UserEntity viewer = users.findById(viewerUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
+        FamilyInvitationEntity invitation = invitations.findById(invitationId)
+                .orElseThrow(this::invitationNotFound);
+        if (!isAddressedTo(invitation, viewer)) {
+            throw invitationNotFound();
+        }
+        return toPreview(invitation);
+    }
+
+    /**
+     * Lời mời đang chờ chính người đang đăng nhập xử lý.
+     *
+     * <p>Tên người mời lấy theo lô: ba truy vấn cố định (lời mời → nhóm → tên chủ nhóm) thay vì
+     * hai truy vấn mỗi dòng.</p>
+     */
+    @Transactional(readOnly = true)
+    public List<ReceivedFamilyInvitationResponse> received(String viewerUserId) {
+        UserEntity viewer = users.findById(viewerUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
+        List<FamilyInvitationEntity> pending = invitations.findReceived(
+                normalizeEmail(viewer.getEmail()), viewer.getPhone(),
+                OffsetDateTime.now(ZoneOffset.UTC));
+        if (pending.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, String> ownerByGroup = new HashMap<>();
+        groups.findAllById(pending.stream()
+                        .map(FamilyInvitationEntity::getFamilyGroupId).distinct().toList())
+                .forEach(group -> ownerByGroup.put(group.getId(), group.getOwnerUserId()));
+        Map<String, String> nameByOwner = users
+                .findDisplayNamesByIdIn(Set.copyOf(ownerByGroup.values())).stream()
+                .collect(HashMap::new,
+                        (map, view) -> map.put(view.getId(), view.getDisplayName()),
+                        HashMap::putAll);
+
+        return pending.stream()
+                .map(invitation -> toReceived(invitation,
+                        nameByOwner.get(ownerByGroup.get(invitation.getFamilyGroupId()))))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -192,15 +230,52 @@ public class FamilyInvitationService {
         invitations.save(invitation);
     }
 
+    /**
+     * Chấp nhận bằng token trong link email.
+     *
+     * <p>Thứ tự kiểm ở đây là: trạng thái trước, đối tượng sau. Sở hữu token <em>chính là</em>
+     * phân quyền, nên người gọi xứng đáng nhận câu trả lời cụ thể "lời mời đã bị thu hồi" thay vì
+     * một lỗi chung chung. {@link #acceptById} đảo ngược thứ tự này, xem lý do ở đó.</p>
+     */
     @Transactional
     public FamilyMemberResponse accept(
             String userId, AcceptFamilyInvitationRequest request) {
-        UserEntity user = users.findByIdForUpdate(userId)
-                .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
-        FamilyInvitationEntity invitation = invitations
+        UserEntity user = requireActiveUser(userId);
+        return acceptLocked(user, invitations
                 .findByTokenHashForUpdate(tokens.hash(request.token()))
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid.")));
+    }
+
+    /**
+     * Chấp nhận bằng id, cho người được mời đi từ thông báo in-app.
+     *
+     * <p>Kiểm đối tượng <strong>trước</strong> mọi kiểm trạng thái, và trả 404 chứ không 403: id
+     * không phải bí mật — nó nằm trong deep link thông báo và trong danh sách của chủ nhóm. Trả
+     * 403 ở đây sẽ biến endpoint thành chỗ dò "id này có tồn tại không". Đường token thì ngược
+     * lại, vì ở đó người gọi đã chứng minh họ giữ bí mật.</p>
+     *
+     * <p>Thứ tự khoá giống hệt {@link #accept}: dòng user trước, dòng lời mời sau. Đảo lại sẽ
+     * deadlock với nhau khi một người bấm cả hai lối vào từ hai thiết bị.</p>
+     */
+    @Transactional
+    public FamilyMemberResponse acceptById(String userId, String invitationId) {
+        UserEntity user = requireActiveUser(userId);
+        FamilyInvitationEntity invitation = invitations.findByIdForUpdate(invitationId)
+                .orElseThrow(this::invitationNotFound);
+        if (!isAddressedTo(invitation, user)) {
+            throw invitationNotFound();
+        }
+        return acceptLocked(user, invitation);
+    }
+
+    /**
+     * Phần dùng chung của hai lối vào, chạy khi dòng lời mời đã bị khoá.
+     *
+     * <p>{@link #requireMatchingInviteTarget} vẫn được gọi ở đây kể cả khi {@link #acceptById} đã
+     * kiểm một lần: hai phép so sánh chuỗi trong bộ nhớ rẻ hơn là luồn một cờ "đã kiểm rồi" xuyên
+     * qua hàm này.</p>
+     */
+    private FamilyMemberResponse acceptLocked(UserEntity user, FamilyInvitationEntity invitation) {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         if (invitation.getStatus() == FamilyInvitationStatus.REVOKED) {
             throw new BusinessException(ErrorCode.INVITATION_REVOKED, "Invitation has been revoked.");
@@ -215,18 +290,18 @@ public class FamilyInvitationService {
         FamilyGroupEntity group = groups.findByIdAndStatus(
                         invitation.getFamilyGroupId(), FamilyGroupStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FAMILY_GROUP_NOT_FOUND, "The invitation's family group is unavailable."));
-        if (group.getOwnerUserId().equals(userId)) {
+        if (group.getOwnerUserId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.OWNER_ALREADY_IN_GROUP, "The pregnancy owner does not need a family membership.");
         }
         requireMatchingInviteTarget(invitation, user);
         if (members.findByFamilyGroupIdAndUserIdAndStatus(
-                group.getId(), userId, FamilyMemberStatus.ACTIVE).isPresent()) {
+                group.getId(), user.getId(), FamilyMemberStatus.ACTIVE).isPresent()) {
             throw new BusinessException(ErrorCode.FAMILY_MEMBER_EXISTS, "The account already has an active membership in this group.");
         }
 
         FamilyMemberEntity member = new FamilyMemberEntity();
         member.setFamilyGroupId(group.getId());
-        member.setUserId(userId);
+        member.setUserId(user.getId());
         member.setRelationship(invitation.getRelationship());
         member.setMembershipRole(invitation.getRelationship().membershipRole());
         member.setScopes(invitation.getScopes());
@@ -244,6 +319,12 @@ public class FamilyInvitationService {
         return toMemberResponse(member);
     }
 
+    private UserEntity requireActiveUser(String userId) {
+        return users.findByIdForUpdate(userId)
+                .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "The authenticated account is unavailable."));
+    }
+
     /** Chủ nhóm cần biết lời mời đã tới nơi; nếu không họ chỉ có cách tự vào xem danh sách. */
     private void notifyOwnerAccepted(FamilyGroupEntity group, UserEntity user,
                                      FamilyMemberEntity member) {
@@ -257,14 +338,29 @@ public class FamilyInvitationService {
 
     private void requireMatchingInviteTarget(
             FamilyInvitationEntity invitation, UserEntity user) {
+        if (!isAddressedTo(invitation, user)) {
+            throw new BusinessException(ErrorCode.INVITATION_TARGET_MISMATCH, "Invitation token belongs to a different account.");
+        }
+    }
+
+    /**
+     * Lời mời này có gửi cho đúng người đang đăng nhập không.
+     *
+     * <p>So khớp với email/sđt <em>sống</em> của tài khoản, chứ không với một liên kết lưu sẵn lúc
+     * tạo lời mời. Đây cũng chính là điều kiện mà {@code findReceived} dùng, nên hộp thư và thao
+     * tác chấp nhận không bao giờ bất đồng.</p>
+     */
+    private boolean isAddressedTo(FamilyInvitationEntity invitation, UserEntity user) {
         boolean phoneMatches = invitation.getInvitedPhone() != null
                 && invitation.getInvitedPhone().equals(user.getPhone());
         boolean emailMatches = invitation.getInvitedEmail() != null
                 && user.getEmail() != null
                 && invitation.getInvitedEmail().equalsIgnoreCase(user.getEmail());
-        if (!phoneMatches && !emailMatches) {
-            throw new BusinessException(ErrorCode.INVITATION_TARGET_MISMATCH, "Invitation token belongs to a different account.");
-        }
+        return phoneMatches || emailMatches;
+    }
+
+    private BusinessException invitationNotFound() {
+        return new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Invitation was not found.");
     }
 
     private String normalizePhone(String phone) {
@@ -290,6 +386,47 @@ public class FamilyInvitationService {
                         ? null : invitation.getDeliveryStatus().name(),
                 invitation.getSentAt(),
                 invitation.getExpiresAt(), invitation.getCreatedAt());
+    }
+
+    private FamilyInvitationPreviewResponse toPreview(FamilyInvitationEntity invitation) {
+        boolean byEmail = invitation.getInvitedEmail() != null;
+        return new FamilyInvitationPreviewResponse(
+                inviterName(invitation),
+                invitation.getRelationship().name(),
+                FamilyScopeLabels.of(invitation.getRelationship()),
+                scopeNames(invitation.getScopes()),
+                FamilyScopeLabels.of(invitation.getScopes()),
+                byEmail ? "EMAIL" : "PHONE",
+                byEmail ? maskEmail(invitation.getInvitedEmail())
+                        : maskPhone(invitation.getInvitedPhone()),
+                invitation.getExpiresAt(),
+                effectiveStatus(invitation));
+    }
+
+    private ReceivedFamilyInvitationResponse toReceived(FamilyInvitationEntity invitation,
+                                                        String inviterDisplayName) {
+        boolean byEmail = invitation.getInvitedEmail() != null;
+        return new ReceivedFamilyInvitationResponse(
+                invitation.getId(),
+                inviterDisplayName,
+                invitation.getRelationship().name(),
+                FamilyScopeLabels.of(invitation.getRelationship()),
+                scopeNames(invitation.getScopes()),
+                FamilyScopeLabels.of(invitation.getScopes()),
+                byEmail ? "EMAIL" : "PHONE",
+                byEmail ? maskEmail(invitation.getInvitedEmail())
+                        : maskPhone(invitation.getInvitedPhone()),
+                effectiveStatus(invitation),
+                invitation.getExpiresAt(),
+                invitation.getCreatedAt());
+    }
+
+    /** Nhóm đã bị xoá thì lời mời vẫn xem trước được, chỉ là không biết ai mời. */
+    private String inviterName(FamilyInvitationEntity invitation) {
+        return groups.findById(invitation.getFamilyGroupId())
+                .flatMap(group -> users.findById(group.getOwnerUserId()))
+                .map(UserEntity::getDisplayName)
+                .orElse(null);
     }
 
     private FamilyInvitationSummaryResponse toSummary(FamilyInvitationEntity invitation) {
