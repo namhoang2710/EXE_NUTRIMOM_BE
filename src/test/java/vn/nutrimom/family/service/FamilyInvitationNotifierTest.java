@@ -17,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.nutrimom.auth.domain.UserEntity;
@@ -155,6 +156,34 @@ class FamilyInvitationNotifierTest {
         verifyNoInteractions(email);
         verify(notifications).publish(eq("user-1"), eq(NotificationType.FAMILY), anyString(),
                 anyString(), anyString(), eq("FAMILY_INVITATION"), any());
+    }
+
+    /**
+     * Deep link không được mang token thô — bản cũ ghi {@code ?token=<raw>} thẳng vào
+     * {@code notifications.deep_link}, tức là cất một token dùng được trong DB dưới dạng chữ
+     * thường, vô hiệu hoá chính lý do tồn tại của cột {@code token_hash}.
+     *
+     * <p>Ở đây chỉ khẳng định được <em>hình dạng</em>: {@code @PrePersist} không chạy trong test
+     * Mockito thuần nên {@code getId()} là null. Việc id thật sự được nội suy đúng do
+     * {@code FamilyInvitationDeliveryIntegrationTest} ghim, nơi lời mời đi qua DB thật.</p>
+     */
+    @Test
+    void theInAppDeepLinkCarriesNoRawToken() {
+        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
+                anyString(), any())).thenReturn(true);
+        UserEntity invitee = new UserEntity();
+        invitee.setId("user-1");
+        when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
+        ArgumentCaptor<String> deepLink = ArgumentCaptor.forClass(String.class);
+
+        notifier.deliver(invitation("an@example.com", null), "super-secret-token", "Mai");
+
+        verify(notifications).publish(anyString(), any(), anyString(), anyString(),
+                deepLink.capture(), anyString(), any());
+        assertThat(deepLink.getValue())
+                .startsWith("nutrimom://family/invitations/")
+                .doesNotContain("super-secret-token")
+                .doesNotContain("token=");
     }
 
     private static FamilyInvitationEntity invitation(String invitedEmail, String invitedPhone) {

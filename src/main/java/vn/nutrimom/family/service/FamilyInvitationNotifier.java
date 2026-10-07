@@ -68,7 +68,7 @@ public class FamilyInvitationNotifier {
     public DeliveryOutcome deliver(FamilyInvitationEntity invitation, String rawToken,
                                    String inviterDisplayName) {
         InvitationDeliveryStatus status = sendEmail(invitation, inviterDisplayName, rawToken);
-        notifyInApp(invitation, rawToken, inviterDisplayName);
+            notifyInApp(invitation, inviterDisplayName);
         return new DeliveryOutcome(status,
                 status == InvitationDeliveryStatus.SENT ? OffsetDateTime.now(ZoneOffset.UTC) : null);
     }
@@ -121,9 +121,15 @@ public class FamilyInvitationNotifier {
     /**
      * Không tìm thấy tài khoản khớp thì im lặng bỏ qua — lời mời vẫn hợp lệ, và việc phản hồi khác
      * nhau giữa "có tài khoản" và "không" chính là oracle liệt kê tài khoản.
+     *
+     * <p><strong>Deep link mang id, không mang token.</strong> Bản cũ ghi
+     * {@code ?token=<raw-token>} vào {@code notifications.deep_link}, tức là ghi thẳng một token
+     * dùng được vào DB dưới dạng chữ thường — vô hiệu hoá chính lý do tồn tại của cột
+     * {@code token_hash}, và token còn nằm lại đó sau khi lời mời đã được chấp nhận hay thu hồi.
+     * Người được mời mở lời mời bằng id qua nhóm endpoint {@code /family-invitations/{id}/...},
+     * vốn phân quyền bằng email/sđt của tài khoản đang đăng nhập chứ không bằng việc giữ bí mật.</p>
      */
-    private void notifyInApp(FamilyInvitationEntity invitation, String rawToken,
-                             String inviterDisplayName) {
+    private void notifyInApp(FamilyInvitationEntity invitation, String inviterDisplayName) {
         try {
             Optional<UserEntity> invitee = invitee(invitation);
             invitee.ifPresent(user -> notifications.publish(
@@ -131,7 +137,7 @@ public class FamilyInvitationNotifier {
                     "Lời mời tham gia nhóm gia đình",
                     (inviterDisplayName == null ? "Một thành viên" : inviterDisplayName)
                             + " mời bạn cùng theo dõi thai kỳ.",
-                    "nutrimom://family/invitations?token=" + rawToken,
+                    "nutrimom://family/invitations/" + invitation.getId(),
                     "FAMILY_INVITATION", invitation.getId()));
             logDelivery(invitation, "IN_APP", invitee.isPresent()
                     ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.SKIPPED, null);

@@ -28,6 +28,7 @@ import vn.nutrimom.family.dto.FamilyInvitationPreviewResponse;
 import vn.nutrimom.family.dto.FamilyInvitationResponse;
 import vn.nutrimom.family.dto.FamilyInvitationSummaryResponse;
 import vn.nutrimom.family.dto.FamilyMemberResponse;
+import vn.nutrimom.family.dto.ReceivedFamilyInvitationResponse;
 import vn.nutrimom.family.service.FamilyInvitationService;
 
 @Validated
@@ -68,6 +69,40 @@ public class FamilyInvitationController {
     public ApiResponse<List<FamilyInvitationSummaryResponse>> list(
             @AuthenticationPrincipal Jwt jwt) {
         return ApiResponses.success(service.list(jwt.getSubject()));
+    }
+
+    /**
+     * Hộp thư của người được mời: chỉ lời mời đang chờ, để mọi dòng đều bấm được.
+     *
+     * <p>Đặt trước {@code /{invitationId}/...} trong file cho dễ đọc; Spring vốn ưu tiên segment
+     * literal nên {@code /received} không bị {@code /{invitationId}} nuốt.</p>
+     */
+    @GetMapping("/received")
+    @Operation(summary = "Lời mời đang chờ gửi cho tài khoản đang đăng nhập")
+    public ApiResponse<List<ReceivedFamilyInvitationResponse>> received(
+            @AuthenticationPrincipal Jwt jwt) {
+        return ApiResponses.success(service.received(jwt.getSubject()));
+    }
+
+    /**
+     * Xem trước theo id — lối vào từ thông báo in-app, không cần token.
+     *
+     * <p>Lời mời không gửi cho mình trả <strong>404</strong>, không phải 403: id không phải bí mật
+     * nên 403 sẽ thành chỗ dò "id này có tồn tại không". Đường token bên trên thì vẫn 403 kèm
+     * {@code masked_target}, vì ở đó người gọi đã chứng minh họ giữ token.</p>
+     */
+    @GetMapping("/{invitationId}/preview")
+    @Operation(summary = "Xem trước lời mời theo id, dành cho chính người được mời")
+    public ApiResponse<FamilyInvitationPreviewResponse> previewById(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable String invitationId) {
+        return ApiResponses.success(service.previewById(jwt.getSubject(), invitationId));
+    }
+
+    @PostMapping("/{invitationId}/accept")
+    @Operation(summary = "Chấp nhận lời mời theo id, dành cho chính người được mời")
+    public ApiResponse<FamilyMemberResponse> acceptById(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable String invitationId) {
+        return ApiResponses.success(service.acceptById(jwt.getSubject(), invitationId));
     }
 
     @DeleteMapping("/{invitationId}")
