@@ -65,7 +65,7 @@ public class SharedCalendarService {
         List<CalendarEventItem> events = calendar.eventsFor(
                 context.ownerUserId(), from, to, zone, types, ALLOWED_SOURCES);
         return new SharedCalendarEventsResponse(context.group().getId(), ownerName(context),
-                allowedSources(), events);
+                allowedSources(), readOnly(events));
     }
 
     @Transactional(readOnly = true)
@@ -87,8 +87,32 @@ public class SharedCalendarService {
     @Transactional(readOnly = true)
     public List<CalendarEventItem> upcomingFor(SharedContext context, String viewerUserId,
                                                int limit) {
-        return calendar.upcomingFor(context.ownerUserId(), zones.resolve(null, viewerUserId),
-                ALLOWED_SOURCES, limit);
+        return readOnly(calendar.upcomingFor(context.ownerUserId(),
+                zones.resolve(null, viewerUserId), ALLOWED_SOURCES, limit));
+    }
+
+    /**
+     * Bỏ {@code deepLink} khỏi mốc lịch trước khi trả cho người nhà.
+     *
+     * <p>{@link CalendarQueryService} dựng deep link theo góc nhìn chủ sở hữu
+     * ({@code nutrimom://calendar/reminders/...}, {@code nutrimom://consultations/...}), và những
+     * endpoint đó chỉ mở cho chính chủ. Phát link ấy ra cho thành viên gia đình là mời họ bấm vào
+     * một màn hình 403 — nên cắt ở đây, thay vì nới quyền endpoint của chủ sở hữu.</p>
+     *
+     * <p>Null chứ không xoá field: {@code CalendarEventItem} dùng chung với màn hình của chính chủ
+     * (vốn vẫn cần deep link), và Jackson đang để {@code non_null} nên {@code deep_link} biến mất
+     * hẳn khỏi JSON của người nhà thay vì hiện ra dưới dạng null.</p>
+     *
+     * <p>Đặt ở lớp này để cả hai bề mặt của người nhà — {@code /family/shared-calendar/events} và
+     * {@code /dashboard/partner} qua {@link #upcomingFor} — đi qua cùng một chỗ. {@link #month}
+     * không cần: {@code CalendarMonthDay} chưa bao giờ mang deep link.</p>
+     */
+    private static List<CalendarEventItem> readOnly(List<CalendarEventItem> events) {
+        return events.stream()
+                .map(event -> new CalendarEventItem(event.source(), event.sourceId(), event.title(),
+                        event.subtitle(), event.startsAt(), event.endsAt(), event.date(),
+                        event.status(), null, event.recurring()))
+                .toList();
     }
 
     /** Thứ tự khai báo enum, để client nhận được mảng ổn định giữa hai lần gọi. */

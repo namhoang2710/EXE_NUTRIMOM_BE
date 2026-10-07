@@ -1,5 +1,6 @@
 package vn.nutrimom.family;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -74,6 +75,32 @@ class SharedCalendarIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.events[*].title", hasItem("Uong sat")));
     }
 
+    /**
+     * Deep link trong mốc lịch trỏ tới endpoint chỉ chủ sở hữu mở được, nên người nhà không được
+     * nhận nó — bấm vào chỉ ăn 403. Jackson để {@code non_null} nên field biến mất hẳn khỏi JSON.
+     */
+    @Test
+    void sharedEventsCarryNoOwnerOnlyDeepLink() throws Exception {
+        mockMvc.perform(get("/api/v1/family/shared-calendar/events")
+                        .param("from", today().toString())
+                        .param("to", today().plusDays(7).toString())
+                        .header("Authorization", "Bearer " + partner.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.events[*].title", hasItem("Uong sat")))
+                .andExpect(jsonPath("$.data.events[*].deep_link").doesNotExist());
+    }
+
+    /** Màn hình của chính mẹ bầu vẫn cần deep link — việc cắt chỉ áp cho lối vào của người nhà. */
+    @Test
+    void theOwnersOwnCalendarKeepsItsDeepLink() throws Exception {
+        mockMvc.perform(get("/api/v1/calendar/events")
+                        .param("from", today().toString())
+                        .param("to", today().plusDays(7).toString())
+                        .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].deep_link", hasItem(containsString("nutrimom://"))));
+    }
+
     /** Không được phép lách bằng cách tự chọn nguồn: giao rỗng phải ra rỗng, không phải "tất cả". */
     @Test
     void askingExplicitlyForMedicalRecordsReturnsNothing() throws Exception {
@@ -146,7 +173,9 @@ class SharedCalendarIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.shared_calendar[*].title", hasItem("Uong sat")))
                 .andExpect(jsonPath("$.data.shared_calendar[*].source",
-                        everyItem(is(not("MEDICAL_RECORD")))));
+                        everyItem(is(not("MEDICAL_RECORD")))))
+                // Dashboard người nhà là bề mặt thứ hai của cùng dữ liệu, rò deep link y hệt.
+                .andExpect(jsonPath("$.data.shared_calendar[*].deep_link").doesNotExist());
     }
 
     // ----- dựng dữ liệu -----
