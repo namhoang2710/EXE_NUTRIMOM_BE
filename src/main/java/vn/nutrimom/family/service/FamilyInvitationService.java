@@ -164,10 +164,17 @@ public class FamilyInvitationService {
                 .toList();
     }
 
-    /** Idempotent: thu hồi lại một lời mời đã thu hồi vẫn là 204, vì kết quả mong muốn đã đạt. */
+    /**
+     * Idempotent: thu hồi lại một lời mời đã thu hồi vẫn là 204, vì kết quả mong muốn đã đạt.
+     *
+     * <p>Khoá dòng ngay từ lúc đọc, cùng dòng mà {@link #accept} khoá. Đọc không khoá rồi mới ghi
+     * là cách để chủ nhóm thu hồi và người được mời chấp nhận cùng thắng: check
+     * {@code status == ACCEPTED} dưới đây sẽ đọc một dòng mà transaction accept chưa commit, rồi
+     * người ghi sau đè lên người ghi trước.</p>
+     */
     @Transactional
     public void revoke(String ownerUserId, String invitationId) {
-        FamilyInvitationEntity invitation = invitations.findById(invitationId)
+        FamilyInvitationEntity invitation = invitations.findByIdForUpdate(invitationId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND, "Invitation was not found."));
         // Không thuộc nhóm mình sở hữu thì ra 404, không phải 403 — đúng quy ước chống IDOR đang
