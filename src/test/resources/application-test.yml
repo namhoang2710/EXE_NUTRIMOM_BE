@@ -25,9 +25,10 @@ app:
     push-enabled: true
   family:
     invitation:
-      # Mặc định tắt gửi: EmailService khi chưa có SMTP sẽ log nguyên khối HTML ra log test.
-      # Bài kiểm luồng gửi tự bật lại bằng @TestPropertySource.
-      send-enabled: false
+      # Tắt kênh email trong test: không có bean JavaMailSender nên mọi lời mời sẽ thành FAILED
+      # và nhiễu bảng delivery_status. Bài kiểm luồng gửi tự bật lại bằng @TestPropertySource.
+      # Thông báo in-app KHÔNG bị cờ này tắt, nên test notification vẫn chạy bình thường.
+      email-enabled: false
   calendar:
     # Không để thread nền quét DB song song với integration test; mọi kiểm thử job gọi thẳng
     # CalendarReminderJob/CalendarReminderDispatcher bằng Clock cố định.

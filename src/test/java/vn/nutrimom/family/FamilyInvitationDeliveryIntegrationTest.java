@@ -38,13 +38,13 @@ import vn.nutrimom.support.ApiIntegrationTestSupport;
 /**
  * Lời mời có thật sự đi tới tay người được mời hay không.
  *
- * <p>Bật lại {@code send-enabled} vì profile test tắt mặc định — nếu không, mọi integration test
- * khác sẽ in nguyên khối HTML email vào log.</p>
+ * <p>Bật lại {@code email-enabled} vì profile test tắt mặc định — đây là bài duy nhất cần kênh
+ * email thật sự chạy để đối chiếu {@code delivery_status}.</p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestPropertySource(properties = "app.family.invitation.send-enabled=true")
+@TestPropertySource(properties = "app.family.invitation.email-enabled=true")
 class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
