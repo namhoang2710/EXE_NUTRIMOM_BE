@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
@@ -15,7 +16,12 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "family_invitations", schema = "app")
+@Table(name = "family_invitations", schema = "app", indexes = {
+        // Khai báo lại hai index của V38 để H2 trong test (Flyway tắt, ddl-auto sinh schema) cũng
+        // có chúng — nếu không, truy vấn hộp thư người nhận chỉ được kiểm trên bảng không index.
+        @Index(name = "ix_family_invitations_invited_email", columnList = "invited_email"),
+        @Index(name = "ix_family_invitations_invited_phone", columnList = "invited_phone")
+})
 public class FamilyInvitationEntity {
     @Id
     @Column(name = "id", nullable = false, length = 36)
