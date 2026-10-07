@@ -103,6 +103,7 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
         createTaskAssignedTo(owner, memberId);
 
         mockMvc.perform(get("/api/v1/notifications")
+                        .param("unreadOnly", "true")
                         .header("Authorization", "Bearer " + partner.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -152,6 +153,7 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/notifications")
+                        .param("unreadOnly", "true")
                         .header("Authorization", "Bearer " + second.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -271,6 +273,11 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
                         .content(objectMapper.writeValueAsString(new AcceptBody(token))))
                 .andExpect(status().isOk())
                 .andReturn();
+        // Bản thân lời mời sinh thông báo cho cả hai phía: người được mời nhận "có lời mời", chủ
+        // nhóm nhận "đã được chấp nhận". Dọn sạch ngay ở đây để mọi bài dưới chỉ đếm những thông
+        // báo do CHÍNH thao tác giao việc sinh ra.
+        markAllRead(partner);
+        markAllRead(owner);
         return objectMapper.readTree(accepted.getResponse().getContentAsString())
                 .at("/data/id").stringValue();
     }

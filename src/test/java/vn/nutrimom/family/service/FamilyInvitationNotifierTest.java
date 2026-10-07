@@ -134,15 +134,27 @@ class FamilyInvitationNotifierTest {
                 .doesNotThrowAnyException();
     }
 
+    /**
+     * Cờ tắt gửi chỉ đóng kênh email.
+     *
+     * <p>Bản cũ đóng cả hai kênh, nên một môi trường chưa cấu hình SMTP làm người được mời không
+     * nhận được email mà cũng không thấy lời mời trong app — đúng sự cố team FE báo. Ba khẳng
+     * định dưới đây, mỗi cái cho một điều thay đổi này hứa.</p>
+     */
     @Test
-    void sendingDisabledShortCircuitsEveryChannel() {
-        properties.setSendEnabled(false);
+    void disablingEmailStillRaisesTheInAppNotification() {
+        properties.setEmailEnabled(false);
+        UserEntity invitee = new UserEntity();
+        invitee.setId("user-1");
+        when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
 
         var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
 
         assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.SKIPPED);
+        assertThat(outcome.sentAt()).isNull();
         verifyNoInteractions(email);
-        verifyNoInteractions(notifications);
+        verify(notifications).publish(eq("user-1"), eq(NotificationType.FAMILY), anyString(),
+                anyString(), anyString(), eq("FAMILY_INVITATION"), any());
     }
 
     private static FamilyInvitationEntity invitation(String invitedEmail, String invitedPhone) {

@@ -34,10 +34,17 @@ public class EmailService {
         }
     }
 
+    /**
+     * Gửi một email HTML; {@code false} nghĩa là thư KHÔNG ra khỏi tiến trình này.
+     *
+     * <p><strong>Nội dung thư không bao giờ được log.</strong> Thân thư mang bí mật dùng được
+     * ngay: link mời nhúng raw token, email OTP nhúng mã 6 số. In chúng ra log là biến mọi người
+     * đọc được log thành người chiếm được tài khoản — kể cả khi đường truyền SMTP vẫn an toàn.
+     * Địa chỉ người nhận cũng chỉ xuất hiện dưới dạng đã che.</p>
+     */
     public boolean sendHtml(String to, String subject, String htmlContent) {
         if (mailSender.isEmpty()) {
-            log.info("[MOCK EMAIL] MailSender chưa được cấu hình. Gửi tới: {}\nTiêu đề: {}\nNội dung:\n{}",
-                    to, subject, htmlContent);
+            log.info("[MOCK EMAIL] MailSender chưa được cấu hình, bỏ qua email tới {}.", mask(to));
             return false;
         }
 
@@ -50,10 +57,13 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
             sender.send(message);
-            log.info("Đã gửi email thành công tới: {}", to);
+            log.info("Đã gửi email thành công tới {}.", mask(to));
             return true;
         } catch (Exception e) {
-            log.warn("Không thể gửi email tới {}: {}. Vui lòng kiểm tra cấu hình SMTP.", to, e.getMessage());
+            // Chỉ lớp ngoại lệ: message của SMTP server thường chép lại nguyên địa chỉ người nhận.
+            log.warn("Không gửi được email tới {}: {}. Vui lòng kiểm tra cấu hình SMTP.",
+                    mask(to), e.getClass().getSimpleName());
+            log.debug("Chi tiết lỗi gửi email", e);
             return false;
         }
     }
@@ -289,6 +299,21 @@ public class EmailService {
             """.formatted(safeInviter, safeRelationship, scopes.toString(), safeUrl, safeUrl, expiry);
 
         return html;
+    }
+
+    /**
+     * Che địa chỉ email trước khi ghi log: giữ ký tự đầu và domain, đủ để đối chiếu khi hỗ trợ
+     * người dùng mà không chép nguyên một định danh cá nhân vào log.
+     */
+    private static String mask(String email) {
+        if (email == null || email.isBlank()) {
+            return "***";
+        }
+        int at = email.indexOf('@');
+        if (at <= 0) {
+            return "***";
+        }
+        return email.charAt(0) + "***" + email.substring(at);
     }
 
     /** Chặn header injection: tiêu đề email không được chứa ký tự xuống dòng. */

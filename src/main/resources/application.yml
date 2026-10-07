@@ -112,7 +112,8 @@ app:
   family:
     invitation:
       default-expiry-hours: ${NUTRIMOM_FAMILY_INVITE_EXPIRY_HOURS:48}
-      send-enabled: ${NUTRIMOM_FAMILY_INVITE_SEND_ENABLED:true}
+      # Chỉ gate kênh email. Thông báo in-app luôn được tạo, bất kể cờ này.
+      email-enabled: ${NUTRIMOM_FAMILY_INVITE_EMAIL_ENABLED:true}
   mail:
     from: ${APP_MAIL_FROM:no-reply@nutrimom.vn}
   assistant:

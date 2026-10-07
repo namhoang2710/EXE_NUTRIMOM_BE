@@ -30,6 +30,11 @@ import vn.nutrimom.notification.service.NotificationService;
  *       đẩy push mà module này không phải sửa gì.</li>
  * </ul>
  *
+ * <p><strong>Hai kênh không chia sẻ số phận.</strong> Email hỏng, SMTP chưa cấu hình, hay cờ
+ * {@code app.family.invitation.email-enabled} tắt đều không ngăn thông báo in-app được tạo — và
+ * ngược lại. Trước đây cờ tắt gửi chặn cả hai, nên một môi trường không cấu hình SMTP làm người
+ * được mời mất luôn lời mời trong app; đó là lỗi, không phải thiết kế.</p>
+ *
  * <p>Mời bằng số điện thoại không có kênh ngoài nào — dự án chưa tích hợp nhà cung cấp SMS. Trường
  * hợp đó trả {@link InvitationDeliveryStatus#SKIPPED} để giao diện biết mà mời chủ nhóm tự gửi
  * link, thay vì im lặng để họ tưởng tin nhắn đã đi.</p>
@@ -62,19 +67,23 @@ public class FamilyInvitationNotifier {
 
     public DeliveryOutcome deliver(FamilyInvitationEntity invitation, String rawToken,
                                    String inviterDisplayName) {
-        if (!properties.isSendEnabled()) {
-            return new DeliveryOutcome(InvitationDeliveryStatus.SKIPPED, null);
-        }
-        String inviteUrl = frontend.inviteUrl(rawToken);
-        InvitationDeliveryStatus status = sendEmail(invitation, inviterDisplayName, inviteUrl);
+        InvitationDeliveryStatus status = sendEmail(invitation, inviterDisplayName, rawToken);
         notifyInApp(invitation, rawToken, inviterDisplayName);
         return new DeliveryOutcome(status,
                 status == InvitationDeliveryStatus.SENT ? OffsetDateTime.now(ZoneOffset.UTC) : null);
     }
 
+    /**
+     * Cờ tắt gửi được kiểm <em>trước</em> khi chạm tới {@link EmailService} chứ không phải sau.
+     *
+     * <p>Không có bean {@code JavaMailSender} thì {@code sendHtml} rơi vào nhánh mock và trả
+     * {@code false} — gate ở phía sau sẽ biến mọi lời mời thành {@code FAILED} thay vì
+     * {@code SKIPPED}, tức là báo "có gì đó hỏng" cho một cấu hình cố ý.</p>
+     */
     private InvitationDeliveryStatus sendEmail(FamilyInvitationEntity invitation,
-                                               String inviterDisplayName, String inviteUrl) {
-        if (invitation.getInvitedEmail() == null) {
+                                               String inviterDisplayName, String rawToken) {
+        if (!properties.isEmailEnabled() || invitation.getInvitedEmail() == null) {
+            logDelivery(invitation, "EMAIL", InvitationDeliveryStatus.SKIPPED, null);
             return InvitationDeliveryStatus.SKIPPED;
         }
         try {
@@ -83,14 +92,30 @@ public class FamilyInvitationNotifier {
                     inviterDisplayName,
                     FamilyScopeLabels.of(invitation.getRelationship()),
                     FamilyScopeLabels.of(invitation.getScopes()),
-                    inviteUrl,
+                    frontend.inviteUrl(rawToken),
                     invitation.getExpiresAt());
-            return sent ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.FAILED;
+            InvitationDeliveryStatus status = sent
+                    ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.FAILED;
+            logDelivery(invitation, "EMAIL", status, null);
+            return status;
         } catch (RuntimeException ex) {
-            log.warn("Không gửi được email mời cho lời mời {}: {}",
-                    invitation.getId(), ex.getMessage());
+            logDelivery(invitation, "EMAIL", InvitationDeliveryStatus.FAILED, ex);
             return InvitationDeliveryStatus.FAILED;
         }
+    }
+
+    /**
+     * Một dòng log cho mỗi kênh, đủ để lần ra sự cố giao hàng mà không rò gì.
+     *
+     * <p>Cố ý KHÔNG có: raw token, invite URL, email hay số điện thoại người nhận. Lời mời được
+     * nhận dạng bằng {@code invitation_id} — tra ra mọi thứ còn lại từ DB khi thật sự cần, dưới
+     * quyền truy cập của DB chứ không phải quyền đọc log.</p>
+     */
+    private void logDelivery(FamilyInvitationEntity invitation, String channel,
+                             InvitationDeliveryStatus status, RuntimeException failure) {
+        log.info("family_invitation_delivery invitation_id={} channel={} delivery_status={} error={}",
+                invitation.getId(), channel, status,
+                failure == null ? "none" : failure.getClass().getSimpleName());
     }
 
     /**
@@ -100,16 +125,18 @@ public class FamilyInvitationNotifier {
     private void notifyInApp(FamilyInvitationEntity invitation, String rawToken,
                              String inviterDisplayName) {
         try {
-            invitee(invitation).ifPresent(user -> notifications.publish(
+            Optional<UserEntity> invitee = invitee(invitation);
+            invitee.ifPresent(user -> notifications.publish(
                     user.getId(), NotificationType.FAMILY,
                     "Lời mời tham gia nhóm gia đình",
                     (inviterDisplayName == null ? "Một thành viên" : inviterDisplayName)
                             + " mời bạn cùng theo dõi thai kỳ.",
                     "nutrimom://family/invitations?token=" + rawToken,
                     "FAMILY_INVITATION", invitation.getId()));
+            logDelivery(invitation, "IN_APP", invitee.isPresent()
+                    ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.SKIPPED, null);
         } catch (RuntimeException ex) {
-            log.warn("Không tạo được thông báo in-app cho lời mời {}: {}",
-                    invitation.getId(), ex.getMessage());
+            logDelivery(invitation, "IN_APP", InvitationDeliveryStatus.FAILED, ex);
         }
     }
 

@@ -21,7 +21,13 @@ giờ tới.
 | Mời bằng | Email HTML | Thông báo in-app | `delivery_status` |
 |---|---|---|---|
 | `invited_email` | Có | Có, nếu email khớp một tài khoản | `SENT` / `FAILED` |
+| `invited_email`, cờ email tắt | Không | Có, nếu email khớp một tài khoản | `SKIPPED` |
 | `invited_phone` | Không | Có, nếu sđt khớp một tài khoản | `SKIPPED` |
+
+**3. Hai kênh không chia sẻ số phận.** `delivery_status` chỉ nói về kênh *email*. Thông báo in-app
+được tạo độc lập: email hỏng, SMTP chưa cấu hình, hay cờ `NUTRIMOM_FAMILY_INVITE_EMAIL_ENABLED` tắt
+đều không ngăn nó. Trước đây cờ đó chặn cả hai kênh, nên một môi trường không cấu hình SMTP làm
+người được mời mất luôn lời mời trong app — đó là lỗi, đã sửa.
 
 Thông báo in-app đi qua `NotificationService`, nên khi có app mobile thì `PushSender` phía sau tự lo
 phần đẩy push — module này không phải sửa gì.
@@ -67,7 +73,7 @@ chứa chính nó, mà lại phá giao diện đang chạy — và khi `delivery
 |---|---|---|
 | `SENT` | Đã gửi email | "Đã gửi lời mời tới a\*\*\*@gmail.com" |
 | `FAILED` | Có email nhưng SMTP hỏng / chưa cấu hình | Báo chưa gửi được + nút copy link |
-| `SKIPPED` | Mời bằng số điện thoại | Báo hệ thống chưa gửi SMS được + nút copy link |
+| `SKIPPED` | Mời bằng sđt, hoặc kênh email bị tắt bằng cấu hình | Báo hệ thống chưa gửi được + nút copy link |
 
 Lỗi: `404 FAMILY_GROUP_NOT_FOUND` · `422 VALIDATION_ERROR` (thiếu/thừa target, scope rỗng) ·
 `429 RATE_LIMITED` (10 lời mời mỗi giờ).
@@ -124,7 +130,8 @@ nhận"), để họ không phải tự vào xem danh sách mới biết.
 |---|---|---|
 | `APP_FRONTEND_BASE_URL` | `http://localhost:5173` | **Origin thuần** của web, để dựng link mời |
 | `APP_FRONTEND_INVITE_PATH` | `/family/invite` | Đường dẫn trang nhận lời mời |
-| `NUTRIMOM_FAMILY_INVITE_SEND_ENABLED` | `true` | Tắt thì chỉ trả `invite_url`, không gửi gì |
+| `NUTRIMOM_FAMILY_INVITE_EMAIL_ENABLED` | `true` | Tắt thì không gửi email, chỉ trả `invite_url`. **Không** tắt thông báo in-app |
+| `SPRING_MAIL_HOST` · `_PORT` · `_USERNAME` · `_PASSWORD` | — | Thiếu `HOST` thì không có bean `JavaMailSender` → `delivery_status=FAILED` |
 | `NUTRIMOM_FAMILY_INVITE_EXPIRY_HOURS` | `48` | Hạn mặc định |
 
 `APP_FRONTEND_BASE_URL` cố ý tách khỏi `MAGIC_LINK_BASE_URL`: biến kia là một **đường dẫn đầy đủ**
