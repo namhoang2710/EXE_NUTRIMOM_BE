@@ -46,9 +46,15 @@ không phải sửa template lẫn backend.
 |---|---|---|
 | POST | `/api/v1/family-invitations` | Chủ nhóm tạo lời mời; gửi đi ngay |
 | GET | `/api/v1/family-invitations` | Chủ nhóm xem danh sách; **không** kèm token |
-| GET | `/api/v1/family-invitations/preview?token=` | Người được mời xem trước |
+| GET | `/api/v1/family-invitations/preview?token=` | Người được mời xem trước, bằng token |
 | DELETE | `/api/v1/family-invitations/{id}` | Chủ nhóm thu hồi; idempotent |
-| POST | `/api/v1/family-invitations/accept` | Người được mời chấp nhận |
+| POST | `/api/v1/family-invitations/accept` | Người được mời chấp nhận, bằng token |
+| GET | `/api/v1/family-invitations/received` | Hộp thư của người được mời |
+| GET | `/api/v1/family-invitations/{id}/preview` | Người được mời xem trước, bằng id |
+| POST | `/api/v1/family-invitations/{id}/accept` | Người được mời chấp nhận, bằng id |
+
+**Hai lối vào, cùng một dòng dữ liệu.** Đường *token* phục vụ link trong email; đường *id* phục vụ
+thông báo in-app. Chúng khác nhau ở đúng một chỗ — xem [404 hay 403](#404-hay-403) bên dưới.
 
 ### POST `/api/v1/family-invitations`
 
@@ -124,6 +130,60 @@ Body `{"token":"…"}`. Lỗi: `404 INVALID_INVITATION_TOKEN` · `409 INVITATION
 Chấp nhận thành công sẽ gửi cho **chủ nhóm** một thông báo in-app `FAMILY` ("Lời mời đã được chấp
 nhận"), để họ không phải tự vào xem danh sách mới biết.
 
+### GET `/api/v1/family-invitations/received`
+
+Lời mời đang chờ **chính tài khoản đang đăng nhập** xử lý, mới nhất trước. Không phân trang.
+
+Chỉ `PENDING` và **chưa hết hạn**. Danh sách này nuôi một cái badge, nên mọi dòng trong đó phải bấm
+được: lời mời đã chấp nhận thì xem ở `GET /api/v1/family-members`, đã thu hồi thì người được mời
+không làm gì được, đã hết hạn thì màn chi tiết vẫn giải thích được.
+
+Mỗi dòng mang `id`, `inviter_display_name`, `relationship` + nhãn, `scopes` + nhãn, `target_type`,
+`masked_target`, `status`, `expires_at`, `created_at`. Cố ý **không** mang `delivery_status` /
+`sent_at`: đó là chuyện vận hành của chủ nhóm, và `sent_at` là một kênh phụ hé lộ hạ tầng của họ.
+
+Tra theo chính email/sđt được mời, so với giá trị **sống** trên tài khoản — không có cột
+`invited_user_id`. Người được mời có thể đăng ký *sau* khi lời mời được tạo, hoặc đổi email sau đó;
+một cột đóng băng lúc tạo sẽ lệch với điều kiện mà `accept` kiểm và cho ra lời mời hiện trong hộp
+thư nhưng bấm vào thì bị từ chối.
+
+### GET `/api/v1/family-invitations/{id}/preview`
+
+Giống `preview?token=` về nội dung trả về. Khác ở chỗ **không lọc trạng thái**: hết hạn / đã thu hồi
+/ đã dùng đều `200` kèm `status`.
+
+Hai endpoint cố ý **bất đối xứng**: `/received` chỉ chứa thứ hành động được, `/{id}/preview` thì
+luôn giải thích được — kể cả khi người ta mở một thông báo cũ đã nằm trong máy nhiều ngày.
+
+### POST `/api/v1/family-invitations/{id}/accept`
+
+Không có body. Lỗi giống `accept` bằng token, trừ một điểm: lời mời không gửi cho mình trả
+`404 RESOURCE_NOT_FOUND` chứ không phải `403 INVITATION_TARGET_MISMATCH`.
+
+### 404 hay 403
+
+Quy tắc không phải "không khớp thì 403", mà là: **response không được tiết lộ nhiều hơn những gì
+người gọi đã chứng minh là họ biết.**
+
+| Lối vào | Người gọi đã chứng minh | Không phải của họ |
+|---|---|---|
+| `?token=` / `accept` | giữ được bí mật | `403 INVITATION_TARGET_MISMATCH` kèm `masked_target` |
+| `{id}/preview` / `{id}/accept` | không gì cả | `404 RESOURCE_NOT_FOUND` |
+
+Giữ token thì người gọi đã đọc được cả preview rồi; giấu sự tồn tại không mua được gì, mà thứ họ
+cần là thông điệp hành động được — "bạn đang đăng nhập nhầm tài khoản". Id thì ngược lại: nó nằm
+trong deep link thông báo và trong danh sách của chủ nhóm, nên 403 ở đó sẽ thành chỗ dò "id này có
+tồn tại không".
+
+### Deep link của thông báo
+
+`nutrimom://family/invitations/{invitation_id}` — **không mang token**.
+
+Bản trước ghi `?token=<raw>` vào `notifications.deep_link`, tức là cất một token dùng được trong DB
+dưới dạng chữ thường, vô hiệu hoá chính lý do tồn tại của cột `token_hash`; token còn nằm lại đó cả
+sau khi lời mời đã được chấp nhận hay thu hồi, và được `GET /api/v1/notifications` trả nguyên văn.
+Ba endpoint theo id ở trên tồn tại để deep link không cần mang bí mật nữa.
+
 ## Cấu hình
 
 | Biến | Mặc định | Mục đích |
@@ -148,5 +208,14 @@ khi dev, nhưng nghĩa là link chấp nhận nằm trong log, nên production p
 | `/api/v1/family-invitations` (tạo) | 10 / giờ |
 | `/api/v1/family-invitations/preview` | 20 / phút |
 | `/api/v1/family-invitations/accept` | 20 / phút |
+| `/api/v1/family-invitations/received` | 20 / phút |
+| `/api/v1/family-invitations/{id}/preview` | 20 / phút |
+| `/api/v1/family-invitations/{id}/accept` | 20 / phút |
 
-Hai route sau khoá chặt hơn vì chúng nhận token — đây là lớp chống dò.
+Năm route sau khoá chặt hơn vì chúng nhận token hoặc id — đây là lớp chống dò. Chúng dùng chung
+policy `invitation-token`; tên giữ nguyên dù route theo id không mang token, vì ngưỡng mới là thứ
+đáng quan tâm.
+
+`RateLimitFilter` lấy rule **khớp đầu tiên** và cho qua không giới hạn nếu không rule nào khớp, nên
+mọi route mới phải được thêm vào `app.security.rate-limit.routes` — pattern `*` chỉ khớp đúng một
+segment, đừng đặt một `/api/v1/family-invitations/*` lên trên `/received`.

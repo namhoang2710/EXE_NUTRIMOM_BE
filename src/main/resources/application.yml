@@ -193,9 +193,17 @@ app:
         - pattern: /api/v1/assistant/conversations/*/messages
           policy: assistant
         # Pattern CỤ THỂ phải đứng trước: RateLimitFilter lấy rule khớp ĐẦU TIÊN.
+        # invitation-token dùng cho cả lối vào bằng token lẫn bằng id: tên giữ nguyên vì ngưỡng
+        # mới là thứ đáng quan tâm, đẻ thêm một policy trùng số chỉ làm file này dài ra.
         - pattern: /api/v1/family-invitations/preview
           policy: invitation-token
         - pattern: /api/v1/family-invitations/accept
+          policy: invitation-token
+        - pattern: /api/v1/family-invitations/received
+          policy: invitation-token
+        - pattern: /api/v1/family-invitations/*/preview
+          policy: invitation-token
+        - pattern: /api/v1/family-invitations/*/accept
           policy: invitation-token
         - pattern: /api/v1/family-invitations
           policy: invitation-create
