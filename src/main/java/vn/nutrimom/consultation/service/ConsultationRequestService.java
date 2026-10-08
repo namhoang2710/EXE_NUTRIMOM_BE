@@ -52,12 +52,12 @@ public class ConsultationRequestService {
     private static final DateTimeFormatter APPOINTMENT_DATE =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    /** Sắp xếp theo giờ hẹn tăng dần; yêu cầu chưa có slot xếp cuối. */
+    /** Sắp xếp theo giờ hẹn mới nhất trước; yêu cầu chưa có slot xếp cuối. */
     private static final Comparator<ConsultationRequestResponse> BY_APPOINTMENT =
             Comparator.comparing(
                     (ConsultationRequestResponse r) -> r.slot() == null ? null
                             : r.slot().slotDate().atTime(r.slot().startTime()),
-                    Comparator.nullsLast(Comparator.naturalOrder()));
+                    Comparator.nullsLast(Comparator.reverseOrder()));
 
     private final ConsultationRequestRepository requests;
     private final AvailabilitySlotRepository slots;
@@ -261,7 +261,7 @@ public class ConsultationRequestService {
     // ----- Expert -----
 
     /**
-     * Danh sách buổi tư vấn được giao cho chuyên gia, sắp theo giờ hẹn tăng dần.
+     * Danh sách buổi tư vấn được giao cho chuyên gia, sắp theo giờ hẹn mới nhất trước.
      *
      * @param status lọc trạng thái; null → mặc định PENDING_CONSULTATION (buổi sắp diễn ra).
      * @param from   lọc theo ngày hẹn (giờ VN, bao gồm) nếu khác null.

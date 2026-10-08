@@ -2,6 +2,8 @@ package vn.nutrimom.consultation.video;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
@@ -59,6 +61,16 @@ public class VideoSessionCleanup {
                         && experts.findByUserIdAndStatus(request.getExpertUserId(), ExpertStatus.ACTIVE).isPresent();
                 if (session.getEndedAt() == null && request.getStatus() == ConsultationStatus.PENDING_CONSULTATION
                         && now.isBefore(session.getClosesAt()) && activePair) return;
+                // The request transition shares the booking row lock with manual completion. Exactly one
+                // path can move PENDING_CONSULTATION to COMPLETED, so the scheduler is idempotent and can
+                // never complete a cancelled/otherwise invalid booking. Automatic expiry intentionally
+                // emits no extra notification/activity; manual completion remains their sole producer.
+                if (!now.isBefore(session.getClosesAt())
+                        && request.getStatus() == ConsultationStatus.PENDING_CONSULTATION) {
+                    request.setStatus(ConsultationStatus.COMPLETED);
+                    request.setCompletedAt(OffsetDateTime.ofInstant(session.getClosesAt(), ZoneOffset.UTC));
+                    requests.save(request);
+                }
                 session.end(now);
                 // Revoke refreshed tokens too, not merely those issued before the booking ended.
                 livekit.closeRoom(session.getRoomName(), request.getUserId(), request.getExpertUserId(), now);

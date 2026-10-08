@@ -560,12 +560,12 @@ class ConsultationIntegrationTest {
         String reqLater = readData(createdLater, "/data/id");
         bookDirect(user2, expertId, earlier, "09:00:00").andExpect(status().isCreated());
 
-        // Mặc định PENDING_CONSULTATION, sắp theo giờ hẹn tăng dần
+        // Mặc định PENDING_CONSULTATION, giờ hẹn mới nhất nằm trên
         mockMvc.perform(get("/api/v1/expert/consultation-requests").with(expertJwt(expertId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total_items").value(2))
-                .andExpect(jsonPath("$.data.items[0].slot.slot_date").value(earlier.toString()))
-                .andExpect(jsonPath("$.data.items[1].slot.slot_date").value(later.toString()));
+                .andExpect(jsonPath("$.data.items[0].slot.slot_date").value(later.toString()))
+                .andExpect(jsonPath("$.data.items[1].slot.slot_date").value(earlier.toString()));
 
         // Tìm theo tên user
         mockMvc.perform(get("/api/v1/expert/consultation-requests").param("q", "ali")
