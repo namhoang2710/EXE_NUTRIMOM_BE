@@ -104,7 +104,7 @@ public class ExpertConsoleController {
     }
 
     @GetMapping("/consultation-requests")
-    @Operation(summary = "type=assigned: buổi tư vấn được giao (sắp theo giờ hẹn); type=pool: yêu cầu ngẫu nhiên chờ nhận. "
+    @Operation(summary = "type=assigned: buổi tư vấn được giao (giờ hẹn mới nhất trước); type=pool: yêu cầu ngẫu nhiên chờ nhận. "
             + "Với assigned: lọc status (mặc định PENDING_CONSULTATION, dùng COMPLETED/CANCELLED để xem lịch sử), khoảng ngày, tên user.")
     public ApiResponse<PageResponse<ConsultationRequestResponse>> requests(
             @AuthenticationPrincipal Jwt jwt,
