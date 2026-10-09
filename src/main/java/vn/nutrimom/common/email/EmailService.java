@@ -21,6 +21,18 @@ public class EmailService {
     private final Optional<JavaMailSender> mailSender;
     private final String fromEmail;
 
+    /**
+     * Địa chỉ gửi lấy từ {@code app.mail.from}, thiếu thì rơi về chính tài khoản SMTP.
+     *
+     * <p>Thiếu cả hai thì để <strong>rỗng</strong> chứ không bịa ra một địa chỉ mặc định.
+     * Một sender mà nhà cung cấp SMTP không cho phép sẽ bị từ chối hoặc viết lại ở phía họ —
+     * tức là thư im lặng không tới nơi trong khi mọi thứ phía mình trông như đã gửi xong. Thà
+     * {@link #sendHtml} từ chối ngay với {@code NO_SENDER} còn hơn.</p>
+     *
+     * <p>Lưu ý cho người sửa {@code application.yml}: khoá {@code app.mail.from} phải để default
+     * RỖNG ({@code ${APP_MAIL_FROM:}}). Đặt một giá trị mặc định ở đó sẽ làm nhánh rơi về
+     * {@code spring.mail.username} dưới đây không bao giờ chạy — đó chính là lỗi cũ.</p>
+     */
     public EmailService(@Autowired(required = false) JavaMailSender mailSender,
                         @Value("${app.mail.from:}") String fromEmail,
                         @Value("${spring.mail.username:}") String mailUsername) {
@@ -30,22 +42,75 @@ public class EmailService {
         } else if (mailUsername != null && !mailUsername.isBlank()) {
             this.fromEmail = mailUsername;
         } else {
-            this.fromEmail = "no-reply@nutrimom.vn";
+            this.fromEmail = "";
         }
     }
 
     /**
-     * Gửi một email HTML; {@code false} nghĩa là thư KHÔNG ra khỏi tiến trình này.
+     * Địa chỉ gửi đã phân giải, hoặc chuỗi rỗng nếu không có nguồn nào.
+     *
+     * <p>Package-private để test khẳng định được thứ tự ưu tiên mà không phải dựng SMTP — cùng lý
+     * do {@link #familyInvitationHtml} được mở ra ở mức này.</p>
+     */
+    String resolvedSender() {
+        return fromEmail;
+    }
+
+    /**
+     * Kết quả một lần gửi.
+     *
+     * <p>Thay cho {@code boolean} vì "hỏng" mà không nói hỏng vì sao thì người trực vận hành
+     * không làm gì được: cấu hình thiếu, sai mật khẩu và SMTP từ chối đều hiện ra giống hệt
+     * nhau.</p>
+     *
+     * @param errorClass {@code null} khi gửi được. Ngoài ra là tên lớp ngoại lệ, hoặc một trong
+     *                   các mã tự đặt ({@link #NOT_CONFIGURED}, {@link #NO_SENDER}) cho những ca
+     *                   hỏng không sinh ngoại lệ nào. <strong>Không bao giờ</strong> là
+     *                   {@code getMessage()} — message của SMTP server hay chép lại nguyên địa
+     *                   chỉ người nhận.
+     */
+    public record MailResult(boolean sent, String errorClass) {
+
+        /** Không có bean {@code JavaMailSender}: môi trường chưa khai {@code SPRING_MAIL_HOST}. */
+        public static final String NOT_CONFIGURED = "NOT_CONFIGURED";
+
+        /** Không biết gửi từ địa chỉ nào: thiếu cả {@code APP_MAIL_FROM} lẫn SMTP username. */
+        public static final String NO_SENDER = "NO_SENDER";
+
+        /** Tên {@code ok} chứ không phải {@code sent}: {@code sent()} đã là accessor của record. */
+        public static MailResult ok() {
+            return new MailResult(true, null);
+        }
+
+        public static MailResult failed(String errorClass) {
+            return new MailResult(false, errorClass);
+        }
+
+        public static MailResult failed(Exception cause) {
+            return failed(cause.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Gửi một email HTML. {@code sent() == false} nghĩa là thư KHÔNG ra khỏi tiến trình này.
      *
      * <p><strong>Nội dung thư không bao giờ được log.</strong> Thân thư mang bí mật dùng được
      * ngay: link mời nhúng raw token, email OTP nhúng mã 6 số. In chúng ra log là biến mọi người
      * đọc được log thành người chiếm được tài khoản — kể cả khi đường truyền SMTP vẫn an toàn.
-     * Địa chỉ người nhận cũng chỉ xuất hiện dưới dạng đã che.</p>
+     * Địa chỉ người nhận cũng chỉ xuất hiện dưới dạng đã che, và ngoại lệ chỉ hiện ra dưới dạng
+     * tên lớp.</p>
      */
-    public boolean sendHtml(String to, String subject, String htmlContent) {
+    public MailResult sendHtml(String to, String subject, String htmlContent) {
         if (mailSender.isEmpty()) {
             log.info("[MOCK EMAIL] MailSender chưa được cấu hình, bỏ qua email tới {}.", mask(to));
-            return false;
+            return MailResult.failed(MailResult.NOT_CONFIGURED);
+        }
+        if (fromEmail.isBlank()) {
+            // Gửi với sender rỗng thì SMTP server từ chối hoặc tự thay bằng địa chỉ khác; cả hai
+            // đều khó lần ra hơn là nói thẳng ở đây.
+            log.warn("Chưa cấu hình địa chỉ gửi (APP_MAIL_FROM hoặc SPRING_MAIL_USERNAME), "
+                    + "bỏ qua email tới {}.", mask(to));
+            return MailResult.failed(MailResult.NO_SENDER);
         }
 
         try {
@@ -58,17 +123,17 @@ public class EmailService {
             helper.setText(htmlContent, true);
             sender.send(message);
             log.info("Đã gửi email thành công tới {}.", mask(to));
-            return true;
+            return MailResult.ok();
         } catch (Exception e) {
-            // Chỉ lớp ngoại lệ: message của SMTP server thường chép lại nguyên địa chỉ người nhận.
+            // Chỉ lớp ngoại lệ: message của SMTP server thường chép lại nguyên địa chỉ người nhận,
+            // và stack trace đầy đủ thì kéo theo cả header lẫn thân thư.
             log.warn("Không gửi được email tới {}: {}. Vui lòng kiểm tra cấu hình SMTP.",
                     mask(to), e.getClass().getSimpleName());
-            log.debug("Chi tiết lỗi gửi email", e);
-            return false;
+            return MailResult.failed(e);
         }
     }
 
-    public boolean sendEmailOtp(String toEmail, String code, String directLink) {
+    public MailResult sendEmailOtp(String toEmail, String code, String directLink) {
         String subject = "🔐 Mã xác thực đăng nhập NutriMom: " + code;
         String html = """
             <!DOCTYPE html>
@@ -132,7 +197,7 @@ public class EmailService {
         return sendHtml(toEmail, subject, html);
     }
 
-    public boolean sendMagicLink(String toEmail, String magicLinkUrl) {
+    public MailResult sendMagicLink(String toEmail, String magicLinkUrl) {
         String code = "123456";
         if (magicLinkUrl != null && magicLinkUrl.contains("token=")) {
             String tokenPart = magicLinkUrl.substring(magicLinkUrl.indexOf("token=") + 6);
@@ -144,7 +209,7 @@ public class EmailService {
         return sendEmailOtp(toEmail, code, magicLinkUrl);
     }
 
-    public boolean sendRegistrationConfirmation(String toEmail, String displayName, String code) {
+    public MailResult sendRegistrationConfirmation(String toEmail, String displayName, String code) {
         String subject = "✨ Mã xác thực kích hoạt tài khoản NutriMom: " + code;
         String html = """
             <!DOCTYPE html>
@@ -208,7 +273,7 @@ public class EmailService {
      *
      * @param acceptUrl luôn là http(s) trỏ về web; KHÔNG dùng scheme riêng kiểu nutrimom://
      */
-    public boolean sendFamilyInvitation(String toEmail, String inviterName,
+    public MailResult sendFamilyInvitation(String toEmail, String inviterName,
                                         String relationshipLabel, List<String> scopeLabels,
                                         String acceptUrl, OffsetDateTime expiresAt) {
         // Tiêu đề là header MIME, không phải HTML: ở đây thứ nguy hiểm là ký tự xuống dòng

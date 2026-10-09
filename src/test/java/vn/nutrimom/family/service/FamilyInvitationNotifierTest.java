@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.email.EmailService;
+import vn.nutrimom.common.email.EmailService.MailResult;
 import vn.nutrimom.config.FamilyInvitationProperties;
 import vn.nutrimom.config.FrontendProperties;
 import vn.nutrimom.family.domain.FamilyInvitationEntity;
@@ -55,7 +56,7 @@ class FamilyInvitationNotifierTest {
     @Test
     void invitingByEmailSendsMailAndReportsSent() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.empty());
 
         var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
@@ -91,12 +92,35 @@ class FamilyInvitationNotifierTest {
 
         assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.FAILED);
         assertThat(outcome.sentAt()).isNull();
+        assertThat(outcome.errorClass()).isEqualTo("IllegalStateException");
+    }
+
+    /**
+     * {@code FAILED} phải kèm lý do, không được ra {@code error=none}.
+     *
+     * <p>Bản cũ chỉ nhận một {@code boolean} từ {@link vn.nutrimom.common.email.EmailService} nên
+     * log ghi {@code delivery_status=FAILED error=none} — QA đọc log không biết là SMTP sai mật
+     * khẩu, sai host, hay chỉ đơn giản chưa cấu hình. Đây cũng là nhánh {@code false} mà trước đây
+     * <strong>không bài nào</strong> phủ: ca FAILED duy nhất đi qua {@code thenThrow}.</p>
+     */
+    @Test
+    void aRefusedSendCarriesTheReasonNotJustAFalse() {
+        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
+                anyString(), any()))
+                .thenReturn(MailResult.failed(MailResult.NOT_CONFIGURED));
+        when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
+
+        var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
+
+        assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.FAILED);
+        assertThat(outcome.sentAt()).isNull();
+        assertThat(outcome.errorClass()).isEqualTo(MailResult.NOT_CONFIGURED);
     }
 
     @Test
     void anExistingAccountAlsoGetsAnInAppNotification() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         UserEntity invitee = new UserEntity();
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
@@ -112,7 +136,7 @@ class FamilyInvitationNotifierTest {
     @Test
     void anUnknownTargetProducesNoNotificationAndNoError() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
         var outcome = notifier.deliver(invitation("khongco@example.com", null), "tok", "Mai");
@@ -124,7 +148,7 @@ class FamilyInvitationNotifierTest {
     @Test
     void aFailingNotificationDoesNotBreakTheInvitation() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         UserEntity invitee = new UserEntity();
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(invitee));
@@ -170,7 +194,7 @@ class FamilyInvitationNotifierTest {
     @Test
     void theInAppDeepLinkCarriesNoRawToken() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         UserEntity invitee = new UserEntity();
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
