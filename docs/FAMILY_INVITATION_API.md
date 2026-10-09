@@ -24,6 +24,17 @@ giờ tới.
 | `invited_email`, cờ email tắt | Không | Có, nếu email khớp một tài khoản | `SKIPPED` |
 | `invited_phone` | Không | Có, nếu sđt khớp một tài khoản | `SKIPPED` |
 
+**Khuyến nghị cho client: chỉ gửi `invited_email`.** `invited_phone` vẫn còn trong API và vẫn chạy
+đúng như bảng trên, nhưng hàng `SKIPPED`-do-sđt là thứ không giao diện nào trình bày gọn được —
+"đã tạo lời mời nhưng hệ thống không gửi gì cả, bạn tự copy link đi". Client không gửi
+`invited_phone` thì tình huống đó không bao giờ xảy ra, và `delivery_status` thu về đúng hai nghĩa
+"đã gửi email" / "chưa gửi được".
+
+Phạm vi được chốt bằng tài liệu chứ không bằng validate, vì hai lý do. Mời bằng sđt là đường duy
+nhất tới tài khoản đăng ký bằng OTP — loại tài khoản không có email — nên chặn ở server sẽ đẩy
+người dùng vào một màn "thêm email vào tài khoản" mà FE chưa có. Và khi có nhà cung cấp SMS thì
+hàng đó tự chuyển thành `SENT` mà không ai phải mở lại chỗ validate.
+
 **3. Hai kênh không chia sẻ số phận.** `delivery_status` chỉ nói về kênh *email*. Thông báo in-app
 được tạo độc lập: email hỏng, SMTP chưa cấu hình, hay cờ `NUTRIMOM_FAMILY_INVITE_EMAIL_ENABLED` tắt
 đều không ngăn nó. Trước đây cờ đó chặn cả hai kênh, nên một môi trường không cấu hình SMTP làm
@@ -80,14 +91,31 @@ chứa chính nó, mà lại phá giao diện đang chạy — và khi `delivery
 | `SENT` | Đã gửi email | "Đã gửi lời mời tới a\*\*\*@gmail.com" |
 | `FAILED` | Có email nhưng SMTP hỏng / chưa cấu hình | Báo chưa gửi được + nút copy link |
 | `SKIPPED` | Mời bằng sđt, hoặc kênh email bị tắt bằng cấu hình | Báo hệ thống chưa gửi được + nút copy link |
+| *(vắng mặt)* | Lời mời đã tạo nhưng chưa ghi được kết quả gửi | **Xử như `FAILED`** — xem dưới |
+
+**Hàng thứ tư không phải trạng thái lỗi.** Email được gửi *sau* khi lời mời đã commit, nên trong
+đúng khoảng thời gian SMTP đang chạy (tính bằng giây) một `GET /api/v1/family-invitations` song
+song của chính chủ nhóm sẽ trả dòng **không có key** `delivery_status` — Jackson cấu hình
+`non_null` nên field biến mất hẳn chứ không phải `null`. Nó cũng vắng vĩnh viễn nếu DB hỏng ngay
+sau khi thư đã đi.
+
+`switch` ba nhánh sẽ rơi vào hư vô, nên client phải có nhánh mặc định và cho nó cư xử như `FAILED`.
+An toàn cả hai chiều: hiện nút copy link khi email thật ra đã tới thì vô hại, còn giấu nút đi khi
+email chưa tới thì có hại.
 
 Lỗi: `404 FAMILY_GROUP_NOT_FOUND` · `422 VALIDATION_ERROR` (thiếu/thừa target, scope rỗng) ·
 `429 RATE_LIMITED` (10 lời mời mỗi giờ).
 
 ### GET `/api/v1/family-invitations/preview?token=`
 
-Cần đăng nhập — người được mời dù sao cũng phải có tài khoản mới chấp nhận được, nên mở endpoint này
-ra public chỉ tặng thêm một bề mặt để dò token.
+**Cần đăng nhập, nhưng cố ý KHÔNG kiểm người gọi có phải người được mời.** Bất kỳ tài khoản đã đăng
+nhập nào cầm token hợp lệ đều xem trước được. Đăng nhập ở đây là lớp chống dò token — không phải
+kiểm sở hữu; giữ token *chính là* phân quyền trên đường này.
+
+Đó là điều kiện để link trong email dùng được thật: người được mời có thể đang đăng nhập bằng tài
+khoản khác, hoặc địa chỉ được mời chưa gắn vào tài khoản nào của họ. Chặn ở bước xem trước chỉ cho
+họ một trang lỗi trống mà không ngăn được gì — `accept` vẫn kiểm khớp email/sđt, và đó mới là chỗ
+quyết định. Xem [Hai đường xem trước](#hai-đường-xem-trước) để đối chiếu với đường theo id.
 
 ```json
 {"data":{"inviter_display_name":"Mai","relationship":"PARTNER",
@@ -160,6 +188,29 @@ luôn giải thích được — kể cả khi người ta mở một thông bá
 Không có body. Lỗi giống `accept` bằng token, trừ một điểm: lời mời không gửi cho mình trả
 `404 RESOURCE_NOT_FOUND` chứ không phải `403 INVITATION_TARGET_MISMATCH`.
 
+### Hai đường xem trước
+
+Hai endpoint xem trước cùng trả một DTO nhưng phân quyền khác hẳn nhau. Bất đối xứng là cố ý.
+
+| | `?token=` | `{id}/preview` |
+|---|---|---|
+| Đến từ | Link trong email | Thông báo in-app |
+| Bắt đăng nhập | Có | Có |
+| Kiểm người gọi là người được mời | **Không** | **Có** |
+| Người lạ cầm được định danh | `200` | `404` |
+| Không tồn tại | `404 INVALID_INVITATION_TOKEN` | `404 RESOURCE_NOT_FOUND` |
+
+Khác nhau vì thứ người gọi cầm khác nhau. Token là bí mật dùng một lần, chỉ người mở được hộp thư
+kia mới có — giữ được nó đã là chứng minh đủ, và kiểm thêm email chỉ chặn đúng những người hợp lệ
+đang đăng nhập nhầm tài khoản. Id thì không bí mật: nó nằm trong deep link thông báo và trong danh
+sách của chủ nhóm, nên ở đó phải kiểm địa chỉ, và trả 404 chứ không 403.
+
+Đăng nhập trên đường token vì vậy **không** phải kiểm sở hữu — nó là lớp chống dò token, để
+`/preview?token=` không thành một oracle quét được từ ngoài.
+
+Cả hai đường đều dừng ở cùng một chỗ: `accept` và `{id}/accept` đều đối chiếu email/sđt sống của
+tài khoản đang đăng nhập. Xem trước thì mở, tham gia thì không.
+
 ### 404 hay 403
 
 Quy tắc không phải "không khớp thì 403", mà là: **response không được tiết lộ nhiều hơn những gì
@@ -183,6 +234,10 @@ Bản trước ghi `?token=<raw>` vào `notifications.deep_link`, tức là cấ
 dưới dạng chữ thường, vô hiệu hoá chính lý do tồn tại của cột `token_hash`; token còn nằm lại đó cả
 sau khi lời mời đã được chấp nhận hay thu hồi, và được `GET /api/v1/notifications` trả nguyên văn.
 Ba endpoint theo id ở trên tồn tại để deep link không cần mang bí mật nữa.
+
+`V39` dọn nốt những dòng tạo trước đó: deep link nào còn `token=` thì được dựng lại theo
+`source_id`, dòng nào không dựng lại được thì bỏ hẳn deep link. Không notification nào bị xoá —
+người được mời vẫn thấy là họ từng được mời, và mở lại được qua hộp thư lời mời.
 
 ## Cấu hình
 

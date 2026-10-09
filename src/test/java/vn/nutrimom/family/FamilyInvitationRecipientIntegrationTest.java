@@ -1,5 +1,6 @@
 package vn.nutrimom.family;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -195,6 +196,64 @@ class FamilyInvitationRecipientIntegrationTest extends ApiIntegrationTestSupport
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new AcceptBody(token))))
                 .andExpect(status().isOk());
+    }
+
+    /**
+     * Chuông thông báo phải nhảy số ngay khi lời mời tới.
+     *
+     * <p>{@code unread-count} mới chỉ được kiểm chung chung ở {@code NotificationIntegrationTest},
+     * nơi thông báo do chính bài test tạo ra. Ở đây nó đi qua đường thật: chủ nhóm bấm mời, và
+     * người được mời thấy số tăng mà không phải mở danh sách.</p>
+     */
+    @Test
+    void receivingAnInvitationBumpsTheUnreadBell() throws Exception {
+        long before = unreadCount(invitee);
+
+        invite(invitee.phone());
+
+        assertThat(unreadCount(invitee)).isEqualTo(before + 1);
+    }
+
+    /**
+     * Địa chỉ dán từ chỗ khác, kèm khoảng trắng hai đầu — ra 422, không phải lời mời.
+     *
+     * <p>Bài {@link #anEmailInvitationIsFoundRegardlessOfLetterCase} phủ nửa hoa/thường của phép
+     * chuẩn hoá. Nửa khoảng trắng thì <strong>không</strong> đi tới được chỗ chuẩn hoá:
+     * {@code @Email} trên {@code CreateFamilyInvitationRequest} chạy trước service, và
+     * {@code " an@example.com "} không khớp pattern của nó. Cái {@code trim()} trong
+     * {@code normalizeEmail} chỉ còn phục vụ email đọc ra từ bảng {@code users}.</p>
+     *
+     * <p>Bài này ghim hành vi đang chạy để nó không đổi một cách tình cờ. Nếu muốn chủ nhóm dán
+     * được địa chỉ kèm khoảng trắng thì phải cắt ở tầng deserialize, trước bean validation — đó là
+     * một thay đổi contract, không phải một bài test.</p>
+     */
+    @Test
+    void anEmailWithSurroundingWhitespaceIsRejectedBeforeItReachesNormalisation() throws Exception {
+        String address = "Recipient.Spaced" + SEQ.incrementAndGet() + "@Example.COM";
+        attachEmail(invitee, address);
+
+        mockMvc.perform(post("/api/v1/family-invitations")
+                        .header("Authorization", "Bearer " + owner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new InvitationBody(
+                                null, " " + address + " ", "PARTNER",
+                                Set.of("SHARED_CALENDAR"), 48))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(get("/api/v1/family-invitations/received")
+                        .header("Authorization", "Bearer " + invitee.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    private long unreadCount(Session session) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .header("Authorization", "Bearer " + session.accessToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .at("/data/count").asLong();
     }
 
     // ----- dựng dữ liệu -----

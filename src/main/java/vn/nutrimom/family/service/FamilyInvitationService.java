@@ -7,8 +7,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.nutrimom.auth.domain.OnboardingStatus;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserStatus;
@@ -25,7 +30,6 @@ import vn.nutrimom.family.domain.FamilyInvitationStatus;
 import vn.nutrimom.family.domain.FamilyMemberEntity;
 import vn.nutrimom.family.domain.FamilyMemberStatus;
 import vn.nutrimom.family.domain.FamilyScope;
-import vn.nutrimom.family.domain.InvitationDeliveryStatus;
 import vn.nutrimom.family.dto.AcceptFamilyInvitationRequest;
 import vn.nutrimom.family.dto.CreateFamilyInvitationRequest;
 import vn.nutrimom.family.dto.FamilyInvitationPreviewResponse;
@@ -43,6 +47,8 @@ import vn.nutrimom.notification.service.NotificationService;
 @Service
 public class FamilyInvitationService {
 
+    private static final Logger log = LoggerFactory.getLogger(FamilyInvitationService.class);
+
     private final FamilyInvitationRepository invitations;
     private final FamilyMemberRepository members;
     private final FamilyGroupRepository groups;
@@ -54,6 +60,7 @@ public class FamilyInvitationService {
     private final NotificationService notifications;
     private final FrontendProperties frontend;
     private final FamilyInvitationProperties properties;
+    private final TransactionTemplate tx;
 
     public FamilyInvitationService(FamilyInvitationRepository invitations,
                                    FamilyMemberRepository members,
@@ -65,7 +72,8 @@ public class FamilyInvitationService {
                                    FamilyInvitationNotifier notifier,
                                    NotificationService notifications,
                                    FrontendProperties frontend,
-                                   FamilyInvitationProperties properties) {
+                                   FamilyInvitationProperties properties,
+                                   PlatformTransactionManager transactions) {
         this.invitations = invitations;
         this.members = members;
         this.groups = groups;
@@ -77,65 +85,121 @@ public class FamilyInvitationService {
         this.notifications = notifications;
         this.frontend = frontend;
         this.properties = properties;
+        this.tx = new TransactionTemplate(transactions);
+        // REQUIRES_NEW, không phải REQUIRED mặc định: hôm nay không có transaction ngoài nào bọc
+        // create (caller duy nhất là FamilyInvitationController), nhưng với REQUIRED thì mai mốt
+        // ai gọi create từ trong một transaction là pha 1 lặng lẽ join vào đó — email lại gửi
+        // trước commit y như cũ, và không bài test nào đỏ.
+        this.tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
-     * Tạo lời mời rồi gửi đi ngay.
+     * Tạo lời mời rồi gửi đi.
      *
-     * <p>Gửi <em>trong</em> transaction, không chờ {@code afterCommit}: {@code rawToken} chỉ tồn
-     * tại trong bộ nhớ của lần gọi này, và ghi {@code sent_at}/{@code delivery_status} cùng một
-     * lượt thì dữ liệu không bao giờ lệch. Cái giá là SMTP chậm giữ connection thêm vài giây —
-     * chấp nhận được với một endpoint do chính chủ nhóm bấm và đã bị rate-limit.</p>
+     * <p><strong>Email chỉ rời tiến trình sau khi transaction đã commit.</strong> Gửi bên trong
+     * transaction thì một cú rollback muộn — commit hỏng, hay bất kỳ ai sau này bọc {@code create}
+     * trong một transaction lớn hơn — để lại người được mời cầm một lá thư trỏ tới lời mời không
+     * tồn tại. Thư không rollback được, nên nó phải đi sau.</p>
+     *
+     * <p>Ba pha, cố ý không dùng {@code @TransactionalEventListener(AFTER_COMMIT)}:
+     * {@link FamilyInvitationResponse} là record bất biến và được dựng xong trước khi callback
+     * chạy, nên callback không với tới được — response sẽ mất hẳn field {@code delivery_status}
+     * (Jackson cấu hình {@code non_null} nên bỏ luôn key), đúng thứ FE đang dùng làm công cụ chẩn
+     * đoán đầu tiên.</p>
+     *
+     * <ol>
+     *   <li>Trong transaction: lưu lời mời và tạo thông báo in-app. Hai thứ này chia sẻ số phận —
+     *       lời mời rollback thì thông báo rollback theo.</li>
+     *   <li>Ngoài transaction: gửi email.</li>
+     *   <li>Transaction riêng: ghi lại {@code delivery_status}/{@code sent_at}.</li>
+     * </ol>
+     *
+     * <p>{@code rawToken} vẫn chỉ tồn tại trong bộ nhớ của lần gọi này: {@code tokens.generate()}
+     * là CPU thuần nên được hoist lên đầu hàm, sống trong frame này và được lambda pha 1 bắt. Nó
+     * không đi vào {@link Draft} hay bất kỳ carrier nào khác.</p>
      *
      * <p>{@code token} vẫn được trả về nguyên như cũ. Giấu nó đi không mua được gì khi
      * {@code invite_url} ngay bên cạnh đã chứa chính nó, mà lại phá giao diện đang chạy — và khi
      * {@code delivery_status} không phải {@code SENT} thì copy tay là đường duy nhất còn lại.</p>
      */
-    @Transactional
     public FamilyInvitationResponse create(
             String userId, CreateFamilyInvitationRequest request) {
-        FamilyGroupEntity group = groupService.requireOwnedActiveGroup(userId);
         String phone = normalizePhone(request.invitedPhone());
         String email = normalizeEmail(request.invitedEmail());
         if ((phone == null) == (email == null)) {
             throw validation("Provide exactly one of invited_phone or invited_email.");
         }
-
         InvitationTokenService.TokenMaterial token = tokens.generate();
-        FamilyInvitationEntity invitation = new FamilyInvitationEntity();
-        invitation.setFamilyGroupId(group.getId());
-        invitation.setInvitedPhone(phone);
-        invitation.setInvitedEmail(email);
-        invitation.setTokenHash(token.tokenHash());
-        invitation.setRelationship(request.relationship());
-        invitation.setScopes(request.scopes());
-        invitation.setStatus(FamilyInvitationStatus.PENDING);
-        invitation.setExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusHours(
-                request.expiresInHours() == null
-                        ? properties.getDefaultExpiryHours() : request.expiresInHours()));
-        invitations.saveAndFlush(invitation);
 
-        DeliveryOutcome outcome = notifier.deliver(invitation, token.rawToken(),
-                users.findById(userId).map(UserEntity::getDisplayName).orElse(null));
-        invitation.setDeliveryStatus(outcome.status());
-        invitation.setSentAt(outcome.sentAt());
-        invitations.save(invitation);
+        // execute chỉ trả về SAU commit, nên mọi dòng dưới nó đã đứng ngoài transaction.
+        Draft draft = tx.execute(transaction -> {
+            FamilyGroupEntity group = groupService.requireOwnedActiveGroup(userId);
+            FamilyInvitationEntity invitation = new FamilyInvitationEntity();
+            invitation.setFamilyGroupId(group.getId());
+            invitation.setInvitedPhone(phone);
+            invitation.setInvitedEmail(email);
+            invitation.setTokenHash(token.tokenHash());
+            invitation.setRelationship(request.relationship());
+            invitation.setScopes(request.scopes());
+            invitation.setStatus(FamilyInvitationStatus.PENDING);
+            invitation.setExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusHours(
+                    request.expiresInHours() == null
+                            ? properties.getDefaultExpiryHours() : request.expiresInHours()));
+            invitations.saveAndFlush(invitation);
+            String inviterName = users.findById(userId)
+                    .map(UserEntity::getDisplayName).orElse(null);
+            notifier.notifyInApp(invitation, inviterName);
+            return new Draft(invitation, inviterName);
+        });
 
-        return toResponse(invitation, token.rawToken());
+        DeliveryOutcome outcome = notifier.sendEmail(
+                draft.invitation(), token.rawToken(), draft.inviterName());
+        recordDelivery(draft.invitation().getId(), outcome);
+
+        // Dựng từ giá trị trong bộ nhớ, không đọc lại DB: đọc lại tốn một query và có thể trả về
+        // REVOKED cho chính response vừa tạo, nếu chủ nhóm thu hồi trong lúc SMTP đang chạy.
+        return toResponse(draft.invitation(), outcome, token.rawToken());
     }
 
     /**
-     * Xem trước lời mời trước khi bấm chấp nhận.
+     * Kết quả pha 1.
      *
-     * <p>Yêu cầu đăng nhập: người được mời dù sao cũng phải có tài khoản sẵn mới accept được, nên
-     * mở endpoint này ra public chỉ tặng thêm một bề mặt để dò token mà không đổi lại được gì.</p>
+     * <p>{@code rawToken} cố ý KHÔNG nằm ở đây — nó sống trong frame của {@link #create}.</p>
+     */
+    private record Draft(FamilyInvitationEntity invitation, String inviterName) { }
+
+    /**
+     * Pha 3: ghi kết quả gửi, trong transaction riêng của nó.
+     *
+     * <p>Hỏng ở đây (DB chết ngay sau khi email đã đi) chỉ được log, không được ném. Ném chỉ biến
+     * "một dòng DB lệch" thành "500 cho chủ nhóm + một lá thư ma trong hộp thư người được mời" —
+     * lời mời vẫn nằm trong DB và vẫn dùng được qua link.</p>
+     */
+    private void recordDelivery(String invitationId, DeliveryOutcome outcome) {
+        try {
+            tx.executeWithoutResult(transaction -> invitations.recordDelivery(
+                    invitationId, outcome.status(), outcome.sentAt()));
+        } catch (RuntimeException ex) {
+            log.warn("family_invitation_delivery_not_recorded invitation_id={} "
+                    + "delivery_status={} error={}",
+                    invitationId, outcome.status(), ex.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Xem trước lời mời theo token trong link email.
+     *
+     * <p>Không nhận id người xem, và đó là quyết định chứ không phải thiếu sót: giữ token
+     * <em>chính là</em> phân quyền trên đường này. Tầng web vẫn bắt đăng nhập — đó là lớp chống dò
+     * token — nhưng ai khớp với lời mời thì để {@link #accept} quyết. Lý do đầy đủ nằm ở javadoc
+     * của {@code FamilyInvitationController.preview}.</p>
      *
      * <p>Hết hạn, đã dùng hay đã thu hồi đều trả 200 kèm {@code status} — màn hình cần nói được
      * "lời mời đã hết hạn, xin link mới" chứ không phải một trang lỗi trống. Chỉ token
      * <em>không tồn tại</em> mới là 404.</p>
      */
     @Transactional(readOnly = true)
-    public FamilyInvitationPreviewResponse preview(String viewerUserId, String rawToken) {
+    public FamilyInvitationPreviewResponse preview(String rawToken) {
         FamilyInvitationEntity invitation = invitations.findByTokenHash(tokens.hash(rawToken))
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid."));
@@ -373,8 +437,8 @@ public class FamilyInvitationService {
                 ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
-    private FamilyInvitationResponse toResponse(
-            FamilyInvitationEntity invitation, String rawToken) {
+    private FamilyInvitationResponse toResponse(FamilyInvitationEntity invitation,
+                                                DeliveryOutcome outcome, String rawToken) {
         return new FamilyInvitationResponse(
                 invitation.getId(), invitation.getFamilyGroupId(),
                 invitation.getInvitedPhone(), invitation.getInvitedEmail(),
@@ -382,9 +446,7 @@ public class FamilyInvitationService {
                 invitation.getRelationship().name(),
                 scopeNames(invitation.getScopes()),
                 invitation.getStatus().name(),
-                invitation.getDeliveryStatus() == null
-                        ? null : invitation.getDeliveryStatus().name(),
-                invitation.getSentAt(),
+                outcome.status().name(), outcome.sentAt(),
                 invitation.getExpiresAt(), invitation.getCreatedAt());
     }
 

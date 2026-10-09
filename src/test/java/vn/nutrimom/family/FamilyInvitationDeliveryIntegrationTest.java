@@ -146,6 +146,48 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
                 .andExpect(jsonPath("$.data.invite_url").exists());
     }
 
+    /**
+     * Email hỏng không được cắt đường còn lại của người được mời.
+     *
+     * <p>Hai nửa đã có bài riêng — {@link #aFailedEmailIsReportedRatherThanThrown} cho phía chủ
+     * nhóm, {@code FamilyInvitationRecipientIntegrationTest} cho đường đi theo id — nhưng chưa bài
+     * nào nối chúng lại. Đây đúng là tình huống hay gặp nhất ở môi trường chưa cấu hình SMTP: thư
+     * không tới, mà lời mời thì vẫn phải dùng được trọn vẹn từ thông báo in-app.</p>
+     */
+    @Test
+    void aFailedEmailStillLeavesTheInviteeAWorkingInAppPath() throws Exception {
+        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
+                anyString(), any())).thenReturn(MailResult.failed("MailSendException"));
+        Session owner = registerViaOtp(nextPhone(), "Fallback Mom");
+        Session guest = registerViaOtp(nextPhone(), "Fallback Guest");
+        createPregnancyAndGroup(owner);
+        String invitedEmail = "duphong" + SEQ.incrementAndGet() + "@example.com";
+        attachEmail(guest, invitedEmail);
+
+        MvcResult created = inviteByEmail(owner, invitedEmail)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.delivery_status").value("FAILED"))
+                .andReturn();
+        String invitationId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .at("/data/id").stringValue();
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + guest.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].deep_link")
+                        .value("nutrimom://family/invitations/" + invitationId));
+
+        mockMvc.perform(get("/api/v1/family-invitations/{id}/preview", invitationId)
+                        .header("Authorization", "Bearer " + guest.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inviter_display_name").value("Fallback Mom"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+
+        mockMvc.perform(post("/api/v1/family-invitations/{id}/accept", invitationId)
+                        .header("Authorization", "Bearer " + guest.accessToken()))
+                .andExpect(status().isOk());
+    }
+
     @Test
     void previewShowsWhoInvitedYouWithoutLeakingTheGroup() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
@@ -175,6 +217,44 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
                 .andExpect(jsonPath("$.data.pregnancy_id").doesNotExist());
     }
 
+
+    /**
+     * Chốt 1: đường token cố ý KHÔNG kiểm người gọi có phải người được mời.
+     *
+     * <p>Người gọi ở đây là một tài khoản thứ ba — không phải chủ nhóm, không phải người được mời,
+     * email lẫn số điện thoại đều không khớp — nhưng cầm token hợp lệ nên vẫn xem trước được.
+     * Đăng nhập trên đường này là lớp chống dò token, không phải kiểm sở hữu; việc khớp địa chỉ do
+     * {@code accept} quyết, và bài dưới đây khẳng định luôn cả vế đó.</p>
+     *
+     * <p>Không có bài này thì quyết định chỉ nằm trong comment, và người sửa sau sẽ "vá" nó.</p>
+     */
+    @Test
+    void anyLoggedInAccountMayPreviewByTokenButOnlyTheInviteeMayAccept() throws Exception {
+        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
+                anyString(), any())).thenReturn(MailResult.ok());
+        Session owner = registerViaOtp(nextPhone(), "Token Mom");
+        Session outsider = registerViaOtp(nextPhone(), "Token Outsider");
+        createPregnancyAndGroup(owner);
+        String invitedEmail = "nguoikhac" + SEQ.incrementAndGet() + "@example.com";
+        // Tài khoản đăng ký bằng OTP chỉ có số điện thoại, nên nó không khớp lời mời theo email.
+        assertThat(users.findById(outsider.userId()).orElseThrow().getEmail()).isNull();
+        String token = tokenOf(inviteByEmail(owner, invitedEmail).andReturn());
+
+        mockMvc.perform(get("/api/v1/family-invitations/preview")
+                        .param("token", token)
+                        .header("Authorization", "Bearer " + outsider.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.masked_target").exists());
+
+        // Vế còn lại của cùng một quyết định: xem trước thì mở, chấp nhận thì không.
+        mockMvc.perform(post("/api/v1/family-invitations/accept")
+                        .header("Authorization", "Bearer " + outsider.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("INVITATION_TARGET_MISMATCH"));
+    }
     @Test
     void previewOfAnUnknownTokenIsNotFound() throws Exception {
         Session guest = registerViaOtp(nextPhone(), "Lost Guest");

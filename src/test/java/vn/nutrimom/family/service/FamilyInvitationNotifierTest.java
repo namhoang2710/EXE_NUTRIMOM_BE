@@ -35,6 +35,11 @@ import vn.nutrimom.notification.service.NotificationService;
 
 /**
  * Hai kênh gửi độc lập nhau, và cả hai đều không được phép làm hỏng lời mời đã nằm trong DB.
+ *
+ * <p>Mỗi bài chỉ gọi <em>một</em> kênh. Hàm {@code deliver} gộp cả hai đã bị xoá vì email phải rời
+ * tiến trình sau commit còn thông báo in-app thì ở lại trong transaction — và vì
+ * {@code MockitoExtension} chạy {@code STRICT_STUBS}, một bài stub cả hai collaborator trong khi
+ * chỉ chạy một chân sẽ đỏ với {@code UnnecessaryStubbingException}.</p>
  */
 @ExtendWith(MockitoExtension.class)
 class FamilyInvitationNotifierTest {
@@ -57,9 +62,8 @@ class FamilyInvitationNotifierTest {
     void invitingByEmailSendsMailAndReportsSent() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
                 anyString(), any())).thenReturn(MailResult.ok());
-        when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.empty());
 
-        var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
+        var outcome = notifier.sendEmail(invitation("an@example.com", null), "tok", "Mai");
 
         assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.SENT);
         assertThat(outcome.sentAt()).isNotNull();
@@ -68,14 +72,24 @@ class FamilyInvitationNotifierTest {
     }
 
     /**
-     * Mời bằng số điện thoại không còn kênh ngoài nào sau khi bỏ SMS. Nói thẳng SKIPPED để giao
-     * diện mời chủ nhóm copy link, thay vì im lặng để họ tưởng tin nhắn đã đi.
+     * Mời bằng số điện thoại không còn kênh ngoài nào sau khi bỏ SMS. Nói thẳng SKIPPED để
+     * giao diện mời chủ nhóm copy link, thay vì im lặng để họ tưởng tin nhắn đã đi.
      */
     @Test
     void invitingByPhoneSkipsEmailEntirely() {
-        when(users.findByPhone("0912345678")).thenReturn(Optional.empty());
+        var outcome = notifier.sendEmail(invitation(null, "0912345678"), "tok", "Mai");
 
-        var outcome = notifier.deliver(invitation(null, "0912345678"), "tok", "Mai");
+        assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.SKIPPED);
+        assertThat(outcome.sentAt()).isNull();
+        verifyNoInteractions(email);
+    }
+
+    /** Cờ tắt được kiểm trước khi chạm {@link EmailService}, nên ra SKIPPED chứ không FAILED. */
+    @Test
+    void disablingEmailSkipsTheSendWithoutTouchingSmtp() {
+        properties.setEmailEnabled(false);
+
+        var outcome = notifier.sendEmail(invitation("an@example.com", null), "tok", "Mai");
 
         assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.SKIPPED);
         assertThat(outcome.sentAt()).isNull();
@@ -86,9 +100,8 @@ class FamilyInvitationNotifierTest {
     void aFailedSendIsReportedRatherThanPropagated() {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
                 anyString(), any())).thenThrow(new IllegalStateException("smtp down"));
-        when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
-        var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
+        var outcome = notifier.sendEmail(invitation("an@example.com", null), "tok", "Mai");
 
         assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.FAILED);
         assertThat(outcome.sentAt()).isNull();
@@ -98,9 +111,9 @@ class FamilyInvitationNotifierTest {
     /**
      * {@code FAILED} phải kèm lý do, không được ra {@code error=none}.
      *
-     * <p>Bản cũ chỉ nhận một {@code boolean} từ {@link vn.nutrimom.common.email.EmailService} nên
-     * log ghi {@code delivery_status=FAILED error=none} — QA đọc log không biết là SMTP sai mật
-     * khẩu, sai host, hay chỉ đơn giản chưa cấu hình. Đây cũng là nhánh {@code false} mà trước đây
+     * <p>Bản cũ chỉ nhận một {@code boolean} từ {@link EmailService} nên log ghi
+     * {@code delivery_status=FAILED error=none} — QA đọc log không biết là SMTP sai mật khẩu,
+     * sai host, hay chỉ đơn giản chưa cấu hình. Đây cũng là nhánh {@code false} mà trước đây
      * <strong>không bài nào</strong> phủ: ca FAILED duy nhất đi qua {@code thenThrow}.</p>
      */
     @Test
@@ -108,9 +121,8 @@ class FamilyInvitationNotifierTest {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
                 anyString(), any()))
                 .thenReturn(MailResult.failed(MailResult.NOT_CONFIGURED));
-        when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
-        var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
+        var outcome = notifier.sendEmail(invitation("an@example.com", null), "tok", "Mai");
 
         assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.FAILED);
         assertThat(outcome.sentAt()).isNull();
@@ -118,53 +130,47 @@ class FamilyInvitationNotifierTest {
     }
 
     @Test
-    void anExistingAccountAlsoGetsAnInAppNotification() {
-        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(MailResult.ok());
+    void anExistingAccountGetsAnInAppNotification() {
         UserEntity invitee = new UserEntity();
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
 
-        notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
+        notifier.notifyInApp(invitation("an@example.com", null), "Mai");
 
         verify(notifications).publish(eq("user-1"), eq(NotificationType.FAMILY),
                 eq("Lời mời tham gia nhóm gia đình"), anyString(), anyString(),
                 eq("FAMILY_INVITATION"), any());
     }
 
-    /** Không tra được tài khoản thì im lặng: phản hồi khác nhau ở đây là oracle liệt kê tài khoản. */
+    /** Không tra được tài khoản thì im lặng: khác biệt ở đây là oracle liệt kê tài khoản. */
     @Test
     void anUnknownTargetProducesNoNotificationAndNoError() {
-        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(MailResult.ok());
         when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
-        var outcome = notifier.deliver(invitation("khongco@example.com", null), "tok", "Mai");
+        assertThatCode(() -> notifier.notifyInApp(
+                invitation("khongco@example.com", null), "Mai"))
+                .doesNotThrowAnyException();
 
-        assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.SENT);
         verifyNoInteractions(notifications);
     }
 
     @Test
     void aFailingNotificationDoesNotBreakTheInvitation() {
-        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(MailResult.ok());
         UserEntity invitee = new UserEntity();
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(invitee));
         when(notifications.publish(anyString(), any(), anyString(), anyString(), anyString(),
                 anyString(), any())).thenThrow(new IllegalStateException("boom"));
 
-        assertThatCode(() -> notifier.deliver(invitation("an@example.com", null), "tok", "Mai"))
+        assertThatCode(() -> notifier.notifyInApp(invitation("an@example.com", null), "Mai"))
                 .doesNotThrowAnyException();
     }
 
     /**
-     * Cờ tắt gửi chỉ đóng kênh email.
+     * Cờ tắt gửi chỉ đóng kênh email, kênh này không đọc nó.
      *
-     * <p>Bản cũ đóng cả hai kênh, nên một môi trường chưa cấu hình SMTP làm người được mời không
-     * nhận được email mà cũng không thấy lời mời trong app — đúng sự cố team FE báo. Ba khẳng
-     * định dưới đây, mỗi cái cho một điều thay đổi này hứa.</p>
+     * <p>Bản cũ đóng cả hai kênh, nên một môi trường chưa cấu hình SMTP làm người được mời
+     * không nhận được email mà cũng không thấy lời mời trong app — đúng sự cố team FE báo.</p>
      */
     @Test
     void disablingEmailStillRaisesTheInAppNotification() {
@@ -173,11 +179,8 @@ class FamilyInvitationNotifierTest {
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
 
-        var outcome = notifier.deliver(invitation("an@example.com", null), "tok", "Mai");
+        notifier.notifyInApp(invitation("an@example.com", null), "Mai");
 
-        assertThat(outcome.status()).isEqualTo(InvitationDeliveryStatus.SKIPPED);
-        assertThat(outcome.sentAt()).isNull();
-        verifyNoInteractions(email);
         verify(notifications).publish(eq("user-1"), eq(NotificationType.FAMILY), anyString(),
                 anyString(), anyString(), eq("FAMILY_INVITATION"), any());
     }
@@ -187,26 +190,25 @@ class FamilyInvitationNotifierTest {
      * {@code notifications.deep_link}, tức là cất một token dùng được trong DB dưới dạng chữ
      * thường, vô hiệu hoá chính lý do tồn tại của cột {@code token_hash}.
      *
-     * <p>Ở đây chỉ khẳng định được <em>hình dạng</em>: {@code @PrePersist} không chạy trong test
-     * Mockito thuần nên {@code getId()} là null. Việc id thật sự được nội suy đúng do
-     * {@code FamilyInvitationDeliveryIntegrationTest} ghim, nơi lời mời đi qua DB thật.</p>
+     * <p>Kênh này không còn nhận {@code rawToken} nữa, nên lỗi cũ không quay lại được bằng
+     * cấu trúc; bài này chỉ là lưới đỡ. Ở đây chỉ khẳng định được <em>hình dạng</em>:
+     * {@code @PrePersist} không chạy trong test Mockito thuần nên {@code getId()} là null.
+     * Việc id thật sự được nội suy đúng do {@code FamilyInvitationDeliveryIntegrationTest}
+     * ghim, nơi lời mời đi qua DB thật.</p>
      */
     @Test
     void theInAppDeepLinkCarriesNoRawToken() {
-        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(MailResult.ok());
         UserEntity invitee = new UserEntity();
         invitee.setId("user-1");
         when(users.findByEmailIgnoreCase("an@example.com")).thenReturn(Optional.of(invitee));
         ArgumentCaptor<String> deepLink = ArgumentCaptor.forClass(String.class);
 
-        notifier.deliver(invitation("an@example.com", null), "super-secret-token", "Mai");
+        notifier.notifyInApp(invitation("an@example.com", null), "Mai");
 
         verify(notifications).publish(anyString(), any(), anyString(), anyString(),
                 deepLink.capture(), anyString(), any());
         assertThat(deepLink.getValue())
                 .startsWith("nutrimom://family/invitations/")
-                .doesNotContain("super-secret-token")
                 .doesNotContain("token=");
     }
 

@@ -48,8 +48,11 @@ spring:
             # Mặc định giữ gmail để máy đang chạy không đổi hành vi; đây chỉ là gỡ hard-code để
             # staging/production trỏ provider khác mà không phải sửa file này.
             trust: ${SPRING_MAIL_SSL_TRUST:smtp.gmail.com}
-          # Không có timeout thì SMTP treo là request treo vô hạn — mà lời mời gửi mail TRONG
-          # transaction, nên nó giữ luôn một connection của pool và khoá dòng lời mời.
+          # Không có timeout thì SMTP treo là request treo vô hạn: chủ nhóm ngồi nhìn vòng xoay
+          # còn một thread của servlet pool bị giữ cho tới khi TCP tự bỏ cuộc, tính bằng phút.
+          # Lời mời thì đã commit trước khi gửi, nên nó không còn giữ connection DB hay khoá dòng
+          # nào nữa — cái treo ở đây chỉ là HTTP request, và nó phải kết thúc trong vài giây để
+          # delivery_status kịp nói FAILED.
           connectiontimeout: ${SPRING_MAIL_CONNECT_TIMEOUT:5000}
           timeout: ${SPRING_MAIL_READ_TIMEOUT:10000}
           writetimeout: ${SPRING_MAIL_WRITE_TIMEOUT:10000}
