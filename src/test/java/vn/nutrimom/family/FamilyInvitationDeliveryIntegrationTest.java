@@ -146,6 +146,48 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
                 .andExpect(jsonPath("$.data.invite_url").exists());
     }
 
+    /**
+     * Email hỏng không được cắt đường còn lại của người được mời.
+     *
+     * <p>Hai nửa đã có bài riêng — {@link #aFailedEmailIsReportedRatherThanThrown} cho phía chủ
+     * nhóm, {@code FamilyInvitationRecipientIntegrationTest} cho đường đi theo id — nhưng chưa bài
+     * nào nối chúng lại. Đây đúng là tình huống hay gặp nhất ở môi trường chưa cấu hình SMTP: thư
+     * không tới, mà lời mời thì vẫn phải dùng được trọn vẹn từ thông báo in-app.</p>
+     */
+    @Test
+    void aFailedEmailStillLeavesTheInviteeAWorkingInAppPath() throws Exception {
+        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
+                anyString(), any())).thenReturn(MailResult.failed("MailSendException"));
+        Session owner = registerViaOtp(nextPhone(), "Fallback Mom");
+        Session guest = registerViaOtp(nextPhone(), "Fallback Guest");
+        createPregnancyAndGroup(owner);
+        String invitedEmail = "duphong" + SEQ.incrementAndGet() + "@example.com";
+        attachEmail(guest, invitedEmail);
+
+        MvcResult created = inviteByEmail(owner, invitedEmail)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.delivery_status").value("FAILED"))
+                .andReturn();
+        String invitationId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .at("/data/id").stringValue();
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + guest.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].deep_link")
+                        .value("nutrimom://family/invitations/" + invitationId));
+
+        mockMvc.perform(get("/api/v1/family-invitations/{id}/preview", invitationId)
+                        .header("Authorization", "Bearer " + guest.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inviter_display_name").value("Fallback Mom"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+
+        mockMvc.perform(post("/api/v1/family-invitations/{id}/accept", invitationId)
+                        .header("Authorization", "Bearer " + guest.accessToken()))
+                .andExpect(status().isOk());
+    }
+
     @Test
     void previewShowsWhoInvitedYouWithoutLeakingTheGroup() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),

@@ -80,6 +80,17 @@ chứa chính nó, mà lại phá giao diện đang chạy — và khi `delivery
 | `SENT` | Đã gửi email | "Đã gửi lời mời tới a\*\*\*@gmail.com" |
 | `FAILED` | Có email nhưng SMTP hỏng / chưa cấu hình | Báo chưa gửi được + nút copy link |
 | `SKIPPED` | Mời bằng sđt, hoặc kênh email bị tắt bằng cấu hình | Báo hệ thống chưa gửi được + nút copy link |
+| *(vắng mặt)* | Lời mời đã tạo nhưng chưa ghi được kết quả gửi | **Xử như `FAILED`** — xem dưới |
+
+**Hàng thứ tư không phải trạng thái lỗi.** Email được gửi *sau* khi lời mời đã commit, nên trong
+đúng khoảng thời gian SMTP đang chạy (tính bằng giây) một `GET /api/v1/family-invitations` song
+song của chính chủ nhóm sẽ trả dòng **không có key** `delivery_status` — Jackson cấu hình
+`non_null` nên field biến mất hẳn chứ không phải `null`. Nó cũng vắng vĩnh viễn nếu DB hỏng ngay
+sau khi thư đã đi.
+
+`switch` ba nhánh sẽ rơi vào hư vô, nên client phải có nhánh mặc định và cho nó cư xử như `FAILED`.
+An toàn cả hai chiều: hiện nút copy link khi email thật ra đã tới thì vô hại, còn giấu nút đi khi
+email chưa tới thì có hại.
 
 Lỗi: `404 FAMILY_GROUP_NOT_FOUND` · `422 VALIDATION_ERROR` (thiếu/thừa target, scope rỗng) ·
 `429 RATE_LIMITED` (10 lời mời mỗi giờ).
@@ -183,6 +194,10 @@ Bản trước ghi `?token=<raw>` vào `notifications.deep_link`, tức là cấ
 dưới dạng chữ thường, vô hiệu hoá chính lý do tồn tại của cột `token_hash`; token còn nằm lại đó cả
 sau khi lời mời đã được chấp nhận hay thu hồi, và được `GET /api/v1/notifications` trả nguyên văn.
 Ba endpoint theo id ở trên tồn tại để deep link không cần mang bí mật nữa.
+
+`V39` dọn nốt những dòng tạo trước đó: deep link nào còn `token=` thì được dựng lại theo
+`source_id`, dòng nào không dựng lại được thì bỏ hẳn deep link. Không notification nào bị xoá —
+người được mời vẫn thấy là họ từng được mời, và mở lại được qua hộp thư lời mời.
 
 ## Cấu hình
 

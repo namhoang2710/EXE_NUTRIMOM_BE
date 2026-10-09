@@ -42,6 +42,13 @@ import vn.nutrimom.notification.service.NotificationService;
  *
  * <p>Lớp này <strong>không bao giờ ném</strong>: lời mời đã nằm trong DB và vẫn dùng được qua link,
  * nên một cú SMTP hỏng không được phép làm hỏng cả thao tác.</p>
+ *
+ * <p><strong>Không có hàm gộp hai kênh.</strong> Người gọi phải gọi riêng {@link #notifyInApp} và
+ * {@link #sendEmail}, vì hai kênh thuộc hai pha khác nhau của {@code create}: thông báo in-app nằm
+ * <em>trong</em> transaction (lời mời rollback thì nó rollback theo), còn email chỉ được rời tiến
+ * trình <em>sau</em> khi transaction commit — email không rollback được, và một lá thư trỏ tới lời
+ * mời không tồn tại là thứ tệ hơn là không có thư. Hàm {@code deliver} cũ gộp cả hai chính là chỗ
+ * sinh ra lỗi đó, nên nó bị xoá hẳn thay vì giữ lại làm wrapper tiện tay.</p>
  */
 @Service
 public class FamilyInvitationNotifier {
@@ -66,13 +73,6 @@ public class FamilyInvitationNotifier {
         this.properties = properties;
     }
 
-    public DeliveryOutcome deliver(FamilyInvitationEntity invitation, String rawToken,
-                                   String inviterDisplayName) {
-        DeliveryOutcome outcome = sendEmail(invitation, rawToken, inviterDisplayName);
-        notifyInApp(invitation, inviterDisplayName);
-        return outcome;
-    }
-
     /**
      * Cờ tắt gửi được kiểm <em>trước</em> khi chạm tới {@link EmailService} chứ không phải sau.
      *
@@ -80,8 +80,8 @@ public class FamilyInvitationNotifier {
      * {@code NOT_CONFIGURED} — gate ở phía sau sẽ biến mọi lời mời thành {@code FAILED} thay vì
      * {@code SKIPPED}, tức là báo "có gì đó hỏng" cho một cấu hình cố ý.</p>
      */
-    private DeliveryOutcome sendEmail(FamilyInvitationEntity invitation, String rawToken,
-                                      String inviterDisplayName) {
+    public DeliveryOutcome sendEmail(FamilyInvitationEntity invitation, String rawToken,
+                                     String inviterDisplayName) {
         if (!properties.isEmailEnabled() || invitation.getInvitedEmail() == null) {
             return outcome(invitation, InvitationDeliveryStatus.SKIPPED, null);
         }
@@ -139,7 +139,7 @@ public class FamilyInvitationNotifier {
      * Người được mời mở lời mời bằng id qua nhóm endpoint {@code /family-invitations/{id}/...},
      * vốn phân quyền bằng email/sđt của tài khoản đang đăng nhập chứ không bằng việc giữ bí mật.</p>
      */
-    private void notifyInApp(FamilyInvitationEntity invitation, String inviterDisplayName) {
+    public void notifyInApp(FamilyInvitationEntity invitation, String inviterDisplayName) {
         try {
             Optional<UserEntity> invitee = invitee(invitation);
             invitee.ifPresent(user -> notifications.publish(

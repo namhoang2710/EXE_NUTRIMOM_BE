@@ -6,9 +6,11 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.nutrimom.family.domain.FamilyInvitationEntity;
+import vn.nutrimom.family.domain.InvitationDeliveryStatus;
 
 public interface FamilyInvitationRepository extends JpaRepository<FamilyInvitationEntity, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -26,6 +28,28 @@ public interface FamilyInvitationRepository extends JpaRepository<FamilyInvitati
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select invitation from FamilyInvitationEntity invitation where invitation.id = :id")
     Optional<FamilyInvitationEntity> findByIdForUpdate(@Param("id") String id);
+
+    /**
+     * Ghi kết quả gửi email, sau khi transaction tạo lời mời đã commit.
+     *
+     * <p>Phải là UPDATE nhắm đúng hai cột, <strong>không</strong> được là {@code save(entity)}.
+     * {@code spring.jpa.open-in-view: false} nên entity dựng ở transaction trước đã detach, và
+     * {@code save} một entity detach là {@code merge} — tức UPDATE cả hàng từ ảnh chụp cũ. Khoảng
+     * giữa hai transaction dài đúng bằng độ trễ SMTP, tính bằng giây; trong khoảng đó chủ nhóm có
+     * thể {@code revoke} hoặc người được mời có thể {@code accept}, và merge sẽ ghi đè
+     * {@code status=PENDING, revoked_at=null, accepted_at=null}, âm thầm huỷ thao tác của họ.
+     * {@code FamilyInvitationEntity} không có {@code @Version} nên không có lưới đỡ nào bắt được.</p>
+     *
+     * <p>Người gọi tự mở transaction, như mọi method khác ở đây.</p>
+     *
+     * @return số dòng chạm được; 0 nghĩa là lời mời đã biến mất, không phải lỗi.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update FamilyInvitationEntity i set i.deliveryStatus = :status, i.sentAt = :sentAt "
+            + "where i.id = :id")
+    int recordDelivery(@Param("id") String id,
+                       @Param("status") InvitationDeliveryStatus status,
+                       @Param("sentAt") OffsetDateTime sentAt);
 
     /** Xem trước lời mời — chỉ đọc nên không khoá hàng như lúc accept. */
     Optional<FamilyInvitationEntity> findByTokenHash(String tokenHash);

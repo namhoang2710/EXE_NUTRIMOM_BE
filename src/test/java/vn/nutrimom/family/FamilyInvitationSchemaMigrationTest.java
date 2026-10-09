@@ -15,8 +15,9 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 /**
- * V37 chạy thật, vì bộ test thường dùng {@code ddl-auto: create-drop} với Flyway tắt — nghĩa là
- * không có bài nào khác chạm tới file migration, trong khi production dùng {@code validate}.
+ * Các file migration của module lời mời chạy thật, vì bộ test thường dùng {@code ddl-auto:
+ * create-drop} với Flyway tắt — nghĩa là không có bài nào khác chạm tới chúng, trong khi
+ * production dùng {@code validate}.
  */
 class FamilyInvitationSchemaMigrationTest {
 
@@ -103,6 +104,92 @@ class FamilyInvitationSchemaMigrationTest {
         }
     }
 
+    /**
+     * V39 gỡ token thô khỏi deep link của thông báo lời mời tạo trước nhánh trước.
+     *
+     * <p>Nhánh trước chỉ sửa đường sinh ra dòng mới. Dòng cũ vẫn mang {@code ?token=<raw>} trong
+     * {@code app.notifications.deep_link} và {@code GET /notifications} vẫn trả nguyên văn, nên
+     * một token dùng được vẫn đi ra client mỗi lần mở chuông thông báo.</p>
+     */
+    @Test
+    void notificationMigrationStripsRawTokensFromLegacyDeepLinks() throws Exception {
+        try (Connection db = DriverManager.getConnection(
+                "jdbc:h2:mem:family_invite_deeplink_" + UUID.randomUUID() + ";MODE=PostgreSQL")) {
+            execute(db, "CREATE SCHEMA app");
+            execute(db, """
+                    CREATE TABLE app.notifications (
+                        id VARCHAR(36) NOT NULL PRIMARY KEY,
+                        user_id VARCHAR(36) NOT NULL,
+                        type VARCHAR(40) NOT NULL,
+                        title VARCHAR(200) NOT NULL,
+                        body VARCHAR(1000) NOT NULL,
+                        deep_link VARCHAR(300) NULL,
+                        source_type VARCHAR(40) NULL,
+                        source_id VARCHAR(36) NULL,
+                        read_at TIMESTAMP WITH TIME ZONE NULL,
+                        version BIGINT NOT NULL DEFAULT 0,
+                        created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                        updated_at TIMESTAMP WITH TIME ZONE NOT NULL)
+                    """);
+            insertNotification(db, "legacy-with-source", "FAMILY_INVITATION", "invite-1",
+                    "nutrimom://family/invitations/accept?token=raw-secret-1");
+            insertNotification(db, "legacy-without-source", "FAMILY_INVITATION", null,
+                    "nutrimom://family/invitations/accept?token=raw-secret-2");
+            insertNotification(db, "already-migrated", "FAMILY_INVITATION", "invite-3",
+                    "nutrimom://family/invitations/invite-3");
+            // Nguồn khác cũng có thể mang token trong link; câu UPDATE không được chạm tới.
+            insertNotification(db, "other-source", "FAMILY_MEMBER", "member-1",
+                    "nutrimom://something?token=khong-phai-viec-cua-migration");
+
+            ScriptUtils.executeSqlScript(db, new ClassPathResource(
+                    "db/migration/V39__family_invitation_notification_deep_link.sql"));
+
+            assertEquals("nutrimom://family/invitations/invite-1",
+                    deepLink(db, "legacy-with-source"));
+            // Không dựng lại được thì thà mất deep link còn hơn giữ token.
+            assertEquals(null, deepLink(db, "legacy-without-source"));
+            assertEquals("nutrimom://family/invitations/invite-3", deepLink(db, "already-migrated"));
+            assertEquals("nutrimom://something?token=khong-phai-viec-cua-migration",
+                    deepLink(db, "other-source"));
+
+            // Không xoá notification nào: người được mời vẫn phải thấy là họ từng được mời.
+            assertEquals(4, countNotifications(db));
+            assertEquals(0, countNotifications(db,
+                    "source_type = 'FAMILY_INVITATION' AND deep_link LIKE '%token=%'"));
+        }
+    }
+
+    private String deepLink(Connection db, String id) throws SQLException {
+        try (Statement statement = db.createStatement();
+             ResultSet rows = statement.executeQuery(
+                     "SELECT deep_link FROM app.notifications WHERE id='" + id + "'")) {
+            assertTrue(rows.next());
+            return rows.getString(1);
+        }
+    }
+
+    private int countNotifications(Connection db) throws SQLException {
+        return countNotifications(db, "1=1");
+    }
+
+    private int countNotifications(Connection db, String where) throws SQLException {
+        try (Statement statement = db.createStatement();
+             ResultSet rows = statement.executeQuery(
+                     "SELECT count(*) FROM app.notifications WHERE " + where)) {
+            assertTrue(rows.next());
+            return rows.getInt(1);
+        }
+    }
+
+    private void insertNotification(Connection db, String id, String sourceType, String sourceId,
+                                    String deepLink) throws SQLException {
+        execute(db, "INSERT INTO app.notifications(id,user_id,type,title,body,deep_link,"
+                + "source_type,source_id,created_at,updated_at) VALUES ('" + id + "','user','FAMILY',"
+                + "'Lời mời tham gia nhóm gia đình','Mai mời bạn cùng theo dõi thai kỳ.','"
+                + deepLink + "','" + sourceType + "',"
+                + (sourceId == null ? "NULL" : "'" + sourceId + "'")
+                + ",CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+    }
     private String invitedEmail(Connection db, String id) throws SQLException {
         try (Statement statement = db.createStatement();
              ResultSet rows = statement.executeQuery(
