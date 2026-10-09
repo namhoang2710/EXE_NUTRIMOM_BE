@@ -187,17 +187,19 @@ public class FamilyInvitationService {
     }
 
     /**
-     * Xem trước lời mời trước khi bấm chấp nhận.
+     * Xem trước lời mời theo token trong link email.
      *
-     * <p>Yêu cầu đăng nhập: người được mời dù sao cũng phải có tài khoản sẵn mới accept được, nên
-     * mở endpoint này ra public chỉ tặng thêm một bề mặt để dò token mà không đổi lại được gì.</p>
+     * <p>Không nhận id người xem, và đó là quyết định chứ không phải thiếu sót: giữ token
+     * <em>chính là</em> phân quyền trên đường này. Tầng web vẫn bắt đăng nhập — đó là lớp chống dò
+     * token — nhưng ai khớp với lời mời thì để {@link #accept} quyết. Lý do đầy đủ nằm ở javadoc
+     * của {@code FamilyInvitationController.preview}.</p>
      *
      * <p>Hết hạn, đã dùng hay đã thu hồi đều trả 200 kèm {@code status} — màn hình cần nói được
      * "lời mời đã hết hạn, xin link mới" chứ không phải một trang lỗi trống. Chỉ token
      * <em>không tồn tại</em> mới là 404.</p>
      */
     @Transactional(readOnly = true)
-    public FamilyInvitationPreviewResponse preview(String viewerUserId, String rawToken) {
+    public FamilyInvitationPreviewResponse preview(String rawToken) {
         FamilyInvitationEntity invitation = invitations.findByTokenHash(tokens.hash(rawToken))
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.INVALID_INVITATION_TOKEN, "Invitation token is invalid."));

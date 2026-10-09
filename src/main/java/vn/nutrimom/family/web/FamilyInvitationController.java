@@ -53,15 +53,26 @@ public class FamilyInvitationController {
     }
 
     /**
-     * Cần đăng nhập: người được mời dù sao cũng phải có tài khoản sẵn mới chấp nhận được, nên mở
-     * endpoint này ra public chỉ tặng thêm một bề mặt để dò token mà không đổi lại được gì.
+     * Xem trước lời mời theo token trong link email.
+     *
+     * <p><strong>Có bắt đăng nhập, nhưng cố ý KHÔNG kiểm người gọi có phải người được mời hay
+     * không.</strong> Đăng nhập ở đây là lớp chống dò token — không phải kiểm sở hữu. Giữ token
+     * <em>chính là</em> phân quyền trên đường này, nên bất kỳ tài khoản đã đăng nhập nào cầm token
+     * hợp lệ đều xem trước được.</p>
+     *
+     * <p>Đó là điều kiện để link trong email dùng được thật: người được mời có thể đang đăng nhập
+     * bằng tài khoản khác, hoặc địa chỉ được mời chưa gắn vào tài khoản nào của họ. Chặn ở bước
+     * xem trước chỉ cho họ một trang lỗi trống mà không ngăn được gì — {@code accept} vẫn kiểm
+     * khớp email/sđt, và đó mới là chỗ quyết định.</p>
+     *
+     * <p>Response đã che địa chỉ người được mời và không mang id nội bộ nào, nên một người lạ cầm
+     * token cũng chỉ thấy đúng những gì cần để quyết định bấm tiếp hay không.</p>
      */
     @GetMapping("/preview")
     @Operation(summary = "Xem trước lời mời theo token trước khi chấp nhận")
     public ApiResponse<FamilyInvitationPreviewResponse> preview(
-            @AuthenticationPrincipal Jwt jwt,
             @RequestParam @NotBlank @Size(max = 200) String token) {
-        return ApiResponses.success(service.preview(jwt.getSubject(), token));
+        return ApiResponses.success(service.preview(token));
     }
 
     @GetMapping
@@ -88,8 +99,12 @@ public class FamilyInvitationController {
      * Xem trước theo id — lối vào từ thông báo in-app, không cần token.
      *
      * <p>Lời mời không gửi cho mình trả <strong>404</strong>, không phải 403: id không phải bí mật
-     * nên 403 sẽ thành chỗ dò "id này có tồn tại không". Đường token bên trên thì vẫn 403 kèm
-     * {@code masked_target}, vì ở đó người gọi đã chứng minh họ giữ token.</p>
+     * — nó nằm trong deep link thông báo và trong danh sách của chủ nhóm — nên 403 sẽ thành chỗ dò
+     * "id này có tồn tại không".</p>
+     *
+     * <p>Đường theo id là đường <em>duy nhất</em> kiểm người gọi có phải người được mời. Đường
+     * token ở {@link #preview} cố ý không kiểm, vì ở đó việc giữ token đã là phân quyền. Hai lối
+     * vào bất đối xứng là cố ý, không phải sót.</p>
      */
     @GetMapping("/{invitationId}/preview")
     @Operation(summary = "Xem trước lời mời theo id, dành cho chính người được mời")

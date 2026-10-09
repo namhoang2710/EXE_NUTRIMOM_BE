@@ -217,6 +217,44 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
                 .andExpect(jsonPath("$.data.pregnancy_id").doesNotExist());
     }
 
+
+    /**
+     * Chốt 1: đường token cố ý KHÔNG kiểm người gọi có phải người được mời.
+     *
+     * <p>Người gọi ở đây là một tài khoản thứ ba — không phải chủ nhóm, không phải người được mời,
+     * email lẫn số điện thoại đều không khớp — nhưng cầm token hợp lệ nên vẫn xem trước được.
+     * Đăng nhập trên đường này là lớp chống dò token, không phải kiểm sở hữu; việc khớp địa chỉ do
+     * {@code accept} quyết, và bài dưới đây khẳng định luôn cả vế đó.</p>
+     *
+     * <p>Không có bài này thì quyết định chỉ nằm trong comment, và người sửa sau sẽ "vá" nó.</p>
+     */
+    @Test
+    void anyLoggedInAccountMayPreviewByTokenButOnlyTheInviteeMayAccept() throws Exception {
+        when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
+                anyString(), any())).thenReturn(MailResult.ok());
+        Session owner = registerViaOtp(nextPhone(), "Token Mom");
+        Session outsider = registerViaOtp(nextPhone(), "Token Outsider");
+        createPregnancyAndGroup(owner);
+        String invitedEmail = "nguoikhac" + SEQ.incrementAndGet() + "@example.com";
+        // Tài khoản đăng ký bằng OTP chỉ có số điện thoại, nên nó không khớp lời mời theo email.
+        assertThat(users.findById(outsider.userId()).orElseThrow().getEmail()).isNull();
+        String token = tokenOf(inviteByEmail(owner, invitedEmail).andReturn());
+
+        mockMvc.perform(get("/api/v1/family-invitations/preview")
+                        .param("token", token)
+                        .header("Authorization", "Bearer " + outsider.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.masked_target").exists());
+
+        // Vế còn lại của cùng một quyết định: xem trước thì mở, chấp nhận thì không.
+        mockMvc.perform(post("/api/v1/family-invitations/accept")
+                        .header("Authorization", "Bearer " + outsider.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("INVITATION_TARGET_MISMATCH"));
+    }
     @Test
     void previewOfAnUnknownTokenIsNotFound() throws Exception {
         Session guest = registerViaOtp(nextPhone(), "Lost Guest");
