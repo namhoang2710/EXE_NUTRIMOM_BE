@@ -81,7 +81,9 @@ public class MagicLinkService {
 
         // Tạo đường link đăng nhập dự phòng nếu người dùng muốn mở trực tiếp
         String loginUrl = baseUrl + "?token=" + rawCode;
-        log.info("🔐 [EMAIL OTP] Mã xác thực đăng nhập 6 chữ số cho {}: {}", email, rawCode);
+        // Cố ý KHÔNG log rawCode lẫn email đầy đủ: mã này còn hiệu lực 10 phút và mở thẳng được
+        // tài khoản, nên ghi nó ra log là biến mọi người đọc được log thành người đăng nhập được.
+        log.info("magic_link_otp_issued email={} ttl_minutes=10", maskEmail(email));
 
         // Gửi email chứa mã xác thực 6 chữ số
         emailService.sendEmailOtp(email, rawCode, loginUrl);
@@ -152,5 +154,14 @@ public class MagicLinkService {
         }
 
         return authService.issueSession(user, request.deviceId());
+    }
+
+    /** Giữ ký tự đầu và domain: đủ để đối chiếu khi hỗ trợ, không chép nguyên định danh vào log. */
+    private static String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "***";
+        }
+        int at = email.indexOf('@');
+        return at <= 0 ? "***" : email.charAt(0) + "***" + email.substring(at);
     }
 }
