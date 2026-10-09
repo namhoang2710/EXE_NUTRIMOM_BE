@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import vn.nutrimom.common.email.EmailService.MailResult;
 
 /**
  * Template email là text block cộng {@code String.formatted}, không phải engine có auto-escape.
@@ -26,13 +28,57 @@ class EmailServiceTest {
                 .doesNotThrowAnyException();
     }
 
-    /** Không có SMTP thì rơi về chế độ mock và trả false, tuyệt đối không ném ra ngoài. */
+    /**
+     * Không có SMTP thì rơi về chế độ mock, báo hỏng kèm lý do, tuyệt đối không ném ra ngoài.
+     *
+     * <p>{@code NOT_CONFIGURED} phải là một mã riêng chứ không để trống: đây là ca hỏng phổ biến
+     * nhất ở local và staging, mà nó lại không sinh ngoại lệ nào để lấy tên lớp — thiếu mã này
+     * thì log vẫn ghi {@code error=none} đúng lúc người ta cần biết nhất.</p>
+     */
     @Test
     void sendingWithoutAnSmtpSenderReportsFailureInsteadOfThrowing() {
-        assertThatCode(() -> assertThat(service.sendFamilyInvitation("an@example.com", "Mai",
-                "Chồng/bạn đời", List.of("Xem lịch khám và nhắc nhở"),
-                "http://localhost:5173/family/invite?token=abc", EXPIRES)).isFalse())
-                .doesNotThrowAnyException();
+        assertThatCode(() -> {
+            MailResult result = service.sendFamilyInvitation("an@example.com", "Mai",
+                    "Chồng/bạn đời", List.of("Xem lịch khám và nhắc nhở"),
+                    "http://localhost:5173/family/invite?token=abc", EXPIRES);
+            assertThat(result.sent()).isFalse();
+            assertThat(result.errorClass()).isEqualTo(MailResult.NOT_CONFIGURED);
+        }).doesNotThrowAnyException();
+    }
+
+    /**
+     * Có SMTP nhưng không biết gửi từ địa chỉ nào thì từ chối ngay, không thử gửi.
+     *
+     * <p>Bản cũ bịa ra {@code no-reply@nutrimom.vn} làm sender. Nhà cung cấp SMTP không cho phép
+     * địa chỉ đó sẽ từ chối hoặc lặng lẽ viết lại, nên thư không tới nơi trong khi phía mình
+     * trông như đã gửi xong — đúng triệu chứng team FE báo hai vòng liền. {@code JavaMailSenderImpl}
+     * ở đây chưa khai host, nhưng guard chặn trước nên không có kết nối nào được mở.</p>
+     */
+    @Test
+    void aMissingSenderIsReportedInsteadOfGuessingAnAddress() {
+        EmailService withoutSender = new EmailService(new JavaMailSenderImpl(), "", "");
+
+        MailResult result = withoutSender.sendHtml("an@example.com", "Chào", "<p>hi</p>");
+
+        assertThat(result.sent()).isFalse();
+        assertThat(result.errorClass()).isEqualTo(MailResult.NO_SENDER);
+    }
+
+    /**
+     * Thứ tự ưu tiên của địa chỉ gửi — nhánh thứ hai từng là code chết.
+     *
+     * <p>{@code application.yml} đặt default cho {@code app.mail.from}, nên tham số đầu không bao
+     * giờ rỗng và nhánh rơi về {@code spring.mail.username} không bao giờ chạy. Bài này ghim lại
+     * cả ba nấc để không ai đặt lại default vào yml.</p>
+     */
+    @Test
+    void theSenderFallsBackToTheSmtpAccountBeforeGivingUp() {
+        assertThat(new EmailService(null, "from@nutrimom.vn", "smtp@gmail.com").resolvedSender())
+                .isEqualTo("from@nutrimom.vn");
+        assertThat(new EmailService(null, "", "smtp@gmail.com").resolvedSender())
+                .isEqualTo("smtp@gmail.com");
+        assertThat(new EmailService(null, "  ", "").resolvedSender())
+                .isEmpty();
     }
 
     @Test

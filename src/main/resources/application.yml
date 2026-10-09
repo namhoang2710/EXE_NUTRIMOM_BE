@@ -45,7 +45,14 @@ spring:
             enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
             required: true
           ssl:
-            trust: smtp.gmail.com
+            # Mặc định giữ gmail để máy đang chạy không đổi hành vi; đây chỉ là gỡ hard-code để
+            # staging/production trỏ provider khác mà không phải sửa file này.
+            trust: ${SPRING_MAIL_SSL_TRUST:smtp.gmail.com}
+          # Không có timeout thì SMTP treo là request treo vô hạn — mà lời mời gửi mail TRONG
+          # transaction, nên nó giữ luôn một connection của pool và khoá dòng lời mời.
+          connectiontimeout: ${SPRING_MAIL_CONNECT_TIMEOUT:5000}
+          timeout: ${SPRING_MAIL_READ_TIMEOUT:10000}
+          writetimeout: ${SPRING_MAIL_WRITE_TIMEOUT:10000}
   data:
     redis:
       repositories:
@@ -115,7 +122,10 @@ app:
       # Chỉ gate kênh email. Thông báo in-app luôn được tạo, bất kể cờ này.
       email-enabled: ${NUTRIMOM_FAMILY_INVITE_EMAIL_ENABLED:true}
   mail:
-    from: ${APP_MAIL_FROM:no-reply@nutrimom.vn}
+    # ĐỂ TRỐNG LÀ CỐ Ý. Đặt một giá trị mặc định ở đây sẽ làm EmailService không bao giờ rơi về
+    # spring.mail.username, và sender lạ thì nhà cung cấp SMTP từ chối hoặc viết lại — thư im
+    # lặng không tới nơi. Thiếu cả hai thì EmailService trả FAILED/NO_SENDER thay vì thử gửi.
+    from: ${APP_MAIL_FROM:}
   assistant:
     enabled: ${NUTRIMOM_ASSISTANT_ENABLED:true}
     api-key: ${GROQ_API_KEY:}

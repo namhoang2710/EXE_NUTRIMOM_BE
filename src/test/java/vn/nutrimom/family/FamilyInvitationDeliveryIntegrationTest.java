@@ -35,6 +35,7 @@ import tools.jackson.databind.JsonNode;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.email.EmailService;
+import vn.nutrimom.common.email.EmailService.MailResult;
 import vn.nutrimom.family.repository.FamilyInvitationRepository;
 import vn.nutrimom.support.ApiIntegrationTestSupport;
 
@@ -59,7 +60,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void invitingByEmailSendsTheHtmlInvitationAndReturnsAnAcceptUrl() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "Invite Mom");
         createPregnancyAndGroup(owner);
         String invitedEmail = "nguoinha" + SEQ.incrementAndGet() + "@example.com";
@@ -134,7 +135,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void aFailedEmailIsReportedRatherThanThrown() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(false);
+                anyString(), any())).thenReturn(MailResult.failed("MailSendException"));
         Session owner = registerViaOtp(nextPhone(), "Smtp Mom");
         createPregnancyAndGroup(owner);
 
@@ -148,7 +149,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void previewShowsWhoInvitedYouWithoutLeakingTheGroup() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "Preview Mom");
         Session guest = registerViaOtp(nextPhone(), "Preview Guest");
         createPregnancyAndGroup(owner);
@@ -189,7 +190,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void anExpiredInvitationPreviewsAsExpiredInsteadOfFailing() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "Expired Mom");
         Session guest = registerViaOtp(nextPhone(), "Expired Guest");
         createPregnancyAndGroup(owner);
@@ -213,7 +214,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void aRevokedInvitationCanNoLongerBeAccepted() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "Revoke Mom");
         Session guest = registerViaOtp(nextPhone(), "Revoke Guest");
         createPregnancyAndGroup(owner);
@@ -248,7 +249,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void ownerListsInvitationsWithMaskedTargetsAndNoRawToken() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "List Mom");
         createPregnancyAndGroup(owner);
         inviteByEmail(owner, "danhsach" + SEQ.incrementAndGet() + "@example.com");
@@ -267,7 +268,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void anotherOwnerCannotRevokeYourInvitation() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "Mine Mom");
         Session outsider = registerViaOtp(nextPhone(), "Other Mom");
         createPregnancyAndGroup(owner);
@@ -285,7 +286,7 @@ class FamilyInvitationDeliveryIntegrationTest extends ApiIntegrationTestSupport 
     @Test
     void acceptingAnInvitationNotifiesTheOwner() throws Exception {
         when(email.sendFamilyInvitation(anyString(), anyString(), anyString(), anyList(),
-                anyString(), any())).thenReturn(true);
+                anyString(), any())).thenReturn(MailResult.ok());
         Session owner = registerViaOtp(nextPhone(), "Notify Mom");
         Session guest = registerViaOtp(nextPhone(), "Notify Guest");
         createPregnancyAndGroup(owner);

@@ -191,15 +191,41 @@ Ba endpoint theo id ở trên tồn tại để deep link không cần mang bí 
 | `APP_FRONTEND_BASE_URL` | `http://localhost:5173` | **Origin thuần** của web, để dựng link mời |
 | `APP_FRONTEND_INVITE_PATH` | `/family/invite` | Đường dẫn trang nhận lời mời |
 | `NUTRIMOM_FAMILY_INVITE_EMAIL_ENABLED` | `true` | Tắt thì không gửi email, chỉ trả `invite_url`. **Không** tắt thông báo in-app |
-| `SPRING_MAIL_HOST` · `_PORT` · `_USERNAME` · `_PASSWORD` | — | Thiếu `HOST` thì không có bean `JavaMailSender` → `delivery_status=FAILED` |
+| `SPRING_MAIL_HOST` · `_PORT` · `_USERNAME` · `_PASSWORD` | — | Thiếu `HOST` thì không có bean `JavaMailSender` → `delivery_status=FAILED`, `error=NOT_CONFIGURED` |
+| `APP_MAIL_FROM` | *(trống)* | Địa chỉ gửi. **Để trống thì rơi về `SPRING_MAIL_USERNAME`** |
+| `SPRING_MAIL_SSL_TRUST` | `smtp.gmail.com` | Host được tin cert. Đổi khi dùng provider khác |
+| `SPRING_MAIL_CONNECT_TIMEOUT` | `5000` | ms, timeout mở kết nối SMTP |
+| `SPRING_MAIL_READ_TIMEOUT` | `10000` | ms, timeout đọc |
+| `SPRING_MAIL_WRITE_TIMEOUT` | `10000` | ms, timeout ghi |
 | `NUTRIMOM_FAMILY_INVITE_EXPIRY_HOURS` | `48` | Hạn mặc định |
 
 `APP_FRONTEND_BASE_URL` cố ý tách khỏi `MAGIC_LINK_BASE_URL`: biến kia là một **đường dẫn đầy đủ**
 (`.../auth/verify`), biến này là **origin**. Gộp hai thứ khác ngữ nghĩa vào một khoá là cách chắc
 chắn để một hôm nào đó link mời trỏ vào trang xác thực.
 
-Chưa cấu hình SMTP thì `EmailService` rơi về chế độ mock và **in cả nội dung HTML ra log** — tiện
-khi dev, nhưng nghĩa là link chấp nhận nằm trong log, nên production phải luôn có SMTP thật.
+### Địa chỉ gửi
+
+`APP_MAIL_FROM` mặc định **trống là cố ý**. Trước đây nó mặc định `no-reply@nutrimom.vn`, nên
+`EmailService` không bao giờ rơi về `SPRING_MAIL_USERNAME` và mọi thư đều gửi từ một địa chỉ mà tài
+khoản SMTP không sở hữu — Gmail từ chối hoặc lặng lẽ viết lại, thư không tới nơi trong khi phía
+mình trông như đã gửi xong. Thiếu cả hai biến thì backend **không thử gửi**, trả `FAILED` kèm
+`error=NO_SENDER`.
+
+Địa chỉ gửi phải được chính nhà cung cấp SMTP cho phép. Với Gmail nghĩa là trùng
+`SPRING_MAIL_USERNAME`, hoặc một alias đã xác thực trong tài khoản đó.
+
+### Timeout
+
+Không có timeout thì một SMTP không phản hồi sẽ treo request vô hạn — và vì lời mời gửi mail
+**trong transaction**, nó giữ luôn một connection của pool và khoá dòng lời mời. Ba biến trên đặt
+trần hữu hạn; chỉnh theo độ trễ thật của provider ở staging.
+
+### Chế độ mock
+
+Chưa cấu hình SMTP thì `EmailService` rơi về chế độ mock: nó **chỉ log địa chỉ người nhận đã che**
+(`a***@example.com`) rồi trả `FAILED`. Nội dung thư, invite URL và token **không bao giờ** được
+ghi ra log — thân thư mang bí mật dùng được ngay, nên in ra log là biến mọi người đọc được log
+thành người chiếm được tài khoản.
 
 ## Rate limit
 

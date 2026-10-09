@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.email.EmailService;
+import vn.nutrimom.common.email.EmailService.MailResult;
 import vn.nutrimom.config.FamilyInvitationProperties;
 import vn.nutrimom.config.FrontendProperties;
 import vn.nutrimom.family.domain.FamilyInvitationEntity;
@@ -67,41 +68,48 @@ public class FamilyInvitationNotifier {
 
     public DeliveryOutcome deliver(FamilyInvitationEntity invitation, String rawToken,
                                    String inviterDisplayName) {
-        InvitationDeliveryStatus status = sendEmail(invitation, inviterDisplayName, rawToken);
-            notifyInApp(invitation, inviterDisplayName);
-        return new DeliveryOutcome(status,
-                status == InvitationDeliveryStatus.SENT ? OffsetDateTime.now(ZoneOffset.UTC) : null);
+        DeliveryOutcome outcome = sendEmail(invitation, rawToken, inviterDisplayName);
+        notifyInApp(invitation, inviterDisplayName);
+        return outcome;
     }
 
     /**
      * Cờ tắt gửi được kiểm <em>trước</em> khi chạm tới {@link EmailService} chứ không phải sau.
      *
-     * <p>Không có bean {@code JavaMailSender} thì {@code sendHtml} rơi vào nhánh mock và trả
-     * {@code false} — gate ở phía sau sẽ biến mọi lời mời thành {@code FAILED} thay vì
+     * <p>Không có bean {@code JavaMailSender} thì {@code sendHtml} rơi vào nhánh mock và báo
+     * {@code NOT_CONFIGURED} — gate ở phía sau sẽ biến mọi lời mời thành {@code FAILED} thay vì
      * {@code SKIPPED}, tức là báo "có gì đó hỏng" cho một cấu hình cố ý.</p>
      */
-    private InvitationDeliveryStatus sendEmail(FamilyInvitationEntity invitation,
-                                               String inviterDisplayName, String rawToken) {
+    private DeliveryOutcome sendEmail(FamilyInvitationEntity invitation, String rawToken,
+                                      String inviterDisplayName) {
         if (!properties.isEmailEnabled() || invitation.getInvitedEmail() == null) {
-            logDelivery(invitation, "EMAIL", InvitationDeliveryStatus.SKIPPED, null);
-            return InvitationDeliveryStatus.SKIPPED;
+            return outcome(invitation, InvitationDeliveryStatus.SKIPPED, null);
         }
         try {
-            boolean sent = email.sendFamilyInvitation(
+            MailResult result = email.sendFamilyInvitation(
                     invitation.getInvitedEmail(),
                     inviterDisplayName,
                     FamilyScopeLabels.of(invitation.getRelationship()),
                     FamilyScopeLabels.of(invitation.getScopes()),
                     frontend.inviteUrl(rawToken),
                     invitation.getExpiresAt());
-            InvitationDeliveryStatus status = sent
-                    ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.FAILED;
-            logDelivery(invitation, "EMAIL", status, null);
-            return status;
+            return outcome(invitation, result.sent()
+                            ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.FAILED,
+                    result.errorClass());
         } catch (RuntimeException ex) {
-            logDelivery(invitation, "EMAIL", InvitationDeliveryStatus.FAILED, ex);
-            return InvitationDeliveryStatus.FAILED;
+            // EmailService tự nuốt mọi ngoại lệ của nó, nên tới được đây là lỗi ngoài luồng gửi
+            // (vd dựng được URL hỏng) — vẫn phải nói ra lớp nào.
+            return outcome(invitation, InvitationDeliveryStatus.FAILED,
+                    ex.getClass().getSimpleName());
         }
+    }
+
+    private DeliveryOutcome outcome(FamilyInvitationEntity invitation,
+                                    InvitationDeliveryStatus status, String errorClass) {
+        logDelivery(invitation, "EMAIL", status, errorClass);
+        return new DeliveryOutcome(status,
+                status == InvitationDeliveryStatus.SENT ? OffsetDateTime.now(ZoneOffset.UTC) : null,
+                errorClass);
     }
 
     /**
@@ -110,12 +118,14 @@ public class FamilyInvitationNotifier {
      * <p>Cố ý KHÔNG có: raw token, invite URL, email hay số điện thoại người nhận. Lời mời được
      * nhận dạng bằng {@code invitation_id} — tra ra mọi thứ còn lại từ DB khi thật sự cần, dưới
      * quyền truy cập của DB chứ không phải quyền đọc log.</p>
+     *
+     * <p>{@code errorClass} là một chuỗi đã kiểm soát (tên lớp ngoại lệ hoặc mã tự đặt), không
+     * phải {@code getMessage()}: message của SMTP server hay chép lại nguyên địa chỉ người nhận.</p>
      */
     private void logDelivery(FamilyInvitationEntity invitation, String channel,
-                             InvitationDeliveryStatus status, RuntimeException failure) {
+                             InvitationDeliveryStatus status, String errorClass) {
         log.info("family_invitation_delivery invitation_id={} channel={} delivery_status={} error={}",
-                invitation.getId(), channel, status,
-                failure == null ? "none" : failure.getClass().getSimpleName());
+                invitation.getId(), channel, status, errorClass == null ? "none" : errorClass);
     }
 
     /**
@@ -142,7 +152,8 @@ public class FamilyInvitationNotifier {
             logDelivery(invitation, "IN_APP", invitee.isPresent()
                     ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.SKIPPED, null);
         } catch (RuntimeException ex) {
-            logDelivery(invitation, "IN_APP", InvitationDeliveryStatus.FAILED, ex);
+            logDelivery(invitation, "IN_APP", InvitationDeliveryStatus.FAILED,
+                    ex.getClass().getSimpleName());
         }
     }
 
@@ -156,7 +167,13 @@ public class FamilyInvitationNotifier {
         return Optional.empty();
     }
 
-    /** @param sentAt chỉ có giá trị khi thật sự gửi được, để màn hình không khoe một mốc giờ giả. */
-    public record DeliveryOutcome(InvitationDeliveryStatus status, OffsetDateTime sentAt) {
+    /**
+     * @param sentAt     chỉ có giá trị khi thật sự gửi được, để màn hình không khoe một mốc giờ giả.
+     * @param errorClass lý do hỏng, {@code null} khi không hỏng. KHÔNG được lưu vào DB và không ra
+     *                   tới response — nó có mặt ở đây để bài test khẳng định được "FAILED có lý
+     *                   do" mà không phải dựng log appender, thứ repo chưa có tiền lệ.
+     */
+    public record DeliveryOutcome(InvitationDeliveryStatus status, OffsetDateTime sentAt,
+                                  String errorClass) {
     }
 }
