@@ -3,8 +3,10 @@ package vn.nutrimom.family.service;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
@@ -34,19 +36,22 @@ public class FamilyTaskService {
     private final AccessGuard guard;
     private final NotificationService notifications;
     private final ActivityFeedService activityFeed;
+    private final UserRepository users;
 
     public FamilyTaskService(FamilyTaskRepository tasks,
                              FamilyGroupService groupService,
                              FamilyMemberRepository members,
                              AccessGuard guard,
                              NotificationService notifications,
-                             ActivityFeedService activityFeed) {
+                             ActivityFeedService activityFeed,
+                             UserRepository users) {
         this.tasks = tasks;
         this.groupService = groupService;
         this.members = members;
         this.guard = guard;
         this.notifications = notifications;
         this.activityFeed = activityFeed;
+        this.users = users;
     }
 
     @Transactional(readOnly = true)
@@ -95,9 +100,7 @@ public class FamilyTaskService {
         if (task.getAssigneeId() == null || task.getAssigneeId().equals(previousAssigneeId)) {
             return;
         }
-        String assigneeUserId = members.findById(task.getAssigneeId())
-                .map(FamilyMemberEntity::getUserId)
-                .orElse(null);
+        String assigneeUserId = eligibleAssigneeUserId(group, task.getAssigneeId());
         if (assigneeUserId == null || assigneeUserId.equals(actorUserId)) {
             return;
         }
@@ -144,32 +147,38 @@ public class FamilyTaskService {
         }
         tasks.saveAndFlush(task);
         announceAssignment(group, task, previousAssigneeId, userId);
-        announceCompletion(group, task, previousStatus, userId);
+        announceStatusTransition(group, task, previousStatus, userId);
         return toResponse(task);
     }
 
     /**
-     * Việc chuyển sang {@link FamilyTaskStatus#COMPLETED} thì báo cho chủ nhóm — mẹ bầu là người
-     * cần biết việc nhà đã xong mà không phải tự vào kiểm tra.
-     *
-     * <p>Chỉ bắn ở lần đổi trạng thái đầu tiên: sửa tiếp một việc đã COMPLETED (đổi tiêu đề, hạn
-     * chót) không được bắn lại. Chủ nhóm tự bấm hoàn thành thì cũng không tự báo mình, nhưng dòng
-     * activity vẫn ghi để cả nhóm thấy.</p>
+     * Gửi đúng một thông báo cho mỗi lần trạng thái thực sự đổi: member báo owner; owner báo
+     * assignee còn ACTIVE và còn scope FAMILY_TASKS. Người thao tác không bao giờ tự nhận thông báo.
+     * Mọi transition vẫn có activity; đích COMPLETED giữ type cũ để tương thích client.
      */
-    private void announceCompletion(FamilyGroupEntity group, FamilyTaskEntity task,
-                                    FamilyTaskStatus previousStatus, String actorUserId) {
-        if (task.getStatus() != FamilyTaskStatus.COMPLETED
-                || previousStatus == FamilyTaskStatus.COMPLETED) {
+    private void announceStatusTransition(FamilyGroupEntity group, FamilyTaskEntity task,
+                                          FamilyTaskStatus previousStatus, String actorUserId) {
+        if (task.getStatus() == previousStatus) {
             return;
         }
-        if (!group.getOwnerUserId().equals(actorUserId)) {
-            notifications.publish(group.getOwnerUserId(), NotificationType.FAMILY,
-                    "Một việc trong nhóm đã hoàn thành",
-                    "Một thành viên vừa đánh dấu hoàn thành một việc trong nhóm gia đình.",
+
+        String recipientUserId = group.getOwnerUserId().equals(actorUserId)
+                ? eligibleAssigneeUserId(group, task.getAssigneeId())
+                : group.getOwnerUserId();
+        if (recipientUserId != null && !recipientUserId.equals(actorUserId)) {
+            String actorName = actorDisplayName(actorUserId);
+            notifications.publish(recipientUserId, NotificationType.FAMILY,
+                    "Trạng thái việc gia đình đã thay đổi",
+                    actorName + " đã chuyển một việc từ " + statusLabel(previousStatus)
+                            + " sang " + statusLabel(task.getStatus()) + ".",
                     "nutrimom://family/tasks/" + task.getId(), "FAMILY_TASK", task.getId());
         }
+
+        ActivityType activityType = task.getStatus() == FamilyTaskStatus.COMPLETED
+                ? ActivityType.FAMILY_TASK_COMPLETED
+                : ActivityType.FAMILY_TASK_STATUS_CHANGED;
         activityFeed.record(group.getOwnerUserId(), actorUserId, group.getPregnancyId(),
-                ActivityType.FAMILY_TASK_COMPLETED, "Một việc trong nhóm gia đình đã hoàn thành",
+                activityType, "Trạng thái một việc gia đình đã thay đổi",
                 ActivityVisibility.FAMILY);
     }
 
@@ -200,11 +209,42 @@ public class FamilyTaskService {
         FamilyMemberEntity assignee = members.findById(assigneeId.trim()).orElse(null);
         if (assignee == null
                 || !assignee.getFamilyGroupId().equals(group.getId())
-                || assignee.getStatus() != FamilyMemberStatus.ACTIVE) {
+                || assignee.getStatus() != FamilyMemberStatus.ACTIVE
+                || !assignee.getScopes().contains(FamilyScope.FAMILY_TASKS)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
-                    "assignee_id must be an active member of this family group.");
+                    "assignee_id must be an active member with FAMILY_TASKS access in this family group.");
         }
         return assignee.getId();
+    }
+
+    private String eligibleAssigneeUserId(FamilyGroupEntity group, String assigneeId) {
+        if (assigneeId == null) {
+            return null;
+        }
+        return members.findById(assigneeId)
+                .filter(member -> member.getFamilyGroupId().equals(group.getId()))
+                .filter(member -> member.getStatus() == FamilyMemberStatus.ACTIVE)
+                .filter(member -> member.getScopes().contains(FamilyScope.FAMILY_TASKS))
+                .map(FamilyMemberEntity::getUserId)
+                .orElse(null);
+    }
+
+    private String actorDisplayName(String actorUserId) {
+        return users.findDisplayNamesByIdIn(Set.of(actorUserId)).stream()
+                .map(UserRepository.UserDisplayNameView::getDisplayName)
+                .filter(name -> name != null && !name.isBlank())
+                .map(String::trim)
+                .findFirst()
+                .orElse("Một thành viên");
+    }
+
+    private String statusLabel(FamilyTaskStatus status) {
+        return switch (status) {
+            case TODO -> "Cần làm";
+            case IN_PROGRESS -> "Đang thực hiện";
+            case COMPLETED -> "Đã hoàn thành";
+            case CANCELLED -> "Đã hủy";
+        };
     }
 
     private FamilyTaskResponse toResponse(FamilyTaskEntity task) {

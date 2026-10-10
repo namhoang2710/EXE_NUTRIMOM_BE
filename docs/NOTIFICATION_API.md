@@ -154,7 +154,8 @@ GET /api/v1/activity-feed?limit=20
 ```
 
 `type`: `CONSULTATION_ACCEPTED` | `CONSULTATION_COMPLETED` | `CONSULTATION_CANCELLED` |
-`CONTACT_COMPLETED` | `FAMILY_TASK_ASSIGNED` | `FAMILY_TASK_COMPLETED`.
+`CONTACT_COMPLETED` | `FAMILY_TASK_ASSIGNED` | `FAMILY_TASK_STATUS_CHANGED` |
+`FAMILY_TASK_COMPLETED`.
 Cursor giống hệt `/notifications`.
 
 **Ai thấy gì.** Người gọi thấy hoạt động của chính mình (mọi mức), cộng hoạt động mức `FAMILY` của
@@ -178,7 +179,14 @@ Dashboard partner (`GET /api/v1/dashboard/partner` → `data.activity_feed`) dù
 | User gửi yêu cầu hỗ trợ | **mọi tài khoản ADMIN đang hoạt động** | `CONTACT` | — |
 | Admin hoàn tất yêu cầu hỗ trợ | Người gửi | `CONTACT` | `CONTACT_COMPLETED`, OWNER_ONLY |
 | Giao việc trong nhóm (tạo mới hoặc giao lại) | Người được giao | `FAMILY` | `FAMILY_TASK_ASSIGNED`, FAMILY |
-| Việc trong nhóm chuyển `COMPLETED` | Chủ nhóm (mẹ bầu) | `FAMILY` | `FAMILY_TASK_COMPLETED`, FAMILY |
+| Thành viên đổi trạng thái việc | Chủ nhóm (trừ khi chính chủ thao tác) | `FAMILY` | `FAMILY_TASK_STATUS_CHANGED`, FAMILY; riêng đích `COMPLETED` giữ `FAMILY_TASK_COMPLETED` |
+| Chủ nhóm đổi trạng thái việc đã giao | Người được giao còn ACTIVE và có `FAMILY_TASKS` (trừ khi tự thao tác) | `FAMILY` | `FAMILY_TASK_STATUS_CHANGED`, FAMILY; riêng đích `COMPLETED` giữ `FAMILY_TASK_COMPLETED` |
+
+Thông báo đổi trạng thái dùng tiêu đề `Trạng thái việc gia đình đã thay đổi`, body chứa tên hiển thị
+của người thao tác và nhãn trạng thái tiếng Việt, không chứa UUID. Deep link
+`nutrimom://family/tasks/{taskId}` được client mở thành `/app/family?tab=tasks&task={taskId}`.
+Không phát thông báo khi trạng thái không đổi, không tự gửi cho người thao tác, và không gửi cho
+thành viên đã bị thu hồi hoặc không còn scope `FAMILY_TASKS`.
 
 **Mốc giờ hẹn nằm ngay trong body.** Với yêu cầu RANDOM, chuyên gia mới là người chọn khung giờ lúc
 accept, nên thông báo gửi cho user ghi rõ *"Buổi tư vấn của bạn được xếp lúc 09:00 ngày 02/10/2026"* —

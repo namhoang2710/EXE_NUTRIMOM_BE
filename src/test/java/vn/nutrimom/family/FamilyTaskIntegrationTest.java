@@ -1,5 +1,6 @@
 package vn.nutrimom.family;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -11,18 +12,25 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import vn.nutrimom.notification.domain.ActivityType;
+import vn.nutrimom.notification.domain.NotificationEntity;
+import vn.nutrimom.notification.repository.ActivityEventRepository;
+import vn.nutrimom.notification.repository.NotificationRepository;
 import vn.nutrimom.support.ApiIntegrationTestSupport;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class FamilyTaskIntegrationTest extends ApiIntegrationTestSupport {
+    @Autowired private NotificationRepository notifications;
+    @Autowired private ActivityEventRepository activities;
 
     @Test
     void ownerCreatesListsAndFiltersTasks() throws Exception {
@@ -160,6 +168,122 @@ class FamilyTaskIntegrationTest extends ApiIntegrationTestSupport {
                         .content("{\"assignee_id\":\"11111111-1111-1111-1111-111111111111\",\"version\":1}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void memberStatusTransitionNotifiesOwnerOnceAndRecordsActor() throws Exception {
+        Session owner = registerViaOtp("0913000061", "Notification Owner");
+        Session partner = registerViaOtp("0913000062", "Nguyễn Trường Giang");
+        createPregnancyAndGroup(owner);
+        inviteAndAccept(owner, partner, Set.of("FAMILY_TASKS", "ACTIVITY_FEED"));
+        String taskId = createTask(owner, "{\"title\":\"Status task\",\"priority\":\"LOW\"}");
+
+        mockMvc.perform(patch("/api/v1/family/tasks/{id}", taskId)
+                        .header("Authorization", "Bearer " + partner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"IN_PROGRESS\",\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.version").value(1));
+
+        var statusNotifications = statusNotifications(taskId);
+        assertThat(statusNotifications).hasSize(1);
+        NotificationEntity notification = statusNotifications.get(0);
+        assertThat(notification.getUserId()).isEqualTo(owner.userId());
+        assertThat(notification.getTitle()).isEqualTo("Trạng thái việc gia đình đã thay đổi");
+        assertThat(notification.getBody())
+                .isEqualTo("Nguyễn Trường Giang đã chuyển một việc từ Cần làm sang Đang thực hiện.")
+                .doesNotContain(partner.userId());
+        assertThat(notification.getDeepLink()).isEqualTo("nutrimom://family/tasks/" + taskId);
+        assertThat(activities.findAll().stream()
+                .filter(event -> partner.userId().equals(event.getActorUserId()))
+                .filter(event -> event.getType() == ActivityType.FAMILY_TASK_STATUS_CHANGED))
+                .hasSize(1);
+
+        // A successful no-op update must not duplicate either notification or activity.
+        mockMvc.perform(patch("/api/v1/family/tasks/{id}", taskId)
+                        .header("Authorization", "Bearer " + partner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"IN_PROGRESS\",\"version\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(1));
+        assertThat(statusNotifications(taskId)).hasSize(1);
+        assertThat(activities.findAll().stream()
+                .filter(event -> partner.userId().equals(event.getActorUserId()))
+                .filter(event -> event.getType() == ActivityType.FAMILY_TASK_STATUS_CHANGED))
+                .hasSize(1);
+    }
+
+    @Test
+    void ownerStatusTransitionNotifiesEligibleAssigneeAndPreservesCompletedActivity() throws Exception {
+        Session owner = registerViaOtp("0913000071", "Completion Owner");
+        Session partner = registerViaOtp("0913000072", "Completion Partner");
+        createPregnancyAndGroup(owner);
+        String memberId = inviteAndAccept(owner, partner, Set.of("FAMILY_TASKS"));
+        String taskId = createTask(owner, "{\"title\":\"Assigned task\",\"priority\":\"HIGH\","
+                + "\"assignee_id\":\"" + memberId + "\"}");
+
+        mockMvc.perform(patch("/api/v1/family/tasks/{id}", taskId)
+                        .header("Authorization", "Bearer " + owner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\",\"version\":0}"))
+                .andExpect(status().isOk());
+
+        var statusNotifications = statusNotifications(taskId);
+        assertThat(statusNotifications).hasSize(1);
+        assertThat(statusNotifications.get(0).getUserId()).isEqualTo(partner.userId());
+        assertThat(statusNotifications.get(0).getBody())
+                .isEqualTo("Completion Owner đã chuyển một việc từ Cần làm sang Đã hoàn thành.");
+        assertThat(activities.findAll().stream()
+                .filter(event -> owner.userId().equals(event.getActorUserId()))
+                .filter(event -> event.getType() == ActivityType.FAMILY_TASK_COMPLETED))
+                .hasSize(1);
+    }
+
+    @Test
+    void ownerDoesNotNotifyAssigneeWithoutTaskScope() throws Exception {
+        Session owner = registerViaOtp("0913000081", "Scoped Owner");
+        Session partner = registerViaOtp("0913000082", "Scoped Partner");
+        createPregnancyAndGroup(owner);
+        String memberId = inviteAndAccept(owner, partner, Set.of("FAMILY_TASKS"));
+        String taskId = createTask(owner, "{\"title\":\"Scope removed\",\"priority\":\"LOW\","
+                + "\"assignee_id\":\"" + memberId + "\"}");
+
+        mockMvc.perform(patch("/api/v1/family-members/{id}", memberId)
+                        .header("Authorization", "Bearer " + owner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"scopes\":[\"PREGNANCY_SUMMARY\"],\"version\":0}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/family/tasks/{id}", taskId)
+                        .header("Authorization", "Bearer " + owner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CANCELLED\",\"version\":0}"))
+                .andExpect(status().isOk());
+
+        assertThat(statusNotifications(taskId)).isEmpty();
+
+        mockMvc.perform(delete("/api/v1/family-members/{id}", memberId)
+                        .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(patch("/api/v1/family/tasks/{id}", taskId)
+                        .header("Authorization", "Bearer " + owner.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"TODO\",\"version\":1}"))
+                .andExpect(status().isOk());
+
+        assertThat(statusNotifications(taskId)).isEmpty();
+        assertThat(activities.findAll().stream()
+                .filter(event -> owner.userId().equals(event.getActorUserId()))
+                .filter(event -> event.getType() == ActivityType.FAMILY_TASK_STATUS_CHANGED))
+                .hasSize(2);
+    }
+
+    private java.util.List<NotificationEntity> statusNotifications(String taskId) {
+        return notifications.findAll().stream()
+                .filter(notification -> taskId.equals(notification.getSourceId()))
+                .filter(notification -> "Trạng thái việc gia đình đã thay đổi"
+                        .equals(notification.getTitle()))
+                .toList();
     }
 
     private String createTask(Session session, String body) throws Exception {

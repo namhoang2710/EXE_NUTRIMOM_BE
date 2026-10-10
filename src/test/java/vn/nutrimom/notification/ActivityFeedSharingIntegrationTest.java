@@ -188,7 +188,11 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].type").value("FAMILY"))
                 .andExpect(jsonPath("$.data.items[0].title")
-                        .value("Một việc trong nhóm đã hoàn thành"));
+                        .value("Trạng thái việc gia đình đã thay đổi"))
+                .andExpect(jsonPath("$.data.items[0].body")
+                        .value("Complete Partner đã chuyển một việc từ Cần làm sang Đã hoàn thành."))
+                .andExpect(jsonPath("$.data.items[0].deep_link")
+                        .value("nutrimom://family/tasks/" + taskId));
 
         // Việc hoàn thành là chuyện chung của nhóm nên cả partner cũng thấy trên feed.
         mockMvc.perform(get("/api/v1/activity-feed")
