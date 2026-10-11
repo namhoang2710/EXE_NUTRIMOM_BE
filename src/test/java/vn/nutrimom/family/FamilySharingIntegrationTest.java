@@ -50,6 +50,7 @@ class FamilySharingIntegrationTest extends ApiIntegrationTestSupport {
                         .content(objectMapper.writeValueAsString(
                                 new AcceptBody(invitation.token()))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.display_name").value("Family Partner"))
                 .andExpect(jsonPath("$.data.membership_role").value("PARTNER"))
                 .andExpect(jsonPath("$.data.scopes", hasItem("PREGNANCY_SUMMARY")))
                 .andExpect(jsonPath("$.data.scopes", not(hasItem("MEDICAL_RECORDS"))));
@@ -142,6 +143,7 @@ class FamilySharingIntegrationTest extends ApiIntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"scopes\":[\"FAMILY_TASKS\"],\"version\":0}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.display_name").value("Scope Partner"))
                 .andExpect(jsonPath("$.data.scopes", hasItem("FAMILY_TASKS")))
                 .andExpect(jsonPath("$.data.scopes", not(hasItem("PREGNANCY_SUMMARY"))))
                 .andExpect(jsonPath("$.data.version").value(1));
@@ -149,6 +151,7 @@ class FamilySharingIntegrationTest extends ApiIntegrationTestSupport {
         mockMvc.perform(get("/api/v1/family-members")
                         .header("Authorization", "Bearer " + partner.accessToken()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].display_name").value("Scope Partner"))
                 .andExpect(jsonPath("$.data[0].scopes", hasItem("FAMILY_TASKS")))
                 .andExpect(jsonPath("$.data[0].scopes", not(hasItem("PREGNANCY_SUMMARY"))));
 

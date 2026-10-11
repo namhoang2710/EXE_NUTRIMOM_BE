@@ -4,8 +4,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
@@ -20,11 +22,14 @@ import vn.nutrimom.family.repository.FamilyMemberRepository;
 public class FamilyMemberService {
     private final FamilyMemberRepository members;
     private final FamilyGroupService groupService;
+    private final UserRepository users;
 
     public FamilyMemberService(FamilyMemberRepository members,
-                               FamilyGroupService groupService) {
+                               FamilyGroupService groupService,
+                               UserRepository users) {
         this.members = members;
         this.groupService = groupService;
+        this.users = users;
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +48,11 @@ public class FamilyMemberService {
         members.findByUserIdAndStatusOrderByCreatedAtDesc(
                         userId, FamilyMemberStatus.ACTIVE)
                 .forEach(member -> visible.putIfAbsent(member.getId(), member));
-        return visible.values().stream().map(this::toResponse).toList();
+        List<FamilyMemberEntity> visibleMembers = List.copyOf(visible.values());
+        Map<String, String> displayNames = displayNamesFor(visibleMembers);
+        return visibleMembers.stream()
+                .map(member -> toResponse(member, displayNames.get(member.getUserId())))
+                .toList();
     }
 
     @Transactional
@@ -55,7 +64,7 @@ public class FamilyMemberService {
         }
         member.setScopes(request.scopes());
         members.saveAndFlush(member);
-        return toResponse(member);
+        return toResponse(member, displayNameFor(member.getUserId()));
     }
 
     @Transactional
@@ -74,12 +83,31 @@ public class FamilyMemberService {
         return member;
     }
 
-    private FamilyMemberResponse toResponse(FamilyMemberEntity member) {
+    private FamilyMemberResponse toResponse(FamilyMemberEntity member, String displayName) {
         return new FamilyMemberResponse(
                 member.getId(), member.getFamilyGroupId(), member.getUserId(),
+                displayName,
                 member.getRelationship().name(), member.getMembershipRole().name(),
                 scopeNames(member.getScopes()), member.getStatus().name(),
                 member.getVersion(), member.getCreatedAt(), member.getUpdatedAt());
+    }
+
+    private Map<String, String> displayNamesFor(List<FamilyMemberEntity> familyMembers) {
+        Set<String> userIds = familyMembers.stream()
+                .map(FamilyMemberEntity::getUserId)
+                .collect(Collectors.toSet());
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return users.findDisplayNamesByIdIn(userIds).stream()
+                .collect(Collectors.toMap(
+                        UserRepository.UserDisplayNameView::getId,
+                        UserRepository.UserDisplayNameView::getDisplayName,
+                        (first, ignored) -> first));
+    }
+
+    private String displayNameFor(String userId) {
+        return users.findById(userId).map(user -> user.getDisplayName()).orElse(null);
     }
 
     private List<String> scopeNames(Set<FamilyScope> scopes) {

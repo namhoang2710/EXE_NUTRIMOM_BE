@@ -380,7 +380,7 @@ public class FamilyInvitationService {
             users.saveAndFlush(user);
         }
         notifyOwnerAccepted(group, user, member);
-        return toMemberResponse(member);
+        return toMemberResponse(member, user.getDisplayName());
     }
 
     private UserEntity requireActiveUser(String userId) {
@@ -528,9 +528,10 @@ public class FamilyInvitationService {
         return phone.length() <= 4 ? "***" : "***" + phone.substring(phone.length() - 4);
     }
 
-    private FamilyMemberResponse toMemberResponse(FamilyMemberEntity member) {
+    private FamilyMemberResponse toMemberResponse(FamilyMemberEntity member, String displayName) {
         return new FamilyMemberResponse(
                 member.getId(), member.getFamilyGroupId(), member.getUserId(),
+                displayName,
                 member.getRelationship().name(), member.getMembershipRole().name(),
                 scopeNames(member.getScopes()), member.getStatus().name(),
                 member.getVersion(), member.getCreatedAt(), member.getUpdatedAt());
