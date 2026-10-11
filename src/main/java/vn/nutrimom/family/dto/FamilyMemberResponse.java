@@ -7,6 +7,7 @@ public record FamilyMemberResponse(
         String id,
         String familyGroupId,
         String userId,
+        String displayName,
         String relationship,
         String membershipRole,
         List<String> scopes,
