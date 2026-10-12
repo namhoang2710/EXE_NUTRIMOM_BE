@@ -41,8 +41,13 @@ class MomDashboardIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.active_alerts").isEmpty())
                 .andExpect(jsonPath("$.data.recommended_articles").isEmpty())
                 .andExpect(jsonPath("$.data.upcoming_reminders").isEmpty())
+                // scan_quota vẫn null: chưa có module scan thì used/remaining đều là số bịa.
                 .andExpect(jsonPath("$.data.scan_quota").value(nullValue()))
-                .andExpect(jsonPath("$.data.subscription").value(nullValue()))
+                // subscription thì KHÔNG còn null từ task 17 — user chưa trả tiền vẫn là một gói
+                // (FREE) có thật, và FE cần biết để hiện lời mời nâng cấp.
+                .andExpect(jsonPath("$.data.subscription.plan_id").value("FREE"))
+                .andExpect(jsonPath("$.data.subscription.paid").value(false))
+                .andExpect(jsonPath("$.data.subscription.end_date").value(nullValue()))
                 .andExpect(jsonPath("$.data.unread_notification_count").value(0));
     }
 
