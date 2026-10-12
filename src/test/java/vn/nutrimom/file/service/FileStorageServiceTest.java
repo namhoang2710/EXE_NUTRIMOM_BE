@@ -27,7 +27,7 @@ class FileStorageServiceTest {
     @Test
     void selectsLocalOnlyWhenPrivateR2IsDisabled() {
         FileStorageService storage = router(null);
-        StorageService.Location location = storage.newLocation("user/file/random");
+        StorageService.Location location = storage.newLocation("MEDICAL_RECORD", "user/file/random");
         assertThat(location.provider()).isEqualTo(StorageProvider.LOCAL);
         assertThat(location.bucket()).isNull();
         storage.put(location, new byte[] {1, 2});
@@ -43,12 +43,28 @@ class FileStorageServiceTest {
         storage.put(oldFile, new byte[] {7});
         assertThat(storage.read(oldFile)).containsExactly(7);
         verifyNoInteractions(r2);
-        StorageService.Location newFile = storage.newLocation("new/file");
+        StorageService.Location newFile = storage.newLocation("MEDICAL_RECORD", "new/file");
         assertThat(newFile.provider()).isEqualTo(StorageProvider.R2);
         assertThat(newFile.bucket()).isEqualTo("private-bucket");
+        assertThat(newFile.key()).isEqualTo("storage/new/file");
         byte[] bytes = {8};
         storage.put(newFile, bytes);
         verify(r2).put(newFile, bytes);
+    }
+
+    @Test
+    void otherPurposesStayLocalWithoutCallingPrivateR2() {
+        PrivateR2StorageService r2 = mock(PrivateR2StorageService.class);
+        FileStorageService storage = router(r2);
+        for (String purpose : new String[] {"AVATAR", "ARTICLE_MEDIA", "OTHER"}) {
+            StorageService.Location location = storage.newLocation(purpose, "user/file/" + purpose);
+            assertThat(location.provider()).isEqualTo(StorageProvider.LOCAL);
+            assertThat(location.bucket()).isNull();
+            assertThat(location.key()).doesNotStartWith("storage/");
+            storage.put(location, new byte[] {9});
+            assertThat(storage.read(location)).containsExactly(9);
+        }
+        verifyNoInteractions(r2);
     }
 
     @Test

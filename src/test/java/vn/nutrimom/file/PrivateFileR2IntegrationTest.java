@@ -77,6 +77,7 @@ class PrivateFileR2IntegrationTest extends ApiIntegrationTestSupport {
         var stored = files.findById(fileId).orElseThrow();
         assertThat(stored.getStorageProvider()).isEqualTo(StorageProvider.R2);
         assertThat(stored.getStorageBucket()).isEqualTo("private-integration-bucket");
+        assertThat(stored.getStorageKey()).startsWith("storage/" + owner.userId() + "/" + fileId + "/");
 
         mockMvc.perform(put("/api/v1/files/{id}/content", fileId).header("Authorization", bearer(foreign))
                         .contentType(MediaType.APPLICATION_PDF).content(bytes))
@@ -118,6 +119,23 @@ class PrivateFileR2IntegrationTest extends ApiIntegrationTestSupport {
         expired.setDownloadTokenExpiresAt(java.time.OffsetDateTime.now().minusMinutes(1));
         files.saveAndFlush(expired);
         mockMvc.perform(get(url)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void nonMedicalUploadSessionDoesNotUsePrivateR2() throws Exception {
+        Session owner = registerViaOtp("0912388006", "Other purpose owner");
+        byte[] bytes = "%PDF-1.7\nother purpose test\n".getBytes(StandardCharsets.US_ASCII);
+        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        var result = mockMvc.perform(post("/api/v1/files/upload-sessions").header("Authorization", bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("purpose", "OTHER", "file_name", "other.pdf",
+                                "mime_type", "application/pdf", "size_bytes", bytes.length, "sha256", hash))))
+                .andExpect(status().isOk()).andReturn();
+        String fileId = objectMapper.readTree(result.getResponse().getContentAsString()).at("/data/file_id").stringValue();
+        var file = files.findById(fileId).orElseThrow();
+        assertThat(file.getStorageProvider()).isEqualTo(StorageProvider.LOCAL);
+        assertThat(file.getStorageBucket()).isNull();
+        assertThat(file.getStorageKey()).doesNotStartWith("storage/");
     }
 
     @Test

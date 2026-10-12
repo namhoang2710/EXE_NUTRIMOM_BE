@@ -5,7 +5,10 @@
 Files keeps its existing API contract. The browser creates an upload session, PUTs raw bytes
 to the returned `/api/v1/files/{id}/content`, completes the upload, and attaches the READY
 file ID through `attachment_ids` when saving a medical record. BE writes those bytes to R2
-when private-file R2 is enabled; an API-host upload URL does **not** imply local storage.
+when private-file R2 is enabled and `purpose=MEDICAL_RECORD`; an API-host upload URL does **not** imply local storage.
+New medical objects use `storage/{owner_user_id}/{file_id}/{random_id}` inside
+`nutrimom-medical-records`. Other Files purposes stay local; public article/avatar storage
+keeps its separate existing pipeline. Persisted locations of existing files are not rewritten.
 
 Downloads remain short-lived BE URLs (five minutes), with owner authentication or the
 existing signed-token validation. BE reads the private object from R2. No public R2 URL,
@@ -59,6 +62,13 @@ record and download the same bytes. Verify the object in the **private** bucket,
 foreign-user access and expired URLs, and confirm no public URL is available. Use synthetic
 data and remove only the smoke test's own objects after verification. Do not mark a real
 R2 smoke test as passed unless it was actually run.
+
+The opt-in `PrivateR2LiveStorageTest` exercises the production R2 client and adapter against
+the real `nutrimom-medical-records` bucket: it writes a synthetic PNG below
+`storage/_smoke-test/{uuid}.png`, checks byte-identical reads, and deletes only that test object.
+Run it with `FILES_R2_SMOKE_TEST=true` and the private R2 settings supplied as process
+environment variables (the test profile does not import `.env`). This verifies live storage,
+not a logged-in browser/FE session. The live test was executed successfully for this setup.
 
 Configure an R2 lifecycle policy for abandoned uploads according to the project's retention
 policy. This change does not introduce a file-deletion endpoint or delete legacy objects.

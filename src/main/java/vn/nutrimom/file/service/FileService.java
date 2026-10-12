@@ -88,12 +88,14 @@ public class FileService {
         file.setSha256(request.sha256().toLowerCase(Locale.ROOT));
         file.setStatus(FileStatus.UPLOADING);
         file.setUploadExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(15));
-        file.setStorageKey("private-files/" + userId + "/pending/" + UUID.randomUUID());
-        StorageService.Location location = storage.newLocation(file.getStorageKey());
+        StorageService.Location location = storage.newLocation(file.getPurpose(),
+                userId + "/pending/" + UUID.randomUUID());
+        file.setStorageKey(location.key());
         file.setStorageProvider(location.provider());
         file.setStorageBucket(location.bucket());
         files.saveAndFlush(file);
-        file.setStorageKey("private-files/" + userId + "/" + file.getId() + "/" + UUID.randomUUID());
+        location = storage.newLocation(file.getPurpose(), userId + "/" + file.getId() + "/" + UUID.randomUUID());
+        file.setStorageKey(location.key());
         files.saveAndFlush(file);
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Content-Type", mimeType);

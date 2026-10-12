@@ -18,10 +18,13 @@ public class FileStorageService implements StorageService {
     }
 
     @Override
-    public Location newLocation(String storageKey) {
+    public Location newLocation(String purpose, String storageKey) {
+        if (!"MEDICAL_RECORD".equals(purpose)) {
+            return new Location(StorageProvider.LOCAL, null, storageKey);
+        }
         PrivateR2StorageService r2 = privateR2.getIfAvailable();
         return r2 == null ? new Location(StorageProvider.LOCAL, null, storageKey)
-                : new Location(StorageProvider.R2, r2.bucket(), storageKey);
+                : new Location(StorageProvider.R2, r2.bucket(), "storage/" + storageKey);
     }
 
     @Override

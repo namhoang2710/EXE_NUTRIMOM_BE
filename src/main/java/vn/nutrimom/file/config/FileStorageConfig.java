@@ -23,7 +23,12 @@ public class FileStorageConfig {
     PrivateR2StorageService privateR2StorageService(PrivateR2Properties properties,
             @Value("${app.knowledge.r2.bucket-name:}") String publicMediaBucket) {
         validate(properties, publicMediaBucket);
-        S3Client client = S3Client.builder()
+        // Keep this client inside the private adapter, separate from the public-media S3 bean.
+        return new PrivateR2StorageService(createClient(properties), properties.bucketName());
+    }
+
+    static S3Client createClient(PrivateR2Properties properties) {
+        return S3Client.builder()
                 .endpointOverride(URI.create("https://" + properties.accountId() + ".r2.cloudflarestorage.com"))
                 .region(Region.of("auto"))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
@@ -36,8 +41,6 @@ public class FileStorageConfig {
                 .overrideConfiguration(config -> config.apiCallTimeout(Duration.ofSeconds(60))
                         .apiCallAttemptTimeout(Duration.ofSeconds(35)))
                 .build();
-        // Keep this client inside the private adapter, separate from the public-media S3 bean.
-        return new PrivateR2StorageService(client, properties.bucketName());
     }
 
     static void validate(PrivateR2Properties properties, String publicMediaBucket) {
