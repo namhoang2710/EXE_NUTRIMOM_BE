@@ -46,7 +46,7 @@ public class FileController {
     }
 
     @PutMapping("/{fileId}/content")
-    @Operation(summary = "Upload bytes through the local development storage adapter")
+    @Operation(summary = "Upload private bytes through the backend to the configured storage provider")
     public ResponseEntity<Void> putContent(@AuthenticationPrincipal Jwt jwt,
                                             @PathVariable String fileId,
                                             @RequestBody byte[] content) {
@@ -80,6 +80,8 @@ public class FileController {
         FileService.DownloadedFile file = service.download(userId, fileId, token);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(file.mimeType()));
+        headers.setCacheControl("private, no-store");
+        headers.set("X-Content-Type-Options", "nosniff");
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(file.fileName(), StandardCharsets.UTF_8).build());
         return ResponseEntity.ok().headers(headers).body(file.content());

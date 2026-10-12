@@ -48,6 +48,13 @@ public class FileEntity {
     private String storageKey;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "storage_provider", nullable = false, length = 10, updatable = false)
+    private StorageProvider storageProvider = StorageProvider.LOCAL;
+
+    @Column(name = "storage_bucket", length = 63, updatable = false)
+    private String storageBucket;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private FileStatus status;
 
@@ -103,6 +110,10 @@ public class FileEntity {
     public void setSha256(String value) { sha256 = value; }
     public String getStorageKey() { return storageKey; }
     public void setStorageKey(String value) { storageKey = value; }
+    public StorageProvider getStorageProvider() { return storageProvider; }
+    public void setStorageProvider(StorageProvider value) { storageProvider = value; }
+    public String getStorageBucket() { return storageBucket; }
+    public void setStorageBucket(String value) { storageBucket = value; }
     public FileStatus getStatus() { return status; }
     public void setStatus(FileStatus value) { status = value; }
     public OffsetDateTime getUploadExpiresAt() { return uploadExpiresAt; }

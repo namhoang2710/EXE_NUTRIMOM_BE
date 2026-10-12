@@ -20,14 +20,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
+import vn.nutrimom.assistant.service.AiProviderClient;
+import vn.nutrimom.consultation.video.LiveKitGateway;
 import vn.nutrimom.support.ApiIntegrationTestSupport;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class CareAndMedicalIntegrationTest extends ApiIntegrationTestSupport {
+    @MockitoBean AiProviderClient assistantProvider;
+    @MockitoBean LiveKitGateway videoProvider;
 
     @Test
     void carePlanPreparationAndBirthPlanUseOwnershipAndVersions() throws Exception {
