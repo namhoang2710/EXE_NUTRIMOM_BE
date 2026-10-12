@@ -139,6 +139,14 @@ app:
     daily-global-limit: ${NUTRIMOM_ASSISTANT_DAILY_GLOBAL_LIMIT:100}
     daily-token-budget: ${NUTRIMOM_ASSISTANT_DAILY_TOKEN_BUDGET:150000}
     retention-days: ${NUTRIMOM_ASSISTANT_RETENTION_DAYS:30}
+  storage:
+    r2:
+      enabled: ${FILES_R2_ENABLED:false}
+      account-id: ${FILES_R2_ACCOUNT_ID:${R2_ACCOUNT_ID:}}
+      access-key-id: ${FILES_R2_ACCESS_KEY_ID:${R2_ACCESS_KEY_ID:}}
+      secret-access-key: ${FILES_R2_SECRET_ACCESS_KEY:${R2_SECRET_ACCESS_KEY:}}
+      # Must be a separate private bucket; never default to the public-media bucket.
+      bucket-name: ${FILES_R2_BUCKET_NAME:}
   knowledge:
     r2:
       enabled: ${R2_ENABLED:false}
