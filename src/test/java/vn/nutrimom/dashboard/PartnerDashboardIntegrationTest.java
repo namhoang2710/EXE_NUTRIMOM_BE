@@ -109,6 +109,9 @@ class PartnerDashboardIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     private Group createPregnancyAndGroup(Session owner, int daysUntilDue) throws Exception {
+        // Lien ket gia dinh la tinh nang tra phi tu task 17; chu nhom phai co goi thi moi dung
+        // duoc nhom. Bai nay kiem dashboard nguoi than chu khong kiem chuyen ban hang.
+        grantFullPlan(owner);
         LocalDate dueDate = LocalDate.now(ZoneOffset.UTC).plusDays(daysUntilDue);
         MvcResult pregnancyResult = mockMvc.perform(post("/api/v1/pregnancies")
                         .header("Authorization", "Bearer " + owner.accessToken())

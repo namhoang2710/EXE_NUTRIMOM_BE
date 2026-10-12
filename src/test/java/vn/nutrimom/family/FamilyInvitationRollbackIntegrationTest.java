@@ -186,6 +186,9 @@ class FamilyInvitationRollbackIntegrationTest extends ApiIntegrationTestSupport 
     }
 
     private void createPregnancyAndGroup(Session session) throws Exception {
+        // Lien ket gia dinh la tinh nang tra phi tu task 17; chu nhom phai co goi thi moi dung
+        // duoc nhom. Bai nay kiem hanh vi chia se chu khong kiem chuyen ban hang.
+        grantFullPlan(session);
         mockMvc.perform(post("/api/v1/pregnancies")
                         .header("Authorization", "Bearer " + session.accessToken())
                         .contentType(MediaType.APPLICATION_JSON)

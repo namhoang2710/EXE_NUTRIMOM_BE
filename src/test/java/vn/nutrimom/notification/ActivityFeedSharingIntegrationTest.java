@@ -244,6 +244,9 @@ class ActivityFeedSharingIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     private String createPregnancyAndGroup(Session owner) throws Exception {
+        // Lien ket gia dinh la tinh nang tra phi tu task 17; chu nhom phai co goi thi moi dung
+        // duoc nhom. Bai nay kiem hanh vi chia se chu khong kiem chuyen ban hang.
+        grantFullPlan(owner);
         LocalDate dueDate = LocalDate.now(ZoneOffset.UTC).plusDays(100);
         MvcResult pregnancy = mockMvc.perform(post("/api/v1/pregnancies")
                         .header("Authorization", "Bearer " + owner.accessToken())

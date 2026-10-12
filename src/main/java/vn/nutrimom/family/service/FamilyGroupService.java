@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
+import vn.nutrimom.entitlement.domain.PlanFeature;
+import vn.nutrimom.entitlement.service.EntitlementGuard;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyGroupStatus;
 import vn.nutrimom.family.domain.FamilyMemberEntity;
@@ -24,13 +26,16 @@ public class FamilyGroupService {
     private final FamilyGroupRepository groups;
     private final FamilyMemberRepository members;
     private final PregnancyRepository pregnancies;
+    private final EntitlementGuard entitlements;
 
     public FamilyGroupService(FamilyGroupRepository groups,
                               FamilyMemberRepository members,
-                              PregnancyRepository pregnancies) {
+                              PregnancyRepository pregnancies,
+                              EntitlementGuard entitlements) {
         this.groups = groups;
         this.members = members;
         this.pregnancies = pregnancies;
+        this.entitlements = entitlements;
     }
 
     @Transactional
@@ -41,6 +46,11 @@ public class FamilyGroupService {
         if (existing != null) {
             return toResponse(existing);
         }
+
+        // Cổng gói nằm SAU nhánh trên, không phải đầu hàm: hàm này là get-or-create, nên chặn ở đầu
+        // sẽ 403 cả user đã có sẵn nhóm từ trước khi bật cổng — tức chặn luôn đường đọc nhóm của
+        // chính họ. Ở đây chỉ cấm dựng nhóm MỚI.
+        entitlements.requireFeature(userId, PlanFeature.FAMILY_SHARING);
 
         FamilyGroupEntity group = new FamilyGroupEntity();
         group.setPregnancyId(pregnancy.getId());

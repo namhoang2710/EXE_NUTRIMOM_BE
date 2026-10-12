@@ -26,6 +26,7 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.entitlement.PlanFixtures;
 
 /** Hai block lịch của dashboard mẹ bầu: {@code next_appointment} và {@code upcoming_reminders}. */
 @SpringBootTest
@@ -38,6 +39,7 @@ class MomDashboardCalendarIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository users;
+    @Autowired vn.nutrimom.payment.repository.UserSubscriptionRepository subscriptions;
 
     @Test
     void dashboardSurfacesTheNextAppointmentAndUpcomingReminders() throws Exception {
@@ -105,7 +107,11 @@ class MomDashboardCalendarIntegrationTest {
         user.setDisplayName(displayName);
         user.setStatus(UserStatus.ACTIVE);
         user.setRoles(Set.of(UserRole.USER));
-        return users.saveAndFlush(user).getId();
+        String userId = users.saveAndFlush(user).getId();
+        // Nhac nho la tinh nang tra phi tu task 17; bai nay kiem hanh vi cua lich chu khong kiem
+        // chuyen ban hang, nen tai khoan test duoc cap san goi day du.
+        PlanFixtures.grantFullPlan(subscriptions, userId);
+        return userId;
     }
 
     private RequestPostProcessor userJwt(String userId) {

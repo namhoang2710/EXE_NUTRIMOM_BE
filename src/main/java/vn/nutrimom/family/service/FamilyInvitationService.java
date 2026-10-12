@@ -23,6 +23,8 @@ import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.config.FamilyInvitationProperties;
 import vn.nutrimom.config.FrontendProperties;
+import vn.nutrimom.entitlement.domain.PlanFeature;
+import vn.nutrimom.entitlement.service.EntitlementGuard;
 import vn.nutrimom.family.domain.FamilyGroupEntity;
 import vn.nutrimom.family.domain.FamilyGroupStatus;
 import vn.nutrimom.family.domain.FamilyInvitationEntity;
@@ -60,6 +62,7 @@ public class FamilyInvitationService {
     private final NotificationService notifications;
     private final FrontendProperties frontend;
     private final FamilyInvitationProperties properties;
+    private final EntitlementGuard entitlements;
     private final TransactionTemplate tx;
 
     public FamilyInvitationService(FamilyInvitationRepository invitations,
@@ -73,6 +76,7 @@ public class FamilyInvitationService {
                                    NotificationService notifications,
                                    FrontendProperties frontend,
                                    FamilyInvitationProperties properties,
+                                   EntitlementGuard entitlements,
                                    PlatformTransactionManager transactions) {
         this.invitations = invitations;
         this.members = members;
@@ -85,6 +89,7 @@ public class FamilyInvitationService {
         this.notifications = notifications;
         this.frontend = frontend;
         this.properties = properties;
+        this.entitlements = entitlements;
         this.tx = new TransactionTemplate(transactions);
         // REQUIRES_NEW, không phải REQUIRED mặc định: hôm nay không có transaction ngoài nào bọc
         // create (caller duy nhất là FamilyInvitationController), nhưng với REQUIRED thì mai mốt
@@ -129,6 +134,13 @@ public class FamilyInvitationService {
         if ((phone == null) == (email == null)) {
             throw validation("Provide exactly one of invited_phone or invited_email.");
         }
+
+        // Trước tokens.generate() và trước tx.execute(): chặn phải xảy ra khi chưa có tác dụng phụ
+        // nào — chưa sinh token, chưa ghi dòng nào, chưa gửi thư.
+        // Gói của CHỦ NHÓM quyết định, không phải gói của người được mời: người nhà có thể đang ở
+        // FREE, nhưng liên kết này do mẹ bầu trả tiền. Vì vậy accept() KHÔNG bị chặn.
+        entitlements.requireFeature(userId, PlanFeature.FAMILY_SHARING);
+
         InvitationTokenService.TokenMaterial token = tokens.generate();
 
         // execute chỉ trả về SAU commit, nên mọi dòng dưới nó đã đứng ngoài transaction.
