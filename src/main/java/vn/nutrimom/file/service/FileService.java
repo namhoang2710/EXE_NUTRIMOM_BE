@@ -88,9 +88,14 @@ public class FileService {
         file.setSha256(request.sha256().toLowerCase(Locale.ROOT));
         file.setStatus(FileStatus.UPLOADING);
         file.setUploadExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(15));
-        file.setStorageKey(userId + "/pending/" + UUID.randomUUID());
+        StorageService.Location location = storage.newLocation(file.getPurpose(),
+                userId + "/pending/" + UUID.randomUUID());
+        file.setStorageKey(location.key());
+        file.setStorageProvider(location.provider());
+        file.setStorageBucket(location.bucket());
         files.saveAndFlush(file);
-        file.setStorageKey(userId + "/" + file.getId() + "/" + UUID.randomUUID());
+        location = storage.newLocation(file.getPurpose(), userId + "/" + file.getId() + "/" + UUID.randomUUID());
+        file.setStorageKey(location.key());
         files.saveAndFlush(file);
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Content-Type", mimeType);
@@ -114,7 +119,7 @@ public class FileService {
             throw new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "FILE_TOO_LARGE",
                     "The file exceeds the maximum allowed size.");
         }
-        storage.put(file.getStorageKey(), content);
+        storage.put(location(file), content);
     }
 
     @Transactional
@@ -128,7 +133,7 @@ public class FileService {
             throw new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "UPLOAD_NOT_COMPLETE",
                     "The upload session has expired or is incomplete.");
         }
-        StorageService.StoredObject object = storage.head(file.getStorageKey()).orElseThrow(() ->
+        StorageService.StoredObject object = storage.head(location(file)).orElseThrow(() ->
                 new BusinessException(HttpStatus.UNPROCESSABLE_CONTENT, "UPLOAD_NOT_COMPLETE",
                         "The object was not found in storage."));
         if (object.sizeBytes() != file.getSizeBytes()
@@ -186,7 +191,11 @@ public class FileService {
                         sha256(token.getBytes(StandardCharsets.UTF_8)).getBytes(StandardCharsets.US_ASCII));
         if (!owner && !signed) throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "File access is not allowed.");
         if (file.getStatus() != FileStatus.READY) throw notFound();
-        return new DownloadedFile(file.getFileName(), file.getMimeType(), storage.read(file.getStorageKey()));
+        return new DownloadedFile(file.getFileName(), file.getMimeType(), storage.read(location(file)));
+    }
+
+    private StorageService.Location location(FileEntity file) {
+        return new StorageService.Location(file.getStorageProvider(), file.getStorageBucket(), file.getStorageKey());
     }
 
     private FileResponse toResponse(FileEntity file) {

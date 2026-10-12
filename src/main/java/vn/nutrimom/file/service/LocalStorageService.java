@@ -8,21 +8,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Local/dev storage adapter. Production object storage and signed provider URLs
- * remain an infrastructure decision and must replace this adapter before release.
+ * Local development storage and the reader for files created before private R2 was enabled.
  */
 @Service
-public class LocalStorageService implements StorageService {
+public class LocalStorageService {
     private final Path root;
 
     public LocalStorageService(@Value("${app.storage.local-root:${java.io.tmpdir}/nutrimom-storage}") String root) {
         this.root = Paths.get(root).toAbsolutePath().normalize();
     }
 
-    @Override
-    public String uploadUrl(String fileId) { return "/api/v1/files/" + fileId + "/content"; }
-
-    @Override
     public void put(String storageKey, byte[] content) {
         try {
             Path path = resolve(storageKey);
@@ -33,18 +28,16 @@ public class LocalStorageService implements StorageService {
         }
     }
 
-    @Override
-    public java.util.Optional<StoredObject> head(String storageKey) {
+    public java.util.Optional<StorageService.StoredObject> head(String storageKey) {
         try {
             Path path = resolve(storageKey);
             if (!Files.exists(path)) return java.util.Optional.empty();
-            return java.util.Optional.of(new StoredObject(Files.size(path), Files.readAllBytes(path)));
+            return java.util.Optional.of(new StorageService.StoredObject(Files.size(path), Files.readAllBytes(path)));
         } catch (IOException ex) {
             throw new IllegalStateException("Unable to inspect local upload", ex);
         }
     }
 
-    @Override
     public byte[] read(String storageKey) {
         try { return Files.readAllBytes(resolve(storageKey)); }
         catch (IOException ex) { throw new IllegalStateException("Unable to read local file", ex); }
