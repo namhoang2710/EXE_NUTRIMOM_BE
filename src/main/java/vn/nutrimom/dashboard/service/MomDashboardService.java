@@ -1,7 +1,9 @@
 package vn.nutrimom.dashboard.service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import vn.nutrimom.dashboard.dto.BabySummaryResponse;
 import vn.nutrimom.dashboard.dto.MomDashboardResponse;
 import vn.nutrimom.dashboard.dto.PregnancySummaryResponse;
 import vn.nutrimom.dashboard.dto.ProfileSummaryResponse;
+import vn.nutrimom.entitlement.service.EntitlementService;
 import vn.nutrimom.notification.service.NotificationService;
 import vn.nutrimom.pregnancy.dto.PregnancyResponse;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
@@ -34,6 +37,7 @@ public class MomDashboardService {
     private final NotificationService notifications;
     private final CalendarQueryService calendar;
     private final CalendarProperties calendarProperties;
+    private final EntitlementService entitlements;
 
     public MomDashboardService(UserProfileService profiles,
                                PregnancyService pregnancyService,
@@ -42,7 +46,8 @@ public class MomDashboardService {
                                CarePlanService carePlans,
                                NotificationService notifications,
                                CalendarQueryService calendar,
-                               CalendarProperties calendarProperties) {
+                               CalendarProperties calendarProperties,
+                               EntitlementService entitlements) {
         this.profiles = profiles;
         this.pregnancyService = pregnancyService;
         this.pregnancies = pregnancies;
@@ -51,6 +56,7 @@ public class MomDashboardService {
         this.notifications = notifications;
         this.calendar = calendar;
         this.calendarProperties = calendarProperties;
+        this.entitlements = entitlements;
     }
 
     @Transactional(readOnly = true)
@@ -87,7 +93,7 @@ public class MomDashboardService {
                 List.of(),
                 loadUpcomingReminders(profile.id()),
                 null,
-                null,
+                loadSubscription(profile.id()),
                 notifications.unreadCount(profile.id()));
     }
 
@@ -95,7 +101,8 @@ public class MomDashboardService {
     private MomDashboardResponse noPregnancyDashboard(UserProfileResponse profile) {
         return new MomDashboardResponse(
                 profileSummary(profile), null, null, loadNextAppointment(profile.id()), null, null,
-                List.of(), List.of(), loadUpcomingReminders(profile.id()), null, null,
+                List.of(), List.of(), loadUpcomingReminders(profile.id()), null,
+                loadSubscription(profile.id()),
                 notifications.unreadCount(profile.id()));
     }
 
@@ -121,6 +128,29 @@ public class MomDashboardService {
         } catch (RuntimeException ex) {
             log.warn("Optional dashboard block is unavailable: {}", DashboardBlock.UPCOMING_REMINDERS);
             return List.of();
+        }
+    }
+
+    /**
+     * Block gói dịch vụ của dashboard (spec mục 05).
+     *
+     * <p>Khối {@code scan_quota} bên cạnh vẫn để {@code null}: chưa có module scan thì mọi con số
+     * {@code used}/{@code remaining} đều là bịa. Hạn mức theo gói đã được công bố ở
+     * {@code GET /api/v1/subscription-plans} cho tới khi task 15 có chỗ đếm thật.</p>
+     */
+    private Object loadSubscription(String userId) {
+        try {
+            EntitlementService.PlanSnapshot snapshot = entitlements.snapshotOf(userId);
+            Map<String, Object> block = new LinkedHashMap<>();
+            block.put("plan_id", snapshot.plan().code());
+            block.put("plan_name", snapshot.plan().name());
+            block.put("paid", snapshot.paid());
+            block.put("end_date", snapshot.endDate());
+            block.put("days_remaining", snapshot.daysRemaining());
+            return block;
+        } catch (RuntimeException ex) {
+            log.warn("Optional dashboard block is unavailable: {}", DashboardBlock.SUBSCRIPTION);
+            return null;
         }
     }
 

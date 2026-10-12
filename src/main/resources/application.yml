@@ -228,6 +228,11 @@ app:
           policy: invitation-token
         - pattern: /api/v1/family-invitations
           policy: invitation-create
+        # Endpoint công khai (không cần token) nên khoá theo IP. Cũng là route đầu tiên thực sự
+        # trỏ tới policy `default`: RateLimitFilter cho qua VÔ HẠN khi không rule nào khớp, nên
+        # một endpoint ẩn danh mà không khai ở đây là bỏ ngỏ hoàn toàn.
+        - pattern: /api/v1/subscription-plans
+          policy: default
   otp:
     code-length: 6
     ttl: ${NUTRIMOM_OTP_TTL:PT5M}

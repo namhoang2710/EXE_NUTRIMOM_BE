@@ -59,6 +59,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/consultation-video/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/experts", "/api/v1/experts/*").permitAll()
+                        // Trang giá phải xem được khi chưa đăng nhập, nếu không thì FE vẫn phải
+                        // hardcode giá đúng cái mà spec mục 17 cấm.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/subscription-plans").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/knowledge/articles", "/api/v1/knowledge/articles/*").permitAll()
                         .anyRequest().authenticated())

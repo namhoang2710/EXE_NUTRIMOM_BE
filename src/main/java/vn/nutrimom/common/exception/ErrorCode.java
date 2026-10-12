@@ -117,6 +117,9 @@ public enum ErrorCode {
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST, false, "Giao dịch thanh toán thất bại."),
     PAYMENT_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, false, "Chữ ký webhook PayOS không hợp lệ."),
     INVALID_PLAN_TIER(HttpStatus.BAD_REQUEST, false, "Gói dịch vụ không hợp lệ."),
+    // 403 chứ không phải 429 như QUOTA_EXCEEDED: đây là "gói của bạn không bán tính năng này",
+    // không phải "bạn đã dùng hết lượt". FE cần phân biệt hai ca để biết có mời nâng cấp hay không.
+    PLAN_UPGRADE_REQUIRED(HttpStatus.FORBIDDEN, false, "Tính năng này không có trong gói của bạn."),
 
     // --- Assistant ---
     ASSISTANT_BUSY(HttpStatus.CONFLICT, true, "Trợ lý đang xử lý một câu hỏi của bạn. Vui lòng chờ rồi thử lại."),
