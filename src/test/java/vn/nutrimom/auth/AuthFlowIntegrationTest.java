@@ -27,6 +27,31 @@ class AuthFlowIntegrationTest {
     @Autowired UserRepository users;
 
     @Test
+    void activationRequiresProofAndConsumesCodeBeforeIssuingSession() throws Exception {
+        var user = new vn.nutrimom.auth.domain.UserEntity();
+        user.setEmail("activation_security@example.test");
+        user.setDisplayName("Activation security fixture");
+        user.setStatus(vn.nutrimom.auth.domain.UserStatus.PENDING_ACTIVATION);
+        user.setRoles(java.util.Set.of(vn.nutrimom.auth.domain.UserRole.USER));
+        user.setEmailActivationTokenHash(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest("123456".getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+        user.setEmailActivationExpiresAt(java.time.OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(5));
+        users.saveAndFlush(user);
+
+        mockMvc.perform(post("/api/v1/auth/activate").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"activation_security@example.test\",\"token\":\"wrong\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ACTIVATION_TOKEN"));
+        mockMvc.perform(post("/api/v1/auth/activate").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"activation_security@example.test\",\"token\":\"123456\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.access_token").isNotEmpty());
+        mockMvc.perform(post("/api/v1/auth/activate").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"activation_security@example.test\",\"token\":\"123456\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ACTIVATION_TOKEN"));
+    }
+
+    @Test
     void otpRegistrationRequiresAcceptedTerms() throws Exception {
         mockMvc.perform(post("/api/v1/auth/otp/request")
                         .contentType(MediaType.APPLICATION_JSON)
