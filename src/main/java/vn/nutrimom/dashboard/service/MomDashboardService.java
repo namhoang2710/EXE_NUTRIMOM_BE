@@ -20,7 +20,7 @@ import vn.nutrimom.entitlement.service.EntitlementService;
 import vn.nutrimom.notification.service.NotificationService;
 import vn.nutrimom.pregnancy.dto.PregnancyResponse;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
-import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
+import vn.nutrimom.pregnancy.service.PregnancyWeekContentReader;
 import vn.nutrimom.pregnancy.service.PregnancyService;
 import vn.nutrimom.user.dto.UserProfileResponse;
 import vn.nutrimom.user.service.UserProfileService;
@@ -32,7 +32,7 @@ public class MomDashboardService {
     private final UserProfileService profiles;
     private final PregnancyService pregnancyService;
     private final PregnancyRepository pregnancies;
-    private final PregnancyWeekContentRepository weekContents;
+    private final PregnancyWeekContentReader weekContents;
     private final CarePlanService carePlans;
     private final NotificationService notifications;
     private final CalendarQueryService calendar;
@@ -42,7 +42,7 @@ public class MomDashboardService {
     public MomDashboardService(UserProfileService profiles,
                                PregnancyService pregnancyService,
                                PregnancyRepository pregnancies,
-                               PregnancyWeekContentRepository weekContents,
+                               PregnancyWeekContentReader weekContents,
                                CarePlanService carePlans,
                                NotificationService notifications,
                                CalendarQueryService calendar,
@@ -164,8 +164,7 @@ public class MomDashboardService {
             return null;
         }
         try {
-            return weekContents.findById((int) gestationalWeek)
-                    .filter(content -> "REVIEWED".equalsIgnoreCase(content.getReviewStatus()))
+            return weekContents.findReviewedWeek((int) gestationalWeek)
                     .map(content -> new BabySummaryResponse(
                             content.getWeek(), content.getTitle(), content.getSummary(),
                             content.getBabyDevelopment(), content.getDisclaimer()))
