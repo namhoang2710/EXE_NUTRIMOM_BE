@@ -1,0 +1,1308 @@
+{
+  "dataset_id" : "supabase-dev-export",
+  "sha256" : "3b4b6d5bb5fcae375faacebb1978be6ba01f8ac504ff9f8a382e209ffeda27ce",
+  "checked_at" : "2026-10-15T06:50:38.3430093Z",
+  "mode" : "FULL",
+  "target_weeks" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42 ],
+  "valid_weeks" : [ ],
+  "invalid_weeks" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42 ],
+  "missing_weeks" : [ ],
+  "errors" : [ {
+    "week" : null,
+    "field" : "dataset_status",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "dataset_status is \"EXPORTED_FROM_DB\"; only APPROVED packages can be published."
+  }, {
+    "week" : 0,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 0,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 0,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 0,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 0,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 0,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 1,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 1,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 1,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 1,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 1,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 1,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 2,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 2,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 2,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 2,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 2,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 2,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 3,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 3,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 3,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 3,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 3,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 3,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 4,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 4,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 4,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 4,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 4,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 4,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 5,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 5,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 5,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 5,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 5,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 5,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 6,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 6,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 6,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 6,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 6,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 6,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 7,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 7,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 7,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 7,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 7,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 7,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 8,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 8,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 8,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 8,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 8,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 8,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 9,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 9,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 9,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 9,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 9,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 9,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 10,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 10,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 10,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 10,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 10,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 10,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 11,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 11,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 11,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 11,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 11,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 11,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 12,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 12,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 12,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 12,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 12,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 12,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 13,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 13,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 13,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 13,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 13,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 13,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 14,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 14,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 14,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 14,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 14,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 14,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 15,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 15,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 15,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 15,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 15,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 15,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 16,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 16,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 16,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 16,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 16,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 16,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 17,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 17,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 17,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 17,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 17,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 17,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 18,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 18,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 18,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 18,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 18,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 18,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 19,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 19,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 19,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 19,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 19,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 19,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 20,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 20,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 20,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 20,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 20,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 20,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 21,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 21,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 21,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 21,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 21,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 21,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 22,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 22,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 22,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 22,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 22,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 22,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 23,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 23,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 23,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 23,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 23,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 23,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 24,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 24,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 24,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 24,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 24,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 24,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 25,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 25,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 25,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 25,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 25,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 25,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 26,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 26,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 26,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 26,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 26,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 26,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 27,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 27,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 27,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 27,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 27,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 27,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 28,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 28,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 28,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 28,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 28,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 28,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 29,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 29,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 29,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 29,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 29,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 29,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 30,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 30,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 30,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 30,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 30,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 30,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 31,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 31,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 31,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 31,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 31,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 31,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 32,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 32,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 32,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 32,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 32,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 32,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 33,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 33,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 33,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 33,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 33,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 33,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 34,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 34,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 34,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 34,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 34,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 34,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 35,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 35,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 35,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 35,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 35,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 35,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 36,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 36,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 36,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 36,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 36,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 36,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 37,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 37,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 37,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 37,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 37,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 37,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 38,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 38,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 38,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 38,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 38,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 38,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 39,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 39,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 39,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 39,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 39,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 39,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 40,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 40,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 40,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 40,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 40,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 40,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 41,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 41,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 41,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 41,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 41,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 41,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  }, {
+    "week" : 42,
+    "field" : "summary",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "summary looks like placeholder text."
+  }, {
+    "week" : 42,
+    "field" : "baby_development",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "baby_development looks like placeholder text."
+  }, {
+    "week" : 42,
+    "field" : "mother_changes",
+    "code" : "PLACEHOLDER_TEXT",
+    "message" : "mother_changes looks like placeholder text."
+  }, {
+    "week" : 42,
+    "field" : "reviewed_by",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_by is required before publishing."
+  }, {
+    "week" : 42,
+    "field" : "approval_reference",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "approval_reference must point to the approval of this content version."
+  }, {
+    "week" : 42,
+    "field" : "reviewed_at",
+    "code" : "UNAPPROVED_CONTENT",
+    "message" : "reviewed_at is required before publishing."
+  } ],
+  "warnings" : [ ],
+  "publishable" : false
+}

@@ -22,8 +22,8 @@ public class PregnancyWeekContentReader {
      * after this read transaction closes.
      */
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
-    public Optional<PregnancyWeekContentEntity> findReviewedWeek(int week) {
+    public Optional<PregnancyWeekContentEntity> findPublishableWeek(int week) {
         return contents.findById(week)
-                .filter(content -> "REVIEWED".equalsIgnoreCase(content.getReviewStatus()));
+                .filter(PregnancyWeekContentPublication::isPublishable);
     }
 }

@@ -9,13 +9,14 @@ weekly-content repository call joined that transaction. An SQL failure marked th
 rollback-only; catching the exception and returning `baby_summary = null` did not prevent
 `UnexpectedRollbackException` at the end of the request and HTTP 500.
 
-`PregnancyWeekContentReader.findReviewedWeek` now runs the optional read in a separate
+`PregnancyWeekContentReader.findPublishableWeek` now runs the optional read in a separate
 `REQUIRES_NEW`, read-only transaction. An unsuccessful read finishes rollback before the
 dashboard catches it. Other dashboard reads retain their existing transaction behavior,
 including calendar/subscription blocks and callers with uncommitted fixtures.
 
-The reader still selects only `REVIEWED` content from `app.pregnancy_week_contents`. Missing
-or unreviewed content produces a null block. Weeks outside 0–42 keep their actual gestational
+The reader selects only publishable content from `app.pregnancy_week_contents` (see
+`PregnancyWeekContentPublication`: `REVIEWED` plus reviewer, review time, positive version and
+non-blank required text). Missing, unreviewed or incomplete content produces a null block. Weeks outside 0–42 keep their actual gestational
 age and produce a null content block; no calculation or pregnancy lifecycle is changed.
 
 The read returns an entity containing basic columns only, without lazy associations. If that
@@ -39,6 +40,8 @@ null measurements remain omitted according to the existing JSON inclusion policy
 
 - Authenticated, valid week with reviewed content: HTTP 200.
 - Existing unreviewed content: HTTP 409, `CONTENT_NOT_REVIEWED`.
+- Content labelled `REVIEWED` but missing reviewer/review time/required text: also HTTP 409
+  `CONTENT_NOT_REVIEWED` (no new error code), logged with field names only.
 - Missing content: HTTP 404, `RESOURCE_NOT_FOUND`.
 - Week -1 or 43: HTTP 422, `VALIDATION_ERROR`.
 - Unauthenticated requests remain protected.
@@ -48,11 +51,15 @@ null measurements remain omitted according to the existing JSON inclusion policy
 
 ## Automated coverage
 
-`PregnancyWeeklyContentIntegrationTest` adds 17 cases for the contracts, reviewed weeks
+`PregnancyWeeklyContentIntegrationTest` covers the contracts, reviewed weeks
 0/1/20/40/42, metadata, optional measurements, dashboard consistency, missing/unreviewed
 fallback, week 43 without clamping, and a real SQL failure through Spring/JPA.
 
-The SQL-failure test uses its own H2 in-memory database, checks the JDBC URL before renaming
+`PregnancyWeeklyContentPostgresFallbackTest` repeats the SQL-failure case on a real, disposable
+local PostgreSQL database (enabled only by `NUTRIMOM_PG_TEST_URL` pointing at localhost); see
+`docs/pregnancy-weekly-content/verification.md`.
+
+The H2 SQL-failure test uses its own in-memory database, checks the JDBC URL before renaming
 the table, and restores it in `finally`. It does not modify any shared/cloud database. Test
 content and measurements are clearly synthetic fixtures, not a medically approved dataset.
 
@@ -83,8 +90,8 @@ Measurements and the next review date may be absent when no approved values exis
 
 Then add a new migration after the highest deployed version, test the upgrade on a separate
 PostgreSQL database, and verify HTTP responses on the named deployment environment. Preserve
-existing migration checksums and prevent overwriting a newer reviewed version. Administrative
-V42/V43 source reconciliation is a separate delivery concern.
+existing migration checksums and prevent overwriting a newer reviewed version. Handoff
+package, template, validator and current status: `docs/pregnancy-weekly-content/handoff.md`.
 
 The full content-publishing task is complete only after that dataset/migration step and
 positive weekly/dashboard responses on the updated environment, with approval provenance.

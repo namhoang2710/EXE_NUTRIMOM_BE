@@ -164,7 +164,7 @@ public class MomDashboardService {
             return null;
         }
         try {
-            return weekContents.findReviewedWeek((int) gestationalWeek)
+            return weekContents.findPublishableWeek((int) gestationalWeek)
                     .map(content -> new BabySummaryResponse(
                             content.getWeek(), content.getTitle(), content.getSummary(),
                             content.getBabyDevelopment(), content.getDisclaimer()))

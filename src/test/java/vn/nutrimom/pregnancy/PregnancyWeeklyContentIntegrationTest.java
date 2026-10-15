@@ -113,6 +113,28 @@ class PregnancyWeeklyContentIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("CONTENT_NOT_REVIEWED"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"reviewed_by", "reviewed_at", "summary", "care_tips", "sources"})
+    void reviewedLabelWithMissingRequiredDataIsNotPublished(String missingField) throws Exception {
+        contents.saveAndFlush(reviewedWithout(20, missingField));
+
+        mockMvc.perform(get("/api/v1/pregnancy-content/weeks/20").with(userJwt()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONTENT_NOT_REVIEWED"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void dashboardReturnsNullForReviewedLabelWithoutReviewer() throws Exception {
+        createPregnancy(20, 0);
+        contents.saveAndFlush(reviewedWithout(20, "reviewed_by"));
+
+        mockMvc.perform(get("/api/v1/dashboard/mom").with(userJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pregnancy_summary.gestational_week").value(20))
+                .andExpect(jsonPath("$.data.baby_summary").value(nullValue()));
+    }
+
     @Test
     void missingContentReturns404() throws Exception {
         mockMvc.perform(get("/api/v1/pregnancy-content/weeks/20").with(userJwt()))
@@ -275,6 +297,20 @@ class PregnancyWeeklyContentIntegrationTest {
         content.setReviewedBy("Integration fixture reviewer");
         content.setReviewedAt(REVIEWED_AT);
         content.setContentVersion(2);
+        return content;
+    }
+
+    /** REVIEWED label kept, but one required value blanked (whitespace for NOT NULL text columns). */
+    private PregnancyWeekContentEntity reviewedWithout(int week, String field) {
+        PregnancyWeekContentEntity content = reviewedFixture(week);
+        switch (field) {
+            case "reviewed_by" -> content.setReviewedBy("  ");
+            case "reviewed_at" -> content.setReviewedAt(null);
+            case "summary" -> content.setSummary(" ");
+            case "care_tips" -> content.setCareTips("");
+            case "sources" -> content.setSources(" ");
+            default -> throw new IllegalArgumentException(field);
+        }
         return content;
     }
 
