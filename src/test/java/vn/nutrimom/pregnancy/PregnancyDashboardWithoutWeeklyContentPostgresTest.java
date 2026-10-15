@@ -39,18 +39,19 @@ import vn.nutrimom.pregnancy.domain.PregnancyWeekContentEntity;
 import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
 
 /**
- * Proves the dashboard survives a real PostgreSQL error in the weekly-content read.
+ * Proves on real PostgreSQL that the mom dashboard no longer reads weekly content.
  *
- * <p>H2 cannot show this: on PostgreSQL a failed statement aborts the whole transaction, so the
- * weekly read must run in its own transaction. Runs only when {@code NUTRIMOM_PG_TEST_URL} points
- * at a disposable local database; Flyway migrates it from scratch. Never point it at a shared DB.
+ * <p>On PostgreSQL a failed statement aborts the whole transaction, and the dashboard has no
+ * fallback for the weekly table any more; so if it still queried the (renamed) table the request
+ * would fail. Runs only when {@code NUTRIMOM_PG_TEST_URL} points at a disposable local database;
+ * Flyway migrates it from scratch. Never point it at a shared DB.
  */
 @EnabledIfEnvironmentVariable(named = "NUTRIMOM_PG_TEST_URL", matches = "jdbc:postgresql://(localhost|127\\.0\\.0\\.1)[:/].*")
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(PregnancyIntegrationTest.FixedTimeConfig.class)
-class PregnancyWeeklyContentPostgresFallbackTest {
+class PregnancyDashboardWithoutWeeklyContentPostgresTest {
     private static final ZoneId PREGNANCY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     @DynamicPropertySource
@@ -88,14 +89,14 @@ class PregnancyWeeklyContentPostgresFallbackTest {
     }
 
     @Test
-    void dashboardReturns200WhenWeeklyQueryFailsOnPostgres() throws Exception {
+    void dashboardWorksWithoutTheWeeklyContentTableOnPostgres() throws Exception {
         createPregnancy(20);
         contents.saveAndFlush(reviewedFixture(20));
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         jdbc.execute("ALTER TABLE app.pregnancy_week_contents RENAME TO pregnancy_week_contents_unavailable");
         try {
-            // Control: the weekly endpoint itself now hits a real PostgreSQL error.
+            // Control: the deprecated weekly endpoint still reads the table, so it now fails.
             mockMvc.perform(get("/api/v1/pregnancy-content/weeks/20").with(userJwt()))
                     .andExpect(status().is5xxServerError());
 
@@ -110,7 +111,7 @@ class PregnancyWeeklyContentPostgresFallbackTest {
 
         mockMvc.perform(get("/api/v1/dashboard/mom").with(userJwt()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.baby_summary.week").value(20));
+                .andExpect(jsonPath("$.data.baby_summary").value(nullValue()));
     }
 
     private void createPregnancy(int week) throws Exception {

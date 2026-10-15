@@ -30,10 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
@@ -41,7 +38,12 @@ import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.pregnancy.domain.PregnancyWeekContentEntity;
 import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
 
-/** Synthetic fixtures only. The fault test uses its own H2 database, never the shared cloud DB. */
+/**
+ * Synthetic fixtures only; the table-rename test uses its own H2 database, never the shared cloud DB.
+ *
+ * <p>Weekly articles were dropped (15/10/2026). The deprecated weekly endpoint keeps its old
+ * contract for old clients, while the dashboard no longer reads weekly content at all.
+ */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:pregnancy_weekly_contract;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;INIT=CREATE SCHEMA IF NOT EXISTS app",
         "spring.datasource.username=sa",
@@ -58,7 +60,6 @@ class PregnancyWeeklyContentIntegrationTest {
     private static final OffsetDateTime REVIEWED_AT = OffsetDateTime.parse("2026-09-20T08:00:00Z");
 
     @Autowired MockMvc mockMvc;
-    @Autowired ObjectMapper objectMapper;
     @Autowired PregnancyWeekContentRepository contents;
     @Autowired UserRepository users;
     @Autowired Clock clock;
@@ -125,17 +126,6 @@ class PregnancyWeeklyContentIntegrationTest {
     }
 
     @Test
-    void dashboardReturnsNullForReviewedLabelWithoutReviewer() throws Exception {
-        createPregnancy(20, 0);
-        contents.saveAndFlush(reviewedWithout(20, "reviewed_by"));
-
-        mockMvc.perform(get("/api/v1/dashboard/mom").with(userJwt()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.pregnancy_summary.gestational_week").value(20))
-                .andExpect(jsonPath("$.data.baby_summary").value(nullValue()));
-    }
-
-    @Test
     void missingContentReturns404() throws Exception {
         mockMvc.perform(get("/api/v1/pregnancy-content/weeks/20").with(userJwt()))
                 .andExpect(status().isNotFound())
@@ -196,11 +186,9 @@ class PregnancyWeeklyContentIntegrationTest {
     }
 
     @Test
-    void dashboardUsesTheSameReviewedWeekWithoutChangingPregnancyCalculation() throws Exception {
+    void dashboardShowsPregnancySummaryButNoWeeklyArticleEvenWhenReviewedContentExists() throws Exception {
         LocalDate dueDate = createPregnancy(20, 3);
         contents.saveAndFlush(reviewedFixture(20));
-        JsonNode weekly = responseData(mockMvc.perform(get("/api/v1/pregnancy-content/weeks/20")
-                        .with(userJwt())).andExpect(status().isOk()).andReturn());
 
         mockMvc.perform(get("/api/v1/dashboard/mom").with(userJwt()))
                 .andExpect(status().isOk())
@@ -210,11 +198,7 @@ class PregnancyWeeklyContentIntegrationTest {
                 .andExpect(jsonPath("$.data.pregnancy_summary.trimester").value(2))
                 .andExpect(jsonPath("$.data.pregnancy_summary.estimated_due_date").value(dueDate.toString()))
                 .andExpect(jsonPath("$.data.pregnancy_summary.days_until_due").value(137))
-                .andExpect(jsonPath("$.data.baby_summary.week").value(20))
-                .andExpect(jsonPath("$.data.baby_summary.title").value(weekly.at("/title").stringValue()))
-                .andExpect(jsonPath("$.data.baby_summary.summary").value(weekly.at("/summary").stringValue()))
-                .andExpect(jsonPath("$.data.baby_summary.baby_development").value(weekly.at("/baby_development").stringValue()))
-                .andExpect(jsonPath("$.data.baby_summary.disclaimer").value(weekly.at("/disclaimer").stringValue()))
+                .andExpect(jsonPath("$.data.baby_summary").value(nullValue()))
                 .andExpect(jsonPath("$.data.subscription.plan_id").value("FREE"));
     }
 
@@ -251,7 +235,7 @@ class PregnancyWeeklyContentIntegrationTest {
     }
 
     @Test
-    void dashboardReturns200WhenWeeklyQueryFails() throws Exception {
+    void dashboardDoesNotReadTheWeeklyContentTable() throws Exception {
         createPregnancy(20, 0);
         contents.saveAndFlush(reviewedFixture(20));
         try (var connection = dataSource.getConnection()) {
@@ -261,6 +245,10 @@ class PregnancyWeeklyContentIntegrationTest {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("ALTER TABLE app.pregnancy_week_contents RENAME TO pregnancy_week_contents_unavailable");
         try {
+            // Control: the deprecated endpoint does use the table, so it now fails.
+            mockMvc.perform(get("/api/v1/pregnancy-content/weeks/20").with(userJwt()))
+                    .andExpect(status().is5xxServerError());
+            // The dashboard has no fallback for this table any more; it simply never queries it.
             mockMvc.perform(get("/api/v1/dashboard/mom").with(userJwt()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.pregnancy_summary.gestational_week").value(20))
@@ -325,9 +313,5 @@ class PregnancyWeeklyContentIntegrationTest {
     private RequestPostProcessor userJwt() {
         return jwt().jwt(token -> token.subject(userId).claim("roles", List.of("USER")))
                 .authorities(new SimpleGrantedAuthority("ROLE_USER"));
-    }
-
-    private JsonNode responseData(MvcResult result) throws Exception {
-        return objectMapper.readTree(result.getResponse().getContentAsString()).at("/data");
     }
 }
