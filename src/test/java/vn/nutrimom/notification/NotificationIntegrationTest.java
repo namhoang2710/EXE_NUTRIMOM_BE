@@ -8,6 +8,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.persistence.EntityManager;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -15,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,6 +54,15 @@ class NotificationIntegrationTest {
     @Autowired PushTokenCipher cipher;
     @Autowired NotificationService notifications;
     @Autowired ActivityFeedService activityFeed;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired EntityManager entityManager;
+
+    /**
+     * Fixed base time for ordering tests. Two notifications published back to back can share the same
+     * microsecond, so tests that assert "newest first" set created_at explicitly instead of relying on
+     * the wall clock (no sleep).
+     */
+    private static final OffsetDateTime T0 = OffsetDateTime.parse("2026-10-01T08:00:00Z");
 
     // ----- POST /devices -----
 
@@ -178,8 +192,8 @@ class NotificationIntegrationTest {
     @Test
     void listReturnsNewestFirstWithSpecFields() throws Exception {
         String userId = account("0914000011", "Feed Mom");
-        publish(userId, "Thông báo cũ");
-        publish(userId, "Thông báo mới");
+        publishAt(userId, "Thông báo cũ", T0);
+        publishAt(userId, "Thông báo mới", T0.plusSeconds(1));
 
         mockMvc.perform(get("/api/v1/notifications").with(userJwt(userId)))
                 .andExpect(status().isOk())
@@ -197,9 +211,9 @@ class NotificationIntegrationTest {
     @Test
     void cursorStaysStableWhenNewNotificationsArriveBetweenPages() throws Exception {
         String userId = account("0914000012", "Cursor Mom");
-        publish(userId, "Thứ nhất");
-        publish(userId, "Thứ hai");
-        publish(userId, "Thứ ba");
+        publishAt(userId, "Thứ nhất", T0);
+        publishAt(userId, "Thứ hai", T0.plusSeconds(1));
+        publishAt(userId, "Thứ ba", T0.plusSeconds(2));
 
         MvcResult firstPage = mockMvc.perform(get("/api/v1/notifications")
                         .param("limit", "2").with(userJwt(userId)))
@@ -213,7 +227,7 @@ class NotificationIntegrationTest {
                 .at("/data/next_cursor").stringValue();
 
         // Thông báo mới chen vào giữa hai lần gọi — trang sau không được vì thế mà lệch.
-        publish(userId, "Thứ tư");
+        publishAt(userId, "Thứ tư", T0.plusSeconds(3));
 
         mockMvc.perform(get("/api/v1/notifications")
                         .param("limit", "2").param("cursor", cursor).with(userJwt(userId)))
@@ -221,6 +235,39 @@ class NotificationIntegrationTest {
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].title").value("Thứ nhất"))
                 .andExpect(jsonPath("$.data.has_more").value(false));
+    }
+
+    /** Equal created_at values are ordered by id; paging through them must not skip or repeat rows. */
+    @Test
+    void notificationsSharingATimestampArePagedWithoutGapsOrDuplicates() throws Exception {
+        String userId = account("0914000015", "Tie Mom");
+        List<String> tied = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            tied.add(publishAt(userId, "Cùng lúc " + i, T0));
+        }
+        String newest = publishAt(userId, "Mới hơn", T0.plusSeconds(1));
+        String oldest = publishAt(userId, "Cũ hơn", T0.minusSeconds(1));
+
+        List<String> seen = new ArrayList<>();
+        String cursor = null;
+        boolean hasMore = true;
+        while (hasMore) {
+            var request = get("/api/v1/notifications").param("limit", "2").with(userJwt(userId));
+            if (cursor != null) {
+                request.param("cursor", cursor);
+            }
+            var data = objectMapper.readTree(mockMvc.perform(request).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString()).at("/data");
+            data.at("/items").forEach(item -> seen.add(item.at("/id").stringValue()));
+            hasMore = data.at("/has_more").booleanValue();
+            cursor = hasMore ? data.at("/next_cursor").stringValue() : null;
+        }
+
+        List<String> expected = new ArrayList<>();
+        expected.add(newest);
+        tied.stream().sorted(Comparator.reverseOrder()).forEach(expected::add);
+        expected.add(oldest);
+        assertThat(seen).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -422,6 +469,15 @@ class NotificationIntegrationTest {
         PushDeviceEntity device = devices.findByUserIdAndDeviceId(userId, deviceId).orElseThrow();
         device.setPushTokenCipher("bm90LWEtdmFsaWQtY2lwaGVydGV4dA==");
         devices.saveAndFlush(device);
+    }
+
+    /** Publishes, then pins created_at so ordering does not depend on clock resolution. */
+    private String publishAt(String userId, String title, OffsetDateTime createdAt) {
+        String id = publish(userId, title);
+        entityManager.flush();
+        jdbc.update("UPDATE app.notifications SET created_at = ? WHERE id = ?", createdAt, id);
+        entityManager.clear();
+        return id;
     }
 
     private String publish(String userId, String title) {
