@@ -40,7 +40,7 @@ Sau khi đọc code, hai gợi ý trước bị bác và thay bằng phương á
 **Lý do không dùng cache:** sống qua restart, mở DB ra xem được lúc demo, không thêm hạ tầng.
 Repo hiện chỉ có `InMemoryRateLimiterStore`, không có Redis.
 
-**Thuộc nhánh:** `feature/meal-plan-generation` — migration V45.
+**Thuộc nhánh:** `feature/meal-plan-generation` — migration của nhánh đó.
 
 ---
 
@@ -60,7 +60,7 @@ hình dạng sẽ làm tài liệu và code lệch nhau.
 
 `roleTargetShare` của bữa phụ (15% theo mục 10) chia đều cho `snackCount`.
 
-**Thuộc nhánh:** `feature/meal-plan-generation` — migration V45.
+**Thuộc nhánh:** `feature/meal-plan-generation` — migration của nhánh đó.
 
 ---
 
@@ -98,8 +98,8 @@ mới hết hạn.
 Chỉ áp **một** phản hồi gần nhất. Các sở thích khác (nhóm ẩm thực, tags dung nạp, nguyên liệu
 không thích) vẫn cộng trừ riêng.
 
-**Thuộc nhánh:** `feature/nutrition-profile` (V43) định nghĩa `UserRecipePreference` không có
-cột `expiresAt` ngay từ đầu · `feature/nutrition-diary` (V47) làm `MealFeedback`.
+**Thuộc nhánh:** `feature/nutrition-profile`  định nghĩa `UserRecipePreference` không có
+cột `expiresAt` ngay từ đầu · `feature/nutrition-diary`  làm `MealFeedback`.
 
 ---
 
@@ -140,7 +140,7 @@ Repo tách sẵn hai đường và `FileStorageConfig` còn chủ động ném l
   phá cache ảnh.
 - **Không có endpoint upload ảnh** — không có màn quản trị. Ảnh đẩy lên bằng script seed.
 
-**Thuộc nhánh:** `feature/nutrition-catalog-seed` — V42.
+**Thuộc nhánh:** `feature/nutrition-catalog-seed` — nhánh 1 (V57).
 
 ---
 
@@ -165,7 +165,7 @@ Giữ `authenticated` toàn bộ: `/api/v1/me/nutrition-profile`, `/api/v1/recom
 **Rate limit:** thêm policy `recipes` vào `policies:` trong `application.yml`, khóa theo IP.
 `RateLimitFilter` khớp path bằng `AntPathMatcher` theo tên policy, không có annotation.
 
-**Thuộc nhánh:** `feature/nutrition-catalog-seed` — V42.
+**Thuộc nhánh:** `feature/nutrition-catalog-seed` — nhánh 1 (V57).
 
 ---
 
@@ -179,14 +179,13 @@ Giữ `authenticated` toàn bộ: `/api/v1/me/nutrition-profile`, `/api/v1/recom
 | 409 VERSION_CONFLICT | `VERSION_CONFLICT` — **đã có** |
 | Gửi trùng `requestId` | `IDEMPOTENCY_CONFLICT` — **đã có** |
 | Chặn theo gói | `PLAN_UPGRADE_REQUIRED` — **đã có** |
-| 422 RECIPE_NOT_ELIGIBLE | **thêm mới**, `HttpStatus.UNPROCESSABLE_CONTENT` |
+| 422 RECIPE_NOT_ELIGIBLE | **thêm mới**, `HttpStatus.UNPROCESSABLE_CONTENT` — thêm mã không làm `ErrorCatalogTest` đỏ |
 | 200 NO_MATCH, reason SEARCH_LIMIT | **không phải mã lỗi** — là `reasonCodes` trong body, HTTP 200 |
 
 ---
 
 ## Nhắc lại hai ràng buộc không được quên
 
-1. **Flyway đặt chỗ theo thứ tự nhánh**: V42 catalog · V43 hồ sơ · V44 recommendation ·
-   V45 meal-plan · V46 shopping-list · V47 diary. Merge lệch thứ tự thì phải đổi tên file.
+1. **Flyway: KHÔNG đặt chỗ trước.** DB Supabase dùng chung chạy trước repo (16/10/2026: repo V41, DB V56), nên số migration phải hỏi `app.flyway_schema_history` lúc bắt đầu nhánh và kiểm lại trước khi merge. Xem `_CONTRACT.md` mục 2.
 2. **`null` khác `0`** từ cột `amount_per_100g` cho tới thanh tiến trình trên UI. Thiếu dữ liệu
    thì tổng mang `PARTIAL`, không tô đầy, không thay bằng 0.

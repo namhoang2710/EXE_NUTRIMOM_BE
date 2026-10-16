@@ -9,14 +9,14 @@ Nhánh nặng nhất, dễ trượt tiến độ nhất.
 |---|---|
 | Nhánh git | `feature/meal-plan-generation` |
 | Cắt từ | nhánh 4 |
-| Migration | **V45** |
+| Migration | lấy số lúc bắt đầu nhánh — xem `_CONTRACT.md` mục 2 |
 | Demo được | Mẹ bầu bấm "Tạo thực đơn hôm nay", xem trước, chỉnh, lưu |
 
 **Chỉ làm một ngày.** Ba và bảy ngày thuộc nhánh 9.
 
 ---
 
-## 1. Bảng (V45)
+## 1. Bảng
 
 | Bảng | Cột |
 |---|---|
@@ -246,7 +246,7 @@ tự tính tổng — **gọi NutritionCalculator của nhánh 2**.
 
 ## Xong là khi
 
-- [ ] V45 chạy sạch; `meal_slots` có `sequence`, unique bộ bốn
+- [ ] Migration chạy sạch; `meal_slots` có `sequence`, unique bộ bốn
 - [ ] Sáu TC trên có test, xanh
 - [ ] Ba `generation_status` đều tái hiện được bằng fixture
 - [ ] Bản xem trước hết hạn sau 30 phút, lưu lúc đó bị từ chối

@@ -8,14 +8,14 @@
 |---|---|
 | Nhánh git | `feature/nutrition-shopping-list` |
 | Cắt từ | nhánh 6 |
-| Migration | **V46** |
+| Migration | lấy số lúc bắt đầu nhánh — xem `_CONTRACT.md` mục 2 |
 | Demo được | Tạo thực đơn → mở mua sắm → tick "đã có" → đổi món → danh sách cập nhật |
 
 Chạy song song được với nhánh 8. **Không mở cùng lúc với nhánh 6.**
 
 ---
 
-## 1. Bảng (V46)
+## 1. Bảng
 
 | Bảng | Cột |
 |---|---|
@@ -95,7 +95,7 @@ Kết nối cửa hàng · thanh toán · giao hàng · quét mã vạch · nh�
 
 ## Xong là khi
 
-- [ ] V46 chạy sạch
+- [ ] Migration chạy sạch
 - [ ] Năm TC trên có test, xanh
 - [ ] Đổi món ở nhánh 6 làm danh sách cập nhật theo `plan_version` mới
 - [ ] Cập nhật `docs/NUTRITION_API.md`

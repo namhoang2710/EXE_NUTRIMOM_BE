@@ -8,7 +8,7 @@
 |---|---|
 | Nhánh git | `feature/nutrition-diary` |
 | Cắt từ | nhánh 5 |
-| Migration | **V47** |
+| Migration | lấy số lúc bắt đầu nhánh — xem `_CONTRACT.md` mục 2 |
 | Demo được | Ăn nửa phần → nhật ký tính một nửa, kế hoạch vẫn một phần |
 
 Chạy song song được với nhánh 7.
@@ -31,7 +31,7 @@ Kế hoạch hết ngày vẫn xem được trong lịch sử, **không tự t�
 
 ---
 
-## 2. Bảng (V47)
+## 2. Bảng
 
 | Bảng | Cột |
 |---|---|
@@ -146,7 +146,7 @@ Tự ghi nhật ký thay người dùng · đánh dấu lại kế hoạch khi �
 
 ## Xong là khi
 
-- [ ] V47 chạy sạch
+- [ ] Migration chạy sạch
 - [ ] Sáu TC trên có test, xanh
 - [ ] `GET /diary` trả hai tổng tách biệt, không cộng lẫn
 - [ ] Phản hồi gần nhất ảnh hưởng đúng điểm P ở nhánh 4

@@ -20,14 +20,14 @@ Cột **Cắt từ** là nhánh phải merge xong trước. Hai nhánh cùng m�
 
 | # | File | Nhánh git | Cắt từ | Migration |
 |---|---|---|---|---|
-| 1 | [branch-01-catalog-seed.md](branch-01-catalog-seed.md) | `feature/nutrition-catalog-seed` | `main` | **V42** |
+| 1 | [branch-01-catalog-seed.md](branch-01-catalog-seed.md) | `feature/nutrition-catalog-seed` | `main` | **V57** |
 | 2 | [branch-02-calculator.md](branch-02-calculator.md) | `feature/nutrition-calculator` | 1 | — |
-| 3 | [branch-03-profile.md](branch-03-profile.md) | `feature/nutrition-profile` | 1 | **V43** |
-| 4 | [branch-04-recommendation.md](branch-04-recommendation.md) | `feature/nutrition-recommendation` | 2 + 3 | **V44** |
-| 5 | [branch-05-plan-generation.md](branch-05-plan-generation.md) | `feature/meal-plan-generation` | 4 | **V45** |
+| 3 | [branch-03-profile.md](branch-03-profile.md) | `feature/nutrition-profile` | 1 | lấy lúc bắt đầu |
+| 4 | [branch-04-recommendation.md](branch-04-recommendation.md) | `feature/nutrition-recommendation` | 2 + 3 | lấy lúc bắt đầu |
+| 5 | [branch-05-plan-generation.md](branch-05-plan-generation.md) | `feature/meal-plan-generation` | 4 | lấy lúc bắt đầu |
 | 6 | [branch-06-plan-edit.md](branch-06-plan-edit.md) | `feature/meal-plan-edit` | 5 | — |
-| 7 | [branch-07-shopping-list.md](branch-07-shopping-list.md) | `feature/nutrition-shopping-list` | 6 | **V46** |
-| 8 | [branch-08-diary.md](branch-08-diary.md) | `feature/nutrition-diary` | 5 | **V47** |
+| 7 | [branch-07-shopping-list.md](branch-07-shopping-list.md) | `feature/nutrition-shopping-list` | 6 | lấy lúc bắt đầu |
+| 8 | [branch-08-diary.md](branch-08-diary.md) | `feature/nutrition-diary` | 5 | lấy lúc bắt đầu |
 | 9 | [branch-09-multiday.md](branch-09-multiday.md) | `feature/meal-plan-multiday` | 6 | — |
 | 10 | [branch-10-revalidation.md](branch-10-revalidation.md) | `feature/nutrition-profile-revalidation` | 3 + 5 + 8 | — |
 
