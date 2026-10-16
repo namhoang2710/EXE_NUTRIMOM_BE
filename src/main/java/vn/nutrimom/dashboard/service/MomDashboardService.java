@@ -12,7 +12,6 @@ import vn.nutrimom.calendar.service.CalendarQueryService;
 import vn.nutrimom.care.service.CarePlanService;
 import vn.nutrimom.config.CalendarProperties;
 import vn.nutrimom.dashboard.domain.DashboardBlock;
-import vn.nutrimom.dashboard.dto.BabySummaryResponse;
 import vn.nutrimom.dashboard.dto.MomDashboardResponse;
 import vn.nutrimom.dashboard.dto.PregnancySummaryResponse;
 import vn.nutrimom.dashboard.dto.ProfileSummaryResponse;
@@ -20,7 +19,6 @@ import vn.nutrimom.entitlement.service.EntitlementService;
 import vn.nutrimom.notification.service.NotificationService;
 import vn.nutrimom.pregnancy.dto.PregnancyResponse;
 import vn.nutrimom.pregnancy.repository.PregnancyRepository;
-import vn.nutrimom.pregnancy.repository.PregnancyWeekContentRepository;
 import vn.nutrimom.pregnancy.service.PregnancyService;
 import vn.nutrimom.user.dto.UserProfileResponse;
 import vn.nutrimom.user.service.UserProfileService;
@@ -32,7 +30,6 @@ public class MomDashboardService {
     private final UserProfileService profiles;
     private final PregnancyService pregnancyService;
     private final PregnancyRepository pregnancies;
-    private final PregnancyWeekContentRepository weekContents;
     private final CarePlanService carePlans;
     private final NotificationService notifications;
     private final CalendarQueryService calendar;
@@ -42,7 +39,6 @@ public class MomDashboardService {
     public MomDashboardService(UserProfileService profiles,
                                PregnancyService pregnancyService,
                                PregnancyRepository pregnancies,
-                               PregnancyWeekContentRepository weekContents,
                                CarePlanService carePlans,
                                NotificationService notifications,
                                CalendarQueryService calendar,
@@ -51,7 +47,6 @@ public class MomDashboardService {
         this.profiles = profiles;
         this.pregnancyService = pregnancyService;
         this.pregnancies = pregnancies;
-        this.weekContents = weekContents;
         this.carePlans = carePlans;
         this.notifications = notifications;
         this.calendar = calendar;
@@ -85,7 +80,9 @@ public class MomDashboardService {
                         pregnancy.gestationalDay(), pregnancy.trimester(),
                         pregnancy.estimatedDueDate(), pregnancy.daysUntilDue(),
                         pregnancy.careFacilityName()),
-                loadBabySummary(pregnancy.gestationalWeek()),
+                // Weekly pregnancy articles were dropped (15/10/2026); baby_summary stays null and is
+                // deprecated until all clients stop reading it. No weekly-content query is made.
+                null,
                 loadNextAppointment(profile.id()),
                 null,
                 careProgress,
@@ -109,7 +106,7 @@ public class MomDashboardService {
     /**
      * Mốc hẹn gần nhất từ module lịch.
      *
-     * <p>Bọc try/catch giống {@link #loadBabySummary}: spec mục 05 yêu cầu một block phụ tạm lỗi
+     * <p>Bọc try/catch: spec mục 05 yêu cầu một block phụ tạm lỗi
      * không được làm đổ cả endpoint dashboard.</p>
      */
     private Object loadNextAppointment(String userId) {
@@ -159,21 +156,4 @@ public class MomDashboardService {
                 profile.id(), profile.displayName(), profile.salutation(), profile.role());
     }
 
-    private BabySummaryResponse loadBabySummary(long gestationalWeek) {
-        if (gestationalWeek < 0 || gestationalWeek > 42) {
-            return null;
-        }
-        try {
-            return weekContents.findById((int) gestationalWeek)
-                    .filter(content -> "REVIEWED".equalsIgnoreCase(content.getReviewStatus()))
-                    .map(content -> new BabySummaryResponse(
-                            content.getWeek(), content.getTitle(), content.getSummary(),
-                            content.getBabyDevelopment(), content.getDisclaimer()))
-                    .orElse(null);
-        } catch (RuntimeException ex) {
-            log.warn("Optional dashboard block is unavailable: {}",
-                    DashboardBlock.BABY_SUMMARY);
-            return null;
-        }
-    }
 }

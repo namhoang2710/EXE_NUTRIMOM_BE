@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -227,6 +230,40 @@ class NotificationIntegrationTest {
                 .andExpect(jsonPath("$.data.has_more").value(false));
     }
 
+    /** Equal created_at values are ordered by id; paging through them must not skip or repeat rows. */
+    @Test
+    void notificationsSharingATimestampArePagedWithoutGapsOrDuplicates() throws Exception {
+        String userId = account("0914000015", "Tie Mom");
+        OffsetDateTime tie = OffsetDateTime.parse("2026-02-01T00:00:00Z");
+        List<String> tied = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            tied.add(publishAt(userId, "Cùng lúc " + i, tie));
+        }
+        String newest = publishAt(userId, "Mới hơn", tie.plusSeconds(1));
+        String oldest = publishAt(userId, "Cũ hơn", tie.minusSeconds(1));
+
+        List<String> seen = new ArrayList<>();
+        String cursor = null;
+        boolean hasMore = true;
+        while (hasMore) {
+            var request = get("/api/v1/notifications").param("limit", "2").with(userJwt(userId));
+            if (cursor != null) {
+                request.param("cursor", cursor);
+            }
+            var data = objectMapper.readTree(mockMvc.perform(request).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString()).at("/data");
+            data.at("/items").forEach(item -> seen.add(item.at("/id").stringValue()));
+            hasMore = data.at("/has_more").booleanValue();
+            cursor = hasMore ? data.at("/next_cursor").stringValue() : null;
+        }
+
+        List<String> expected = new ArrayList<>();
+        expected.add(newest);
+        tied.stream().sorted(Comparator.reverseOrder()).forEach(expected::add);
+        expected.add(oldest);
+        assertThat(seen).containsExactlyElementsOf(expected);
+    }
+
     @Test
     void invalidCursorIsRejectedInsteadOfSilentlyReturningPageOne() throws Exception {
         String userId = account("0914000013", "Bad Cursor Mom");
@@ -426,6 +463,15 @@ class NotificationIntegrationTest {
         PushDeviceEntity device = devices.findByUserIdAndDeviceId(userId, deviceId).orElseThrow();
         device.setPushTokenCipher("bm90LWEtdmFsaWQtY2lwaGVydGV4dA==");
         devices.saveAndFlush(device);
+    }
+
+    /** Like {@link #publish} but with an explicit created_at, e.g. to create identical timestamps. */
+    private String publishAt(String userId, String title, OffsetDateTime createdAt) {
+        String id = publish(userId, title);
+        jdbc.update("update app.notifications set created_at=? where id=?", createdAt, id);
+        entityManager.refresh(entityManager.getReference(
+                vn.nutrimom.notification.domain.NotificationEntity.class, id));
+        return id;
     }
 
     private String publish(String userId, String title) {

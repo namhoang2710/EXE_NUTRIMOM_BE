@@ -1,12 +1,15 @@
 package vn.nutrimom.dashboard.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record MomDashboardResponse(
         ProfileSummaryResponse profileSummary,
         PregnancySummaryResponse pregnancySummary,
+        @Deprecated @Schema(deprecated = true, nullable = true,
+                description = "Deprecated: always null since weekly pregnancy articles were dropped.")
         BabySummaryResponse babySummary,
         Object nextAppointment,
         Object healthSnapshot,
