@@ -1,0 +1,33 @@
+{
+  "_note": "Danh mục nguồn và danh mục chất. Danh mục chất tồn tại để đơn vị không bị nhập tuỳ ý trong từng nguyên liệu: NutritionSeedValidator bắt mọi dòng nutrients phải khai đúng unit khai ở đây.",
+  "sources": [
+    {
+      "id": "src.demo-placeholder",
+      "name": "Giá trị tạm cho bản demo — CHƯA đối chiếu nguồn chính thức",
+      "recordRef": null,
+      "retrievedOn": null
+    },
+    {
+      "id": "src.usda-fdc",
+      "name": "USDA FoodData Central",
+      "recordRef": null,
+      "retrievedOn": null
+    },
+    {
+      "id": "src.vn-nutrition-institute",
+      "name": "Viện Dinh dưỡng Quốc gia Việt Nam",
+      "recordRef": null,
+      "retrievedOn": null
+    }
+  ],
+  "nutrients": [
+    { "code": "ENERGY", "name": "Năng lượng", "unit": "kcal" },
+    { "code": "PROTEIN", "name": "Chất đạm", "unit": "g" },
+    { "code": "FOLATE", "name": "Folate", "unit": "mcg_dfe" },
+    { "code": "IRON", "name": "Sắt", "unit": "mg" },
+    { "code": "CALCIUM", "name": "Canxi", "unit": "mg" },
+    { "code": "CHOLINE", "name": "Choline", "unit": "mg" },
+    { "code": "IODINE", "name": "Iốt", "unit": "mcg" },
+    { "code": "VITAMIN_D", "name": "Vitamin D", "unit": "mcg" }
+  ]
+}
