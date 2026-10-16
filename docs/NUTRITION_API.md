@@ -10,7 +10,8 @@ từng nhánh merge.
 | 2 — NutritionCalculator (không có endpoint) | **đã làm** |
 | 3 — hồ sơ ăn uống (V58) | **đã làm** |
 | 4 — lọc điều kiện và xếp hạng (V59) | **đã làm** |
-| 5–10 | chưa |
+| 5 — thực đơn một ngày (V60) | **đã làm** |
+| 6–10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -613,6 +614,204 @@ món** ngay khi gặp một nguyên liệu chưa có giá hoặc có giá theo `
 không bỏ qua dòng đó: cộng tổng trên một nửa số nguyên liệu cho ra con số thấp hơn thực tế mà nhìn
 vẫn như số đầy đủ, rồi điểm B sẽ khen một món đắt là rẻ. Không quy được giá → **B không hoạt
 động**, không phải B = 0. Đoán một mật độ chung để quy "lít" sang gram chính là lỗi đặc tả cấm.
+
+---
+
+## Thực đơn một ngày (nhánh 5)
+
+Ba endpoint, **đều cần JWT**. Chủ sở hữu luôn suy từ `jwt.sub`, không bao giờ từ body.
+
+| Endpoint | Việc |
+|---|---|
+| `POST /api/v1/meal-plans/preview` | tạo bản xem trước, sống **30 phút** |
+| `POST /api/v1/meal-plans` | lưu bản xem trước thành kế hoạch (201) |
+| `GET /api/v1/meal-plans/{planId}` | đọc kế hoạch đã lưu kèm tổng dự kiến |
+
+**Nhánh này chỉ lập một ngày.** `day_count` khác 1 bị từ chối tại trường; ba và bảy ngày thuộc
+nhánh 9.
+
+### Yêu cầu tạo bản xem trước
+
+```json
+{
+  "request_id": "req_demo_001",
+  "profile_version": 3,
+  "start_date": "2026-10-14",
+  "day_count": 1,
+  "meal_types": ["BREAKFAST", "LUNCH", "DINNER", "SNACK"],
+  "snack_count": 1,
+  "constraints": {
+    "daily_budget_vnd": 120000,
+    "max_minutes_per_meal": 30,
+    "strict_budget": false,
+    "strict_time": false
+  },
+  "locked_items": [],
+  "seed": 17
+}
+```
+
+| Trường | Ý nghĩa |
+|---|---|
+| `request_id` | **idempotency key**, bắt buộc. Gửi lại cùng giá trị trả lại **đúng bản xem trước cũ** |
+| `profile_version` | phiên bản hồ sơ giao diện đang cầm; lệch → `VERSION_CONFLICT`, không lập thực đơn trên dữ liệu cũ. Bỏ trống = không kiểm |
+| `snack_count` | 1–3, mặc định 1. Tỉ lệ 15% của bữa phụ **chia đều** cho từng bữa (QĐ-02) |
+| `constraints.*` | ngân sách và thời gian phải **> 0** — cả hai nằm dưới mẫu số một phép chia |
+| `strict_budget` / `strict_time` | mặc định false: hai thứ này là ưu tiên **mềm** trừ khi người dùng tự bật (BR13) |
+| `locked_items[].servings` | phải > 0, báo lỗi **tại trường** |
+| `seed` | để tái lập kết quả thử nghiệm. **Không phải dữ liệu sức khỏe**, như `request_id` |
+
+### Phản hồi
+
+```json
+{
+  "data": {
+    "preview_id": "0f0b…",
+    "status": "READY_WITH_NOTES",
+    "profile_version": 3,
+    "rules_version": "nutrition-seed-v2",
+    "seed": 17,
+    "nutrition_coverage": "PARTIAL",
+    "expires_at": "2026-10-14T04:30:00Z",
+    "notes": [
+      { "code": "NUTRITION_DATA_INCOMPLETE", "message": "Một số chất chưa đủ dữ liệu…" }
+    ],
+    "days": [
+      {
+        "local_date": "2026-10-14",
+        "slots": [
+          {
+            "meal_type": "LUNCH", "sequence": 1,
+            "template_code": "LUNCH:ROLE_SET", "mode": "ROLE_SET",
+            "required_roles": ["STAPLE", "PROTEIN", "VEGETABLE"],
+            "filled": true,
+            "items": [
+              { "recipe_id": "rec.com-trang", "name": "Cơm trắng", "role": "STAPLE",
+                "recipe_version": 1, "servings": 1.0, "minutes": 25, "locked": false,
+                "estimated_cost_vnd": 1240.00, "reason_codes": [] }
+            ],
+            "reason_codes": []
+          }
+        ],
+        "nutrition": { "ENERGY": { "known_value": 612.5, "unit": "kcal", "coverage": "COMPLETE" } },
+        "method_notes": [],
+        "estimated_cost_vnd": 36500.00
+      }
+    ]
+  }
+}
+```
+
+Khối `nutrition` đúng hình dạng đã công bố ở nhánh 2: `known_value` **null vẫn xuất hiện**, và
+`estimated_cost_vnd` null nghĩa là **chưa quy đổi được giá** cho ít nhất một món — không phải 0 đồng.
+
+**Phản hồi cố ý không mang điểm số.** `J` và năm phần phạt giữ ở backend, đúng như điểm món ở nhánh 4.
+
+### Ba trạng thái, đừng lẫn ba nhóm
+
+| Nhóm | Giá trị | Nói về |
+|---|---|---|
+| `status` / `generation_status` | `READY` · `READY_WITH_NOTES` · `NO_MATCH` | kết quả **lượt sinh** |
+| `lifecycle_state` | `SAVED` · `NEEDS_UPDATE` | trạng thái **lưu trữ** (nhánh 10 đổi) |
+| `nutrition_coverage` | `COMPLETE` · `PARTIAL` | độ đầy đủ **dữ liệu** |
+
+Một thực đơn `READY` vẫn có thể `PARTIAL`. **`READY` không phải chứng nhận y tế.**
+`NO_MATCH` chỉ tồn tại ở bản xem trước — bảng `app.meal_plans` từ chối nó bằng một CHECK.
+
+`READY_WITH_NOTES` khi còn ưu tiên mềm chưa trọn hoặc còn thiếu dữ liệu. `PARTIAL_DAY_PLAN`
+**không** hạ trạng thái: lập một phần ngày là lựa chọn của người dùng, không phải khiếm khuyết.
+
+### Mã lý do mức kế hoạch (HTTP 200, không phải lỗi)
+
+| Mã | Khi nào |
+|---|---|
+| `NO_MATCH` | không hoàn thành được vị trí theo điều kiện cứng |
+| `ROLE_NO_CANDIDATE` | nêu rõ **vai trò nào, bữa nào, bộ lọc nào** đã chặn (TC18) |
+| `SEARCH_LIMIT` | hết hạn tìm kiếm — **không** kết luận không tồn tại nghiệm (TC19) |
+| `PARTIAL_DAY_PLAN` | chỉ lập một phần các bữa (TC23) |
+| `NUTRITION_DATA_INCOMPLETE` | tổng ngày chỉ gồm phần đã biết |
+| `DAY_OVER_BUDGET` · `MEAL_OVER_TIME` | vượt giới hạn **mềm** |
+| `STRICT_BUDGET_WITHOUT_PRICE` | bật ngân sách cứng mà còn món chưa có giá — mời bổ sung giá **hoặc** tắt giới hạn, người dùng chọn |
+| `LOCKED_ITEM_UNPLACEABLE` | món khóa không hợp cấu trúc nào của bữa đó |
+
+### Tạo cấu trúc trước, chọn món sau
+
+Mỗi bữa chọn **một** cấu trúc trong các template của nó (ưu tiên cấu trúc ít món hơn), và chỉ nhận
+cấu trúc mà **mọi** vai trò đều còn ứng viên — BR06: một món hoàn chỉnh **hoặc** một tập vai trò,
+không trộn. Không cấu trúc nào khả thi → `NO_MATCH`, không bao giờ ghép tạm vai trò của hai cấu trúc.
+
+Món khóa đi qua **đúng bước lọc** của mọi món khác (bất biến 2). Món khóa bị lọc chặn làm **cả bữa**
+thành `NO_MATCH` chứ không bị lặng lẽ thay bằng món khác: người dùng đã nói rõ họ muốn giữ món đó.
+
+### Beam search và hàm mục tiêu
+
+```
+J = 0,40·Nutrition + 0,25·Preference + 0,15·Variety + 0,10·Cost + 0,10·Time
+```
+
+Chọn **J nhỏ hơn**. Mỗi thành phần chặn vào 0–1; **tiêu chí không có dữ liệu thì bỏ cả trọng số**
+rồi chuẩn hóa trên phần còn lại — không bao giờ cho 0, cũng không bao giờ coi là đã đạt.
+
+| Tham số | Giá trị |
+|---|---|
+| Ứng viên mỗi vị trí sau lọc | 15, mở rộng lên 30 khi thiếu phương án |
+| Beam giữ sau mỗi bước | 20 |
+| Hạn thời gian một ngày | 2 giây |
+
+Vi chất chỉ tính trên chất mang `COMPLETE`: một chất mà vài nguyên liệu chưa khai số liệu thì tổng
+của nó thấp hơn thực tế, và phạt theo con số đó sẽ đẩy bộ sinh đi chọn thêm món để bù một thiếu hụt
+**của dữ liệu** chứ không phải của bữa ăn.
+
+Đa dạng (`V`) **chấm lại sau từng lựa chọn** theo chính phương án đang dựng, không lấy từ một danh
+sách điểm cố định. Khẩu phần lấy từ tập cho phép của template — bộ sinh **không** nhân khẩu phần
+liên tục để ép đủ vi chất.
+
+**TC23:** mục tiêu năng lượng và vi chất nhân với **tổng tỉ lệ của đúng những bữa được lập**. Chỉ lập
+trưa và tối thì mục tiêu là 60% mức ngày, không chuẩn hóa hai bữa đó lên thành cả ngày. Ngân sách thì
+ngược lại, giữ nguyên mức ngày người dùng khai.
+
+Giới hạn thời gian kiểm ở mức **toàn bữa** (tổng thời gian các món — ước tính bảo thủ, chưa giả định
+nấu song song), còn ngân sách cứng kiểm trên **cả ngày**. Hiển thị vẫn ở mức món.
+
+**Thời gian sinh thực tế** (Windows 11, JDK 21, H2 profile test, 16/10/2026): cấu trúc nặng nhất
+nhánh này sinh ra — 6 bữa, 11 vị trí, 30 ứng viên và 4 mức khẩu phần mỗi vị trí — mất **428 ms**
+trong bộ sinh; một lượt `POST /meal-plans/preview` đầu tiên cho ngày đầy đủ trên seed thật, tính cả
+HTTP và JPA, mất **648 ms**. Cả hai nằm trong mục tiêu 2 giây.
+
+### Lưu và đọc lại
+
+`POST /api/v1/meal-plans` chỉ nhận `preview_id` — nội dung đã nằm trong bảng, nhận lại nội dung từ
+client là mở đúng một đường để lưu một thực đơn chưa qua bước lọc. Kiểm **lại** bốn điều kiện:
+
+| Điều kiện | Lệch thì |
+|---|---|
+| bản xem trước còn hạn (30 phút) | `VERSION_CONFLICT` |
+| `profile_version` khớp hiện tại | `VERSION_CONFLICT` |
+| `rules_version` khớp hiện tại | `VERSION_CONFLICT` |
+| từng công thức còn đúng `recipe_version` | `VERSION_CONFLICT` |
+
+Bản `NO_MATCH` không có gì để lưu → `VALIDATION_ERROR`. Lưu hai lần cùng một `preview_id` trả về
+**đúng kế hoạch đã tạo** (`saved_plan_id` trên bản xem trước), không tạo bản thứ hai.
+
+### Bảng (V60)
+
+| Bảng | Vai trò |
+|---|---|
+| `app.meal_plans` | kế hoạch đã lưu: khoảng ngày, hai nhóm trạng thái, bốn con số phiên bản |
+| `app.meal_slots` | vị trí bữa; unique **bộ bốn** `(plan_id, local_date, meal_type, sequence)` (QĐ-02) |
+| `app.meal_plan_items` | món đã chọn kèm `nutrient_snapshot` và `cost_snapshot` |
+| `app.meal_plan_previews` | bản xem trước, unique `(user_id, request_id)`, TTL 30 phút (QĐ-01) |
+
+`meal_slots.sequence`: bữa chính luôn 1, bữa phụ 1–3 — khóa bằng CHECK ở database chứ không chỉ ở
+service.
+
+`nutrient_snapshot` lưu **snapshot đầu vào** (`RecipeSnapshot` của nhánh 2: nguyên liệu, gram, bảng
+dinh dưỡng), không lưu con số tổng. Tổng được dựng lại bằng chính `NutritionCalculator` mỗi lần đọc,
+nên **chỉ có một bộ tính** (bất biến 4) và tổng API trả về không thể lệch với tổng tính từ snapshot
+các mục — kể cả sau khi seed sửa công thức (BR17).
+
+Bản xem trước hết hạn được **xóa lười lúc đọc**: gửi lại cùng `request_id` sau 30 phút thì bản chết
+bị xóa và một lượt tìm mới chạy, thay vì khóa `request_id` vĩnh viễn.
 
 ---
 
