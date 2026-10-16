@@ -22,7 +22,7 @@ Cột **Cắt từ** là nhánh phải merge xong trước. Hai nhánh cùng m�
 |---|---|---|---|---|
 | 1 | [branch-01-catalog-seed.md](branch-01-catalog-seed.md) | `feature/nutrition-catalog-seed` | `main` | **V57** |
 | 2 | [branch-02-calculator.md](branch-02-calculator.md) | `feature/nutrition-calculator` | 1 | — |
-| 3 | [branch-03-profile.md](branch-03-profile.md) | `feature/nutrition-profile` | 1 | lấy lúc bắt đầu |
+| 3 | [branch-03-profile.md](branch-03-profile.md) | `feature/nutrition-profile` | 1 | **V58** |
 | 4 | [branch-04-recommendation.md](branch-04-recommendation.md) | `feature/nutrition-recommendation` | 2 + 3 | lấy lúc bắt đầu |
 | 5 | [branch-05-plan-generation.md](branch-05-plan-generation.md) | `feature/meal-plan-generation` | 4 | lấy lúc bắt đầu |
 | 6 | [branch-06-plan-edit.md](branch-06-plan-edit.md) | `feature/meal-plan-edit` | 5 | — |
