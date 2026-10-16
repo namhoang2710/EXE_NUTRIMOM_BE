@@ -15,6 +15,14 @@ public final class RequestDtos {
     private RequestDtos() {
     }
 
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
+    public record ExpertConsultationPage(java.util.List<ConsultationRequestResponse> items,int page,int pageSize,
+            long totalItems,int totalPages,ConsultationRequestResponse nextConsultation,OffsetDateTime serverTime) {
+        public static ExpertConsultationPage of(PageResponse<ConsultationRequestResponse> page) {
+            return new ExpertConsultationPage(page.items(),page.page(),page.pageSize(),page.totalItems(),page.totalPages(),null,null);
+        }
+    }
+
     /**
      * User tạo yêu cầu tư vấn.
      * <ul>
@@ -31,7 +39,12 @@ public final class RequestDtos {
             LocalDate slotDate,
             LocalTime startTime,
             Specialty specialty,
-            @Size(max = 2000, message = "Ghi chú quá dài.") String note) {
+            @Size(max = 2000, message = "Ghi chú quá dài.") String note,
+            LocalDate preferredDate) {
+        public CreateConsultationRequest(AssignmentType assignmentType,String expertUserId,LocalDate slotDate,
+                LocalTime startTime,Specialty specialty,String note) {
+            this(assignmentType,expertUserId,slotDate,startTime,specialty,note,null);
+        }
     }
 
     /** Chuyên gia nhận một yêu cầu RANDOM và xếp vào một khung giờ còn trống của mình. */
@@ -65,7 +78,10 @@ public final class RequestDtos {
             OffsetDateTime completedAt,
             long version,
             OffsetDateTime createdAt,
-            OffsetDateTime updatedAt) {
+            OffsetDateTime updatedAt,
+            LocalDate preferredDate, OffsetDateTime acceptanceOpenedAt, OffsetDateTime acceptanceDeadlineAt,
+            OffsetDateTime acceptedAt, Integer acceptancePolicyVersion, String acceptanceStatus,
+            OffsetDateTime serverTime, String acceptanceNotice) {
     }
 
     /** Yêu cầu tư vấn theo góc nhìn admin: kèm user, chuyên gia và đánh giá đầy đủ. */

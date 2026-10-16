@@ -26,6 +26,9 @@ import vn.nutrimom.payment.repository.UserSubscriptionRepository;
  * <p>Mọi ngả "không còn hiệu lực" đều phải rơi về FREE, vì không có job nào chuyển dòng hết hạn sang
  * {@code EXPIRED}: hết hạn chỉ được tính lúc đọc.</p>
  */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {
+        vn.nutrimom.assistant.service.GroqAssistantClient.class,
+        vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional

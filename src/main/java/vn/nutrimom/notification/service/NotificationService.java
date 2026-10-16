@@ -17,8 +17,13 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import vn.nutrimom.common.api.CursorPage;
 import vn.nutrimom.common.security.AccessGuard;
+import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.config.NotificationProperties;
 import vn.nutrimom.notification.domain.NotificationEntity;
+import vn.nutrimom.notification.domain.NotificationAudience;
+import vn.nutrimom.notification.domain.NotificationCategory;
+import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.notification.domain.NotificationType;
 import vn.nutrimom.notification.domain.PushDeviceEntity;
 import vn.nutrimom.notification.dto.NotificationDtos.NotificationResponse;
@@ -47,6 +52,9 @@ public class NotificationService {
     private final PushSender pushSender;
     private final NotificationProperties properties;
     private final AccessGuard guard;
+    private final UserRepository users;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
+    private final vn.nutrimom.admin.realtime.AdminRealtimeRepository realtime;
 
     public NotificationService(NotificationRepository notifications,
                                PushDeviceRepository devices,
@@ -54,7 +62,9 @@ public class NotificationService {
                                PushTokenCipher cipher,
                                PushSender pushSender,
                                NotificationProperties properties,
-                               AccessGuard guard) {
+                               AccessGuard guard, UserRepository users,
+                               org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                               vn.nutrimom.admin.realtime.AdminRealtimeRepository realtime) {
         this.notifications = notifications;
         this.devices = devices;
         this.preferences = preferences;
@@ -62,6 +72,9 @@ public class NotificationService {
         this.pushSender = pushSender;
         this.properties = properties;
         this.guard = guard;
+        this.users = users;
+        this.jdbc = jdbc;
+        this.realtime = realtime;
     }
 
     /**
@@ -87,21 +100,50 @@ public class NotificationService {
         return toResponse(entity);
     }
 
-    @Transactional(readOnly = true)
+    /** Durable recipient deduplication for scheduler retries; confirmation can correct a provisional notice. */
+    @Transactional
+    public void publishExpertTimingOnce(String userId,String requestId,String title,String body) {
+        var at=OffsetDateTime.now(ZoneOffset.UTC);
+        String key="EXPERT_ARRIVAL:"+userId+":"+requestId;
+        var p=new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("id",java.util.UUID.randomUUID().toString()).addValue("user",userId)
+                .addValue("source",requestId).addValue("title",title).addValue("body",body)
+                .addValue("link","nutrimom://expert/consultations/"+requestId).addValue("key",key).addValue("at",at);
+        int inserted=jdbc.update("""
+                insert into app.notifications(id,user_id,type,audience,category,title,body,deep_link,source_type,source_id,
+                  dedup_key,created_at,updated_at,version)
+                values(:id,:user,'CONSULTATION','USER','APPOINTMENT',:title,:body,:link,'CONSULTATION',:source,:key,:at,:at,0)
+                on conflict do nothing
+                """,p);
+        if(inserted==1) schedulePush(userId,title,body,"nutrimom://expert/consultations/"+requestId);
+        else jdbc.update("""
+                update app.notifications set title=:title,body=:body,updated_at=:at,version=version+1
+                where dedup_key=:key and (title<>:title or body<>:body)
+                """,p);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public CursorPage<NotificationResponse> list(String userId, String cursor, int limit,
                                                  boolean unreadOnly) {
+        return list(userId, cursor, limit, unreadOnly, null, null);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public CursorPage<NotificationResponse> list(String userId, String cursor, int limit,
+            boolean unreadOnly, NotificationAudience audience, NotificationCategory category) {
+        if (limit < 1 || limit > 50) throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        boolean allowAdmin = adminAccess(userId, audience);
         FeedCursor from = FeedCursor.decode(cursor);
         // Lấy dư một dòng để biết còn trang sau mà không phải đếm tổng.
         Pageable window = PageRequest.of(0, limit + 1);
-        List<NotificationEntity> rows = unreadOnly
-                ? notifications.findUnreadPage(userId, from.at(), from.id(), window)
-                : notifications.findPage(userId, from.at(), from.id(), window);
+        List<NotificationEntity> rows = notifications.findVisiblePage(userId, allowAdmin,
+                audience, category, unreadOnly, from.at(), from.id(), window);
 
         boolean hasMore = rows.size() > limit;
         List<NotificationEntity> page = hasMore ? rows.subList(0, limit) : rows;
         String nextCursor = hasMore ? cursorOf(page.get(page.size() - 1)) : null;
         return new CursorPage<>(page.stream().map(NotificationService::toResponse).toList(),
-                nextCursor, hasMore);
+                nextCursor, hasMore, audience==NotificationAudience.ADMIN ? realtime.notificationRevision(userId) : null);
     }
 
     /** Idempotent: đã đọc rồi thì giữ nguyên mốc cũ, không ghi đè bằng thời điểm gọi lại. */
@@ -109,8 +151,9 @@ public class NotificationService {
     public NotificationResponse markRead(String userId, String id) {
         NotificationEntity entity = guard.requireOwned(
                 notifications.findByIdAndUserId(id, userId), NOT_FOUND_MESSAGE);
+        if (entity.getAudience() == NotificationAudience.ADMIN) adminAccess(userId, NotificationAudience.ADMIN);
         if (entity.getReadAt() == null) {
-            entity.setReadAt(OffsetDateTime.now(ZoneOffset.UTC));
+            entity.setReadAt(OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
             notifications.saveAndFlush(entity);
         }
         return toResponse(entity);
@@ -119,16 +162,69 @@ public class NotificationService {
     /** Idempotent: chỉ chạm dòng chưa đọc, nên lần gọi thứ hai trả về 0. */
     @Transactional
     public int markAllRead(String userId) {
-        return notifications.markAllRead(userId, OffsetDateTime.now(ZoneOffset.UTC));
+        return markAllRead(userId, null, null);
+    }
+
+    @Transactional
+    public int markAllRead(String userId, NotificationAudience audience, NotificationCategory category) {
+        return notifications.markVisibleRead(userId, adminAccess(userId, audience), audience, category,
+                OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     /** Dùng cho {@code unread_notification_count} của dashboard mẹ bầu (spec mục 05). */
     @Transactional(readOnly = true)
     public long unreadCount(String userId) {
-        return notifications.countByUserIdAndReadAtIsNull(userId);
+        return unreadCount(userId, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public long unreadCount(String userId, NotificationAudience audience, NotificationCategory category) {
+        return notifications.countVisibleUnread(userId, adminAccess(userId, audience), audience, category);
+    }
+
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public vn.nutrimom.notification.dto.NotificationDtos.UnreadCountResponse unreadCountResponse(
+            String userId,NotificationAudience audience,NotificationCategory category) {
+        long count=unreadCount(userId,audience,category);
+        return new vn.nutrimom.notification.dto.NotificationDtos.UnreadCountResponse(count,
+                audience==NotificationAudience.ADMIN ? realtime.notificationRevision(userId) : null);
+    }
+
+    private boolean adminAccess(String userId, NotificationAudience audience) {
+        boolean allowed = audience != NotificationAudience.USER && users.isActiveAdmin(userId);
+        if (audience == NotificationAudience.ADMIN && !allowed) throw new BusinessException(ErrorCode.FORBIDDEN);
+        return allowed;
     }
 
     // ----- Push -----
+    /** Atomic upsert avoids duplicate push, transaction poisoning and recipient row-lock deadlocks. */
+    @Transactional
+    public NotificationResponse publishAdminOnce(String userId, NotificationType type, String title,
+            String body, String deepLink, String sourceType, String sourceId) {
+        if (type != NotificationType.CONTACT && type != NotificationType.CONSULTATION) {
+            throw new IllegalArgumentException("Unsupported admin event type");
+        }
+        if (!users.isActiveAdmin(userId)) return null;
+        String key = (type == NotificationType.CONTACT ? "ADMIN_CONTACT_NEW:" : "ADMIN_EXPERT_WAITING:")
+                + userId + ":" + sourceId;
+        var at = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        var p = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("id", java.util.UUID.randomUUID().toString()).addValue("user", userId)
+                .addValue("type", type.name()).addValue("title", title).addValue("body", body)
+                .addValue("link", deepLink).addValue("sourceType", sourceType).addValue("sourceId", sourceId)
+                .addValue("key", key).addValue("at", at)
+                .addValue("category", type == NotificationType.CONTACT ? "SUPPORT" : "APPOINTMENT");
+        int inserted = jdbc.update("""
+                insert into app.notifications(id,user_id,type,title,body,deep_link,source_type,source_id,
+                                              dedup_key,created_at,updated_at,version,audience,category)
+                values (:id,:user,:type,:title,:body,:link,:sourceType,:sourceId,:key,:at,:at,0,'ADMIN',:category)
+                on conflict do nothing
+                """, p);
+        var entity = notifications.findByDedupKey(key).orElseThrow();
+        if (inserted == 1) schedulePush(userId,title,body,deepLink);
+        return toResponse(entity);
+    }
+
 
     /**
      * Dựng sẵn danh sách push trong transaction (còn đọc được DB) nhưng chỉ gửi sau khi commit.
@@ -239,6 +335,6 @@ public class NotificationService {
     static NotificationResponse toResponse(NotificationEntity entity) {
         return new NotificationResponse(entity.getId(), entity.getType(), entity.getTitle(),
                 entity.getBody(), entity.getDeepLink(), entity.getSourceType(), entity.getSourceId(),
-                entity.getReadAt(), entity.getCreatedAt());
+                entity.getReadAt(), entity.getCreatedAt(), entity.getAudience(), entity.getCategory());
     }
 }

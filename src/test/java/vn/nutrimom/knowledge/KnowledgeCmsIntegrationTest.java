@@ -30,6 +30,7 @@ import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.knowledge.repository.*;
 
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT, properties={
         "spring.datasource.url=jdbc:h2:mem:knowledge_test;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;INIT=CREATE SCHEMA IF NOT EXISTS app",
         "app.bootstrap.admin-user-enabled=false", "app.knowledge.r2.enabled=true",
@@ -169,7 +170,7 @@ class KnowledgeCmsIntegrationTest {
             migration = new String(resource.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
         try (var connection = java.sql.DriverManager.getConnection(
-                "jdbc:h2:mem:knowledge_v14_migration;MODE=PostgreSQL;DB_CLOSE_DELAY=-1");
+                "jdbc:h2:mem:knowledge_v14_migration_" + java.util.UUID.randomUUID() + ";MODE=PostgreSQL");
                 var statement = connection.createStatement()) {
             statement.execute("CREATE SCHEMA IF NOT EXISTS app");
             statement.execute("CREATE TABLE app.knowledge_articles (id VARCHAR(36) PRIMARY KEY)");
@@ -376,7 +377,7 @@ class KnowledgeCmsIntegrationTest {
                 .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.error.code").value("INVALID_FILE_TYPE"));
         mvc.perform(multipart("/api/v1/admin/knowledge/media/upload").file(ImageOptimizationServiceTest.file(
                         new byte[10*1024*1024+1], "image/png")).with(admin()))
-                .andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.error.code").value("FILE_TOO_LARGE"));
+                .andExpect(status().is(413)).andExpect(jsonPath("$.error.code").value("FILE_TOO_LARGE"));
         verifyNoInteractions(s3);
     }
     @Test void rejectsDuplicateSlugBadTaxonomyAndInvalidQuery() throws Exception {

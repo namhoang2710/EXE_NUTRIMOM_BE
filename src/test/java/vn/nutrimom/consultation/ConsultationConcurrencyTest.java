@@ -44,6 +44,7 @@ import vn.nutrimom.consultation.service.ExpertScheduleService;
  * chặn được kiểm ở đây là unique index {@code (expert_user_id, slot_date, start_time)} — khóa
  * bi quan không giữ được một dòng chưa tồn tại, nên chỉ ràng buộc ở tầng DB mới phân xử được.
  */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @ActiveProfiles("test")
 class ConsultationConcurrencyTest {

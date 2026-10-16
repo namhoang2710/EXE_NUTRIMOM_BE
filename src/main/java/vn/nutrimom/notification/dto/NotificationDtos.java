@@ -7,6 +7,8 @@ import java.time.OffsetDateTime;
 import vn.nutrimom.notification.domain.ActivityType;
 import vn.nutrimom.notification.domain.DevicePlatform;
 import vn.nutrimom.notification.domain.NotificationType;
+import vn.nutrimom.notification.domain.NotificationAudience;
+import vn.nutrimom.notification.domain.NotificationCategory;
 
 /** DTO của module thông báo và activity feed (spec mục 18). */
 public final class NotificationDtos {
@@ -55,7 +57,9 @@ public final class NotificationDtos {
             String sourceType,
             String sourceId,
             OffsetDateTime readAt,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt,
+            NotificationAudience audience,
+            NotificationCategory category) {
     }
 
     /** Kết quả {@code POST /notifications/read-all}; gọi lại lần hai trả {@code updated = 0}. */
@@ -69,7 +73,9 @@ public final class NotificationDtos {
      * chạy SNAKE_CASE nên {@code unreadCount} sẽ serialize thành {@code unread_count}, trong khi
      * đường dẫn đã tên là {@code /unread-count} rồi nên {@code count} vừa gọn vừa không mơ hồ.</p>
      */
-    public record UnreadCountResponse(long count) {
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record UnreadCountResponse(long count, String realtimeRevision) {
+        public UnreadCountResponse(long count) { this(count,null); }
     }
 
     /**

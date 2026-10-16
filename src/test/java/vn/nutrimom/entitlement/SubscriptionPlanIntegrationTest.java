@@ -14,6 +14,9 @@ import vn.nutrimom.payment.domain.PlanTier;
 import vn.nutrimom.support.ApiIntegrationTestSupport;
 
 /** Catalog server-side thay cho bảng giá hardcode của FE (spec mục 17). */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {
+        vn.nutrimom.assistant.service.GroqAssistantClient.class,
+        vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

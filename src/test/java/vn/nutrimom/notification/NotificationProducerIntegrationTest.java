@@ -36,6 +36,7 @@ import vn.nutrimom.auth.repository.UserRepository;
  * khung giờ, nên thông báo gửi cho user bắt buộc phải nói rõ giờ — nếu không user dễ lỡ buổi tư vấn
  * do người khác sắp xếp.</p>
  */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -73,9 +74,10 @@ class NotificationProducerIntegrationTest {
         mockMvc.perform(get("/api/v1/notifications").with(expertJwt(psychology)))
                 .andExpect(jsonPath("$.data.items.length()").value(0));
 
-        // Người đặt không tự nhận thông báo về yêu cầu của chính mình.
+        // Người đặt nhận hạn tiếp nhận; broadcast chuyên gia vẫn chỉ gửi đúng chuyên khoa.
         mockMvc.perform(get("/api/v1/notifications").with(userJwt(userId)))
-                .andExpect(jsonPath("$.data.items.length()").value(0));
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].title").value("Yêu cầu tư vấn đang chờ tiếp nhận"));
     }
 
     @Test
@@ -98,7 +100,7 @@ class NotificationProducerIntegrationTest {
         // Giờ hẹn do chuyên gia chọn, nên phải nằm ngay trong body chứ không bắt user mở app mới biết.
         mockMvc.perform(get("/api/v1/notifications").with(userJwt(userId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
                 .andExpect(jsonPath("$.data.items[0].title")
                         .value("Chuyên gia đã tiếp nhận yêu cầu tư vấn"))
                 .andExpect(jsonPath("$.data.items[0].body").value(
@@ -260,6 +262,7 @@ class NotificationProducerIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt(String userId) {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,userId);
         return jwt().jwt(token -> token.subject(userId).claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

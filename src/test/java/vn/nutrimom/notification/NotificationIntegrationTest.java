@@ -36,6 +36,7 @@ import vn.nutrimom.notification.service.NotificationService;
 import vn.nutrimom.notification.service.PushTokenCipher;
 
 /** Contract test của task 18: devices, notifications và activity feed. */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -48,7 +49,10 @@ class NotificationIntegrationTest {
     @Autowired PushDeviceRepository devices;
     @Autowired PushTokenCipher cipher;
     @Autowired NotificationService notifications;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired ActivityFeedService activityFeed;
+    private int notificationSequence;
 
     // ----- POST /devices -----
 
@@ -118,7 +122,7 @@ class NotificationIntegrationTest {
                         .content("""
                                 {"push_token":"t","device_id":"d"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(post("/api/v1/devices").with(userJwt(userId))
@@ -126,7 +130,7 @@ class NotificationIntegrationTest {
                         .content("""
                                 {"platform":"ANDROID","push_token":"   ","device_id":"d"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -229,7 +233,7 @@ class NotificationIntegrationTest {
 
         mockMvc.perform(get("/api/v1/notifications")
                         .param("cursor", "kh0ng-phai-cursor").with(userJwt(userId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -425,8 +429,15 @@ class NotificationIntegrationTest {
     }
 
     private String publish(String userId, String title) {
-        return notifications.publish(userId, NotificationType.SYSTEM, title,
+        String id = notifications.publish(userId, NotificationType.SYSTEM, title,
                 "Nội dung thông báo.", "nutrimom://notifications", null, null).id();
+        // Windows clocks may repeat a timestamp; insertion order is not the UUID tie-break order.
+        jdbc.update("update app.notifications set created_at=? where id=?",
+                java.time.OffsetDateTime.parse("2026-01-01T00:00:00Z")
+                        .plusSeconds(++notificationSequence), id);
+        entityManager.refresh(entityManager.getReference(
+                vn.nutrimom.notification.domain.NotificationEntity.class, id));
+        return id;
     }
 
     private org.springframework.test.web.servlet.ResultActions registerDevice(
@@ -460,6 +471,7 @@ class NotificationIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,"admin");
         return jwt().jwt(token -> token.subject("admin").claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

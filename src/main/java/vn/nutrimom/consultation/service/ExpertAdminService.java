@@ -43,6 +43,9 @@ public class ExpertAdminService {
 
     @Transactional
     public AdminExpertResponse create(CreateExpertRequest request) {
+        if (request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,"Mật khẩu không được vượt 72 byte UTF-8.",java.util.Map.of("password","Mật khẩu quá dài."));
+        }
         String phone = phoneNormalizer.normalizeVietnamesePhone(request.phone());
         if (users.existsByPhone(phone)) {
             throw duplicatePhone();
@@ -71,8 +74,12 @@ public class ExpertAdminService {
 
     @Transactional(readOnly = true)
     public List<AdminExpertResponse> list() {
-        return experts.findAll().stream()
-                .map(profile -> toResponse(requireUser(profile.getUserId()), profile))
+        var profiles = experts.findAll();
+        if (profiles.isEmpty()) return List.of();
+        var byId = users.findAllWithRolesByIdIn(profiles.stream().map(ExpertProfileEntity::getUserId).toList())
+                .stream().collect(java.util.stream.Collectors.toMap(UserEntity::getId, java.util.function.Function.identity()));
+        return profiles.stream()
+                .map(profile -> toResponse(java.util.Objects.requireNonNull(byId.get(profile.getUserId())), profile))
                 .toList();
     }
 
@@ -85,6 +92,12 @@ public class ExpertAdminService {
 
     @Transactional
     public AdminExpertResponse update(String userId, UpdateExpertRequest request) {
+        if (request.fullName() != null && request.fullName().isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,"Họ tên không được rỗng.",java.util.Map.of("full_name","Họ tên không được rỗng."));
+        }
+        if (request.version() == null || request.version() < 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,"Version phải là số không âm.",java.util.Map.of("version","Version không hợp lệ."));
+        }
         ExpertProfileEntity profile = guard.requireOwned(
                 experts.findById(userId), "Không tìm thấy chuyên gia.");
         if (request.version() == null || request.version() != profile.getVersion()) {

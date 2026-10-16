@@ -1,5 +1,11 @@
 package vn.nutrimom.consultation.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_APPOINTMENT_ACCEPTED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_APPOINTMENT_CANCELLED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_APPOINTMENT_COMPLETED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_APPOINTMENT_CREATED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_EXPERT_WAITING;
+
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -7,17 +13,18 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
 import vn.nutrimom.consultation.domain.AssignmentType;
+import vn.nutrimom.consultation.domain.ConsultationTiming;
 import vn.nutrimom.consultation.domain.AvailabilitySlotEntity;
 import vn.nutrimom.consultation.domain.ConsultationRequestEntity;
 import vn.nutrimom.consultation.domain.ConsultationStatus;
@@ -28,6 +35,7 @@ import vn.nutrimom.consultation.domain.SlotStatus;
 import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.AcceptConsultationRequest;
 import vn.nutrimom.consultation.dto.RequestDtos.ConsultationRequestResponse;
+import vn.nutrimom.consultation.dto.RequestDtos.ExpertConsultationPage;
 import vn.nutrimom.consultation.dto.RequestDtos.CreateConsultationRequest;
 import vn.nutrimom.consultation.dto.RequestDtos.SlotInfo;
 import vn.nutrimom.consultation.repository.AvailabilitySlotRepository;
@@ -52,13 +60,6 @@ public class ConsultationRequestService {
     private static final DateTimeFormatter APPOINTMENT_DATE =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    /** Sắp xếp theo giờ hẹn mới nhất trước; yêu cầu chưa có slot xếp cuối. */
-    private static final Comparator<ConsultationRequestResponse> BY_APPOINTMENT =
-            Comparator.comparing(
-                    (ConsultationRequestResponse r) -> r.slot() == null ? null
-                            : r.slot().slotDate().atTime(r.slot().startTime()),
-                    Comparator.nullsLast(Comparator.reverseOrder()));
-
     private final ConsultationRequestRepository requests;
     private final AvailabilitySlotRepository slots;
     private final ExpertDayOffRepository dayOffs;
@@ -71,6 +72,8 @@ public class ConsultationRequestService {
     private final ActivityFeedService activityFeed;
     private final ConsultationVideoService video;
 
+    private final AdminNotificationEvents adminEvents;
+
     public ConsultationRequestService(ConsultationRequestRepository requests,
                                       AvailabilitySlotRepository slots,
                                       ExpertDayOffRepository dayOffs,
@@ -81,7 +84,8 @@ public class ConsultationRequestService {
                                       Clock clock,
                                       NotificationService notifications,
                                       ActivityFeedService activityFeed,
-                                      ConsultationVideoService video) {
+                                      ConsultationVideoService video, AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.requests = requests;
         this.slots = slots;
         this.dayOffs = dayOffs;
@@ -112,6 +116,7 @@ public class ConsultationRequestService {
         }
         requests.saveAndFlush(entity);
 
+        adminEvents.record(bookedSlot != null ? ADMIN_APPOINTMENT_CREATED : ADMIN_EXPERT_WAITING, entity.getId());
         if (bookedSlot != null) {
             // DIRECT: user đã chọn sẵn chuyên gia và khung giờ, nên người cần biết là chuyên gia.
             notifyExpert(entity.getExpertUserId(), entity, "Bạn có lịch tư vấn mới",
@@ -119,6 +124,13 @@ public class ConsultationRequestService {
                             + appointmentLabel(bookedSlot) + ".");
         } else {
             broadcastPendingRequest(entity);
+            notifyUser(entity,"Yêu cầu tư vấn đang chờ tiếp nhận",
+                    ConsultationTiming.deadlineMessage(entity.getAcceptanceDeadlineAt(),OffsetDateTime.now(clock)));
+            users.findIdsByRoleAndStatus(vn.nutrimom.auth.domain.UserRole.ADMIN, vn.nutrimom.auth.domain.UserStatus.ACTIVE)
+                    .stream().sorted().forEach(adminId -> notifications.publishAdminOnce(adminId,
+                        NotificationType.CONSULTATION,"Có yêu cầu đang chờ chuyên gia",
+                        "Một yêu cầu tư vấn cần chuyên gia tiếp nhận.",
+                        "nutrimom://admin/appointments/" + entity.getId(),"ADMIN_EXPERT_WAITING",entity.getId()));
         }
         return toResponse(entity, userId);
     }
@@ -134,14 +146,16 @@ public class ConsultationRequestService {
      * chuyên gia thuộc chuyên khoa đó nên họ đã biết, còn ghi chú là thông tin sức khoẻ của user.</p>
      */
     private void broadcastPendingRequest(ConsultationRequestEntity entity) {
-        experts.findByStatusAndSpecialtyOrderByFullNameAsc(ExpertStatus.ACTIVE, entity.getSpecialty())
+        experts.eligibleRecipients(entity.getSpecialty())
                 .stream()
                 .map(ExpertProfileEntity::getUserId)
                 .filter(expertUserId -> !expertUserId.equals(entity.getUserId()))
                 .forEach(expertUserId -> notifications.publish(expertUserId,
                         NotificationType.CONSULTATION,
                         "Có yêu cầu tư vấn mới đang chờ",
-                        "Một yêu cầu tư vấn thuộc chuyên khoa của bạn đang chờ được tiếp nhận.",
+                        "Một yêu cầu tư vấn thuộc chuyên khoa của bạn đang chờ được tiếp nhận. Hạn nhận: "
+                                +entity.getAcceptanceDeadlineAt().atZoneSameInstant(ConsultationTiming.ZONE)
+                                .format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"))+".",
                         EXPERT_INBOX_LINK, CONSULTATION_SOURCE, entity.getId()));
     }
 
@@ -171,6 +185,7 @@ public class ConsultationRequestService {
         entity.setExpertUserId(expert.getUserId());
         entity.setSpecialty(expert.getSpecialty());
         entity.setSlotId(slot.getId());
+        entity.captureScheduledSlot(slot);
         entity.setStatus(ConsultationStatus.PENDING_CONSULTATION);
         return slot;
     }
@@ -182,15 +197,18 @@ public class ConsultationRequestService {
         }
         entity.setSpecialty(request.specialty());
         entity.setStatus(ConsultationStatus.PENDING_EXPERT);
+        var today=ConsultationClock.nowVietnam(clock).toLocalDate();
+        if(request.preferredDate()!=null && !SlotGrid.isWithinHorizon(request.preferredDate(),today))
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,"Ngày mong muốn phải trong 30 ngày tới.");
+        entity.setPreferredDate(request.preferredDate());
+        entity.openAcceptanceV2(OffsetDateTime.now(clock));
     }
 
     @Transactional(readOnly = true)
     public PageResponse<ConsultationRequestResponse> listOwn(String userId, int page, int pageSize) {
-        List<ConsultationRequestResponse> all = requests.findByUserIdOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(entity -> toResponse(entity, userId))
-                .toList();
-        return PageResponse.of(all, page, pageSize);
+        var result=requests.findByUserId(userId,org.springframework.data.domain.PageRequest.of(page-1,pageSize,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,"createdAt","id")));
+        return pageResponses(result,userId,page,pageSize);
     }
 
     @Transactional(readOnly = true)
@@ -216,6 +234,7 @@ public class ConsultationRequestService {
         video.stop(requestId);
         requests.saveAndFlush(entity);
         releaseSlot(slotId);
+        adminEvents.record(ADMIN_APPOINTMENT_CANCELLED, entity.getId());
         // Chỉ báo khi đã có chuyên gia nhận. Yêu cầu RANDOM còn PENDING_EXPERT thì chưa chuyên gia
         // nào nhận nó, nên không có ai để báo — các chuyên gia khác chỉ thấy nó biến khỏi hàng chờ.
         if (assignedExpert != null) {
@@ -272,52 +291,46 @@ public class ConsultationRequestService {
     public PageResponse<ConsultationRequestResponse> listAssigned(
             String expertUserId, ConsultationStatus status, LocalDate from, LocalDate to,
             String q, int page, int pageSize) {
+        return pageResponses(assignedPage(expertUserId,status,from,to,q,page,pageSize),null,page,pageSize);
+    }
+    private org.springframework.data.domain.Page<ConsultationRequestEntity> assignedPage(String expertUserId,
+            ConsultationStatus status,LocalDate from,LocalDate to,String q,int page,int pageSize) {
         requireExpert(expertUserId);
         ConsultationStatus effective = status == null ? ConsultationStatus.PENDING_CONSULTATION : status;
-        String needle = normalize(q);
-        List<ConsultationRequestResponse> all = requests
-                .findByExpertUserIdAndStatusOrderByCreatedAtDesc(expertUserId, effective).stream()
-                .map(entity -> toResponse(entity, null))
-                .filter(response -> withinDate(response, from, to))
-                .filter(response -> matchesName(response, needle))
-                .sorted(BY_APPOINTMENT)
-                .toList();
-        return PageResponse.of(all, page, pageSize);
+        if(from!=null && to!=null && to.isBefore(from)) throw new BusinessException(ErrorCode.VALIDATION_ERROR,"Khoảng ngày không hợp lệ.");
+        return requests.assignedPage(expertUserId,effective,from,to,searchPattern(q),
+                org.springframework.data.domain.PageRequest.of(page-1,pageSize));
+    }
+
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public ExpertConsultationPage assignedSchedule(String expertUserId,ConsultationStatus status,LocalDate from,LocalDate to,
+            String q,int page,int pageSize,boolean includeNext) {
+        var result=assignedPage(expertUserId,status,from,to,q,page,pageSize);
+        var now=OffsetDateTime.now(clock);var local=now.atZoneSameInstant(ConsultationTiming.ZONE);
+        var next=includeNext && (status==null || status==ConsultationStatus.PENDING_CONSULTATION)
+            ?requests.nextAssigned(expertUserId,from,to,searchPattern(q),now,local.toLocalDate(),
+                local.toLocalTime(),local.toLocalTime().isBefore(SlotGrid.OPENING),!local.toLocalTime().isBefore(SlotGrid.CLOSING),
+                org.springframework.data.domain.PageRequest.of(0,1)).stream().findFirst().orElse(null):null;
+        var entities=new java.util.ArrayList<>(result.getContent());
+        if(next!=null && entities.stream().noneMatch(e->e.getId().equals(next.getId())))entities.add(next);
+        var mapped=responses(entities,null);
+        var nextResponse=next==null?null:mapped.stream().filter(r->r.id().equals(next.getId())).findFirst().orElse(null);
+        return new ExpertConsultationPage(List.copyOf(mapped.subList(0,result.getNumberOfElements())),page,pageSize,
+            result.getTotalElements(),result.getTotalPages(),nextResponse,now);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<ConsultationRequestResponse> listPool(
             String expertUserId, String q, int page, int pageSize) {
         ExpertProfileEntity expert = requireExpert(expertUserId);
-        String needle = normalize(q);
-        List<ConsultationRequestResponse> all = requests
-                .findBySpecialtyAndAssignmentTypeAndStatusOrderByCreatedAtAsc(
-                        expert.getSpecialty(), AssignmentType.RANDOM, ConsultationStatus.PENDING_EXPERT)
-                .stream()
-                .map(entity -> toResponse(entity, null))
-                .filter(response -> matchesName(response, needle))
-                .toList();
-        return PageResponse.of(all, page, pageSize);
+        var result=requests.poolPage(expert.getSpecialty(),expertUserId,searchPattern(q),
+                org.springframework.data.domain.PageRequest.of(page-1,pageSize));
+        return pageResponses(result,null,page,pageSize);
     }
 
-    private static String normalize(String q) {
-        return q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private static boolean matchesName(ConsultationRequestResponse response, String needle) {
-        return needle == null || (response.userDisplayName() != null
-                && response.userDisplayName().toLowerCase(Locale.ROOT).contains(needle));
-    }
-
-    private static boolean withinDate(ConsultationRequestResponse response, LocalDate from, LocalDate to) {
-        if (from == null && to == null) {
-            return true;
-        }
-        if (response.slot() == null) {
-            return false;
-        }
-        LocalDate date = response.slot().slotDate();
-        return (from == null || !date.isBefore(from)) && (to == null || !date.isAfter(to));
+    private static String searchPattern(String q) {
+        if(q!=null && q.length()>100) throw new BusinessException(ErrorCode.VALIDATION_ERROR,"Từ khóa tối đa 100 ký tự.");
+        return "%"+(q==null?"":q.trim().toLowerCase(Locale.ROOT)).replace("!","!!").replace("%","!%").replace("_","!_")+"%";
     }
 
     @Transactional
@@ -340,12 +353,20 @@ public class ConsultationRequestService {
             throw new BusinessException(ErrorCode.FORBIDDEN,
                     "Bạn không thể tiếp nhận yêu cầu do chính mình tạo.");
         }
+        if(entity.getPreferredDate()!=null && !entity.getPreferredDate().equals(body.slotDate()))
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "Cần xếp lịch đúng ngày mong muốn. Nếu ngày đã qua, người dùng cần hủy và tạo yêu cầu mới.");
         AvailabilitySlotEntity slot = reserveSlot(expertUserId, body.slotDate(), body.startTime());
 
         entity.setExpertUserId(expertUserId);
         entity.setSlotId(slot.getId());
+        entity.captureScheduledSlot(slot);
+        entity.recordAcceptance(OffsetDateTime.now(clock));
         entity.setStatus(ConsultationStatus.PENDING_CONSULTATION);
         requests.saveAndFlush(entity);
+        adminEvents.record(ADMIN_APPOINTMENT_ACCEPTED, entity.getId());
+        if(entity.getAcceptanceDeadlineAt()!=null && entity.getAcceptedAt().isAfter(entity.getAcceptanceDeadlineAt()))
+            adminEvents.record(vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCEPTANCE_OVERDUE,entity.getId());
         // Khung giờ do chuyên gia chọn chứ không phải user, nên thông báo phải nói thẳng mốc hẹn —
         // bắt user mở app mới biết mình hẹn lúc nào là cách chắc chắn để họ lỡ buổi tư vấn.
         notifyUser(entity, "Chuyên gia đã tiếp nhận yêu cầu tư vấn",
@@ -371,8 +392,9 @@ public class ConsultationRequestService {
         }
         entity.setStatus(ConsultationStatus.COMPLETED);
         video.stop(requestId);
-        entity.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        entity.setCompletedAt(OffsetDateTime.now(clock));
         requests.saveAndFlush(entity);
+        adminEvents.record(ADMIN_APPOINTMENT_COMPLETED, entity.getId());
         notifyUser(entity, "Buổi tư vấn đã hoàn tất",
                 "Buổi tư vấn của bạn đã kết thúc. Hãy dành ít phút đánh giá chuyên gia nhé.");
         recordActivity(entity, expertUserId,
@@ -443,6 +465,15 @@ public class ConsultationRequestService {
         });
     }
 
+    private String acceptanceStatus(ConsultationRequestEntity entity) {
+        if(entity.getAssignmentType()!=AssignmentType.RANDOM) return "NOT_APPLICABLE";
+        if(entity.getStatus()==ConsultationStatus.CANCELLED) return "CANCELLED";
+        var deadline=entity.getAcceptanceDeadlineAt();
+        if(deadline==null) return "UNKNOWN";
+        if(entity.getAcceptedAt()!=null) return entity.getAcceptedAt().isAfter(deadline)?"ACCEPTED_LATE":"ACCEPTED_ON_TIME";
+        return OffsetDateTime.now(clock).isAfter(deadline)?"OVERDUE":"WAITING";
+    }
+
     private ExpertProfileEntity requireExpert(String expertUserId) {
         return experts.findById(expertUserId).orElseThrow(() ->
                 new BusinessException(ErrorCode.FORBIDDEN, "Tài khoản của bạn chưa phải hồ sơ chuyên gia."));
@@ -452,24 +483,34 @@ public class ConsultationRequestService {
      * @param viewerUserId user đang xem để tính cờ canReview; null khi người xem là chuyên gia.
      */
     private ConsultationRequestResponse toResponse(ConsultationRequestEntity entity, String viewerUserId) {
-        String expertName = entity.getExpertUserId() == null ? null
-                : experts.findById(entity.getExpertUserId())
-                        .map(ExpertProfileEntity::getFullName).orElse(null);
-        SlotInfo slot = entity.getSlotId() == null ? null
-                : slots.findById(entity.getSlotId())
-                        .map(s -> new SlotInfo(s.getId(), s.getSlotDate(), s.getStartTime(), s.getEndTime()))
-                        .orElse(null);
-        String userName = users.findById(entity.getUserId())
-                .map(user -> user.getDisplayName()).orElse(null);
-        boolean reviewed = reviews.existsByRequestId(entity.getId());
-        boolean canReview = viewerUserId != null
-                && viewerUserId.equals(entity.getUserId())
-                && entity.getStatus() == ConsultationStatus.COMPLETED
-                && !reviewed;
-        return new ConsultationRequestResponse(entity.getId(), entity.getUserId(), userName,
-                entity.getExpertUserId(), expertName, entity.getSpecialty(), entity.getAssignmentType(),
-                entity.getStatus(), slot, entity.getNote(), reviewed, canReview,
-                entity.getCompletedAt(), entity.getVersion(), entity.getCreatedAt(),
-                entity.getUpdatedAt());
+        return responses(List.of(entity),viewerUserId).get(0);
+    }
+    private PageResponse<ConsultationRequestResponse> pageResponses(org.springframework.data.domain.Page<ConsultationRequestEntity> result,
+            String viewer,int page,int size) {
+        return new PageResponse<>(responses(result.getContent(),viewer),page,size,result.getTotalElements(),result.getTotalPages());
+    }
+    private List<ConsultationRequestResponse> responses(List<ConsultationRequestEntity> entities,String viewerUserId) {
+        if(entities.isEmpty()) return List.of();
+        var names=new java.util.HashMap<String,String>();
+        users.findDisplayNamesByIdIn(entities.stream().map(ConsultationRequestEntity::getUserId).distinct().toList()).forEach(u->names.put(u.getId(),u.getDisplayName()));
+        var expertNames=new java.util.HashMap<String,String>();
+        var expertIds=entities.stream().map(ConsultationRequestEntity::getExpertUserId).filter(java.util.Objects::nonNull).distinct().toList();
+        if(!expertIds.isEmpty()) experts.findAllById(expertIds).forEach(e->expertNames.put(e.getUserId(),e.getFullName()));
+        var slotInfos=new java.util.HashMap<String,SlotInfo>();
+        var slotIds=entities.stream().map(ConsultationRequestEntity::getSlotId).filter(java.util.Objects::nonNull).distinct().toList();
+        if(!slotIds.isEmpty()) slots.findAllById(slotIds).forEach(s->slotInfos.put(s.getId(),new SlotInfo(s.getId(),s.getSlotDate(),s.getStartTime(),s.getEndTime())));
+        var reviewedIds=reviews.findByRequestIdIn(entities.stream().map(ConsultationRequestEntity::getId).toList()).stream()
+                .map(vn.nutrimom.consultation.domain.ConsultationReviewEntity::getRequestId).collect(java.util.stream.Collectors.toSet());
+        var serverTime=OffsetDateTime.now(clock);
+        return entities.stream().map(entity->{
+            boolean reviewed=reviewedIds.contains(entity.getId());
+            boolean canReview=viewerUserId!=null && viewerUserId.equals(entity.getUserId()) && entity.getStatus()==ConsultationStatus.COMPLETED && !reviewed;
+            return new ConsultationRequestResponse(entity.getId(),entity.getUserId(),names.get(entity.getUserId()),
+                    entity.getExpertUserId(),expertNames.get(entity.getExpertUserId()),entity.getSpecialty(),entity.getAssignmentType(),
+                    entity.getStatus(),slotInfos.get(entity.getSlotId()),entity.getNote(),reviewed,canReview,entity.getCompletedAt(),
+                    entity.getVersion(),entity.getCreatedAt(),entity.getUpdatedAt(),entity.getPreferredDate(),entity.getAcceptanceOpenedAt(),
+                    entity.getAcceptanceDeadlineAt(),entity.getAcceptedAt(),entity.getAcceptancePolicyVersion(),acceptanceStatus(entity),serverTime,
+                    entity.getAcceptanceDeadlineAt()==null?null:ConsultationTiming.deadlineMessage(entity.getAcceptanceDeadlineAt(),serverTime));
+        }).toList();
     }
 }
