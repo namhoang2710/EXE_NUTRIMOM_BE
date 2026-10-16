@@ -32,15 +32,35 @@ Tên field Java vẫn camelCase, chỉ lớp serialize đổi.
 
 ---
 
-## 2. Flyway — số version đặt chỗ sẵn
+## 2. Flyway — KHÔNG đặt chỗ trước, hỏi database mỗi lần
 
-Repo đang ở **V41**. Mỗi nhánh lấy đúng số của mình, **merge theo đúng thứ tự nhánh**:
+**Đừng tin số migration cao nhất trong repo.** Ngày 16/10/2026, repo (cả `origin`) dừng ở **V41**
+trong khi database Supabase dùng chung đã ở **V56**: V42–V56 là migration của người khác, áp thẳng
+lên DB chung từ máy họ mà chưa push lên git. Nhánh 1 ban đầu đánh số V42, trùng với
+"admin operations" đã chạy từ 12/10, và Flyway **im lặng bỏ qua** nó.
 
-| V42 | V43 | V44 | V45 | V46 | V47 |
-|---|---|---|---|---|---|
-| catalog | hồ sơ | recommendation | meal-plan | shopping-list | diary |
+Vì sao im lặng: `validate-on-migrate: false` nên Flyway không than phiền về migration chưa áp dụng,
+còn `out-of-order` mặc định `false` nên một version thấp hơn mức hiện tại của DB bị bỏ qua không
+báo gì. Triệu chứng duy nhất nhìn thấy được là Hibernate `ddl-auto: validate` ném
+`missing table [app.<tên bảng>]` lúc khởi động.
 
-Merge lệch thứ tự thì nhánh sau phải đổi tên file migration. Nhánh 2, 6, 9, 10 không có migration.
+**Quy tắc cho mọi nhánh có migration:**
+
+1. Ngay khi bắt đầu nhánh, hỏi database xem nó đang ở đâu:
+   ```sql
+   SELECT MAX(version::numeric) FROM app.flyway_schema_history;
+   ```
+2. Lấy số đó **+1**, không lấy theo số file trong repo.
+3. Kiểm lại ngay trước khi merge — người khác có thể đã chiếm số trong lúc mình làm.
+
+| Nhánh | Migration |
+|---|---|
+| 1 catalog | **V57** (DB đang ở V56 lúc đánh số) |
+| 3 hồ sơ · 4 recommendation · 5 meal-plan · 7 shopping-list · 8 diary | lấy số lúc bắt đầu nhánh, theo quy tắc trên |
+| 2 calculator · 6 plan-edit · 9 multiday · 10 revalidation | không có migration |
+
+Chuyện DB chung chạy trước repo là vấn đề quy trình của nhóm, không phải thứ nhánh này sửa được —
+nhưng mọi nhánh đều phải sống chung với nó.
 
 ---
 
@@ -57,8 +77,9 @@ Nguồn sự thật: `vn.nutrimom.common.exception.ErrorCode`. Không viết lit
 RECIPE_NOT_ELIGIBLE(HttpStatus.UNPROCESSABLE_CONTENT, false, "<thông điệp tiếng Việt>")
 ```
 
-`ErrorCatalogTest` khoá danh sách + HTTP status của enum này — **thêm mã thì phải cập nhật test đó**,
-nếu không build đỏ.
+`ErrorCatalogTest` khoá 22 mã bắt buộc theo spec và HTTP status của chúng. **Thêm mã mới không làm
+test đó đỏ** — nó chỉ đòi mọi mã trong enum phải có status và `defaultMessage` không rỗng. Đừng sửa
+danh sách `MANDATORY` trong test khi thêm mã của module.
 
 **`NO_MATCH` và `SEARCH_LIMIT` KHÔNG phải mã lỗi.** Chúng là `reason_codes` trong body trả về
 **HTTP 200**, vì "không tìm được thực đơn" là kết quả nghiệp vụ hợp lệ, không phải lỗi hệ thống.

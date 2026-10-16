@@ -121,6 +121,16 @@ public enum ErrorCode {
     // không phải "bạn đã dùng hết lượt". FE cần phân biệt hai ca để biết có mời nâng cấp hay không.
     PLAN_UPGRADE_REQUIRED(HttpStatus.FORBIDDEN, false, "Tính năng này không có trong gói của bạn."),
 
+    // --- Nutrition ---
+    // Mã DUY NHẤT mà module dinh dưỡng thêm vào danh mục. Mọi tình huống lỗi khác của module dùng
+    // lại code sẵn có: VALIDATION_ERROR, VERSION_CONFLICT, IDEMPOTENCY_CONFLICT, RESOURCE_NOT_FOUND,
+    // PLAN_UPGRADE_REQUIRED. Khai từ nhánh catalog (V57) dù nhánh đổi món mới dùng tới, để các
+    // nhánh sau không phải sửa enum này và đụng nhau khi merge.
+    // NO_MATCH và SEARCH_LIMIT cố ý KHÔNG nằm ở đây: không tìm được thực đơn là kết quả nghiệp vụ
+    // hợp lệ, trả HTTP 200 kèm reason_codes trong body, không phải lỗi hệ thống.
+    RECIPE_NOT_ELIGIBLE(HttpStatus.UNPROCESSABLE_CONTENT, false,
+            "Món này không phù hợp với hồ sơ của bạn."),
+
     // --- Assistant ---
     ASSISTANT_BUSY(HttpStatus.CONFLICT, true, "Trợ lý đang xử lý một câu hỏi của bạn. Vui lòng chờ rồi thử lại."),
     ASSISTANT_HISTORY_LIMIT(HttpStatus.CONFLICT, false, "Đã đạt giới hạn lịch sử. Hãy tạo cuộc trò chuyện mới hoặc xóa lịch sử cũ."),

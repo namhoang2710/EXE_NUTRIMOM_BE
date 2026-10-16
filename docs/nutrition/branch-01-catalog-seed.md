@@ -9,12 +9,12 @@
 |---|---|
 | Nhánh git | `feature/nutrition-catalog-seed` |
 | Cắt từ | `main` |
-| Migration | **V42** |
+| Migration | **V57** — xem `_CONTRACT.md` mục 2 trước khi tin con số này |
 | Demo được | Mở web chưa đăng nhập, xem danh sách món, lọc theo bữa và thời gian nấu |
 
 ---
 
-## 1. Chín bảng catalog (V42)
+## 1. Chín bảng catalog (V57)
 
 | Bảng | Cột tối thiểu |
 |---|---|
@@ -109,8 +109,8 @@ RECIPE_NOT_ELIGIBLE(HttpStatus.UNPROCESSABLE_CONTENT, false, "<thông điệp ti
 Nhánh này chưa dùng tới nó (nhánh 6 mới dùng), nhưng khai ở đây để các nhánh sau không phải sửa enum
 → tránh merge conflict như lần `fix/global-exception-handler-merge`.
 
-**Phải cập nhật `ErrorCatalogTest`** — test đó khoá danh sách và HTTP status của enum, không sửa thì
-build đỏ.
+`ErrorCatalogTest` khoá 22 mã bắt buộc theo spec; **thêm mã mới không làm nó đỏ**, chỉ cần mã có
+status và `defaultMessage` không rỗng. Đừng đụng vào danh sách `MANDATORY` trong test đó.
 
 Không thêm mã nào khác. Xem `_CONTRACT.md` mục 3.
 
@@ -136,7 +136,7 @@ trang CRUD seed · endpoint upload ảnh · thêm `PlanFeature` mới (QĐ-04).
 
 ## Xong là khi
 
-- [ ] V42 chạy sạch trên DB trống và DB đã có dữ liệu
+- [ ] V57 chạy sạch trên DB trống và DB đã có dữ liệu
 - [ ] Script kiểm tra seed phát hiện được: vòng trong component, mã tham chiếu sai, đơn vị lạ
 - [ ] Hai endpoint trả đúng dữ liệu **khi chưa đăng nhập**
 - [ ] Lọc theo `meal_type` / `role` / `max_minutes` chạy đúng, có phân trang

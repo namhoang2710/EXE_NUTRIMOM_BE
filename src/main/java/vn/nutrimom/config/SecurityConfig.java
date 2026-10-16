@@ -64,6 +64,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/subscription-plans").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/knowledge/articles", "/api/v1/knowledge/articles/*").permitAll()
+                        // Danh mục món là nội dung giới thiệu: mẹ bầu phải xem được trước khi quyết
+                        // định tạo tài khoản. Chỉ mở ĐÚNG hai path GET này — mọi endpoint cá nhân của
+                        // module dinh dưỡng (hồ sơ, gợi ý, thực đơn, nhật ký) vẫn cần token.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/recipes", "/api/v1/recipes/*").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(denied))

@@ -9,7 +9,7 @@ mà vẫn dùng được tính năng.
 |---|---|
 | Nhánh git | `feature/nutrition-profile` |
 | Cắt từ | nhánh 1 |
-| Migration | **V43** |
+| Migration | lấy số lúc bắt đầu nhánh — xem `_CONTRACT.md` mục 2 |
 | Demo được | Onboarding 5 bước, lưu xong hiện tuần thai đúng |
 
 Chạy song song được với nhánh 2.
@@ -25,7 +25,7 @@ Chạy song song được với nhánh 2.
 
 ---
 
-## 2. Bảng mới (V43)
+## 2. Bảng mới
 
 | Bảng | Cột |
 |---|---|
@@ -118,7 +118,7 @@ tạo lại `PregnancyProfile`.
 
 ## Xong là khi
 
-- [ ] V43 chạy sạch; `user_recipe_preferences` **không có** cột `expires_at`
+- [ ] Migration chạy sạch; `user_recipe_preferences` **không có** cột `expires_at`
 - [ ] Hai endpoint chạy, chặn được tài khoản khác (BR19)
 - [ ] Bỏ qua bước 3 và 5 vẫn lưu được hồ sơ và vẫn dùng được danh mục
 - [ ] Bốn TC trên có test, xanh

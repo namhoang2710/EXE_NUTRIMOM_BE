@@ -55,6 +55,10 @@ app:
   bootstrap:
     demo-user-enabled: false
     admin-user-enabled: false
+  nutrition:
+    # Nạp seed có test riêng (NutritionSeedLoaderTest) tự bật lại bằng @TestPropertySource. Tắt ở
+    # đây để mọi integration test khác không phải chờ nạp cả danh mục món mỗi lần dựng context.
+    seed-enabled: false
 
 springdoc:
   api-docs:

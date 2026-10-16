@@ -9,7 +9,7 @@ trong file này phải tái lập được bằng fixture.
 |---|---|
 | Nhánh git | `feature/nutrition-recommendation` |
 | Cắt từ | nhánh 2 **và** nhánh 3 (cần cả hai đã merge) |
-| Migration | **V44** (`app.recommendation_logs`) |
+| Migration | lấy số lúc bắt đầu nhánh — xem `_CONTRACT.md` mục 2 (`app.recommendation_logs`) |
 | Demo được | Gọi API trả danh sách món kèm lý do, đổi hồ sơ thì danh sách đổi theo |
 
 ---
@@ -209,7 +209,7 @@ NutritionCalculator của nhánh 2**.
 
 ## Xong là khi
 
-- [ ] V44 chạy sạch
+- [ ] Migration chạy sạch
 - [ ] Sáu TC trên có test, xanh; TC07 khớp **84,5** không sai số
 - [ ] Mọi kết quả có **ít nhất một** lý do đối chiếu được với dữ liệu
 - [ ] `recommendation_logs` ghi đủ `feature_scores` để tái lập xếp hạng

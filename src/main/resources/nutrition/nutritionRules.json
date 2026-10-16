@@ -1,0 +1,67 @@
+{
+  "_note": "rulesVersion là mã của TOÀN BỘ tập seed. Tăng nó mỗi lần sửa bất kỳ file nào trong thư mục này: loader so sánh để biết có phải nạp lại hay không, và các nhánh sau ghi nó vào snapshot kế hoạch để tái lập được kết quả.",
+  "rulesVersion": "nutrition-seed-v1",
+
+  "_micronutrientNote": "Mức tham chiếu NIH cho nhóm tuổi 19-50 khi mang thai. Choline là AI, các chất còn lại là RDA. Đây KHÔNG phải mức phân bổ cho một bữa, cũng không phải liều cần bổ sung. Nhánh 2 (NutritionCalculator) đọc bảng này; nhánh 1 chỉ nạp và kiểm tra tính hợp lệ.",
+  "micronutrientTargets": [
+    { "code": "FOLATE", "amountPerDay": 600, "unit": "mcg_dfe", "kind": "RDA" },
+    { "code": "IRON", "amountPerDay": 27, "unit": "mg", "kind": "RDA" },
+    { "code": "CALCIUM", "amountPerDay": 1000, "unit": "mg", "kind": "RDA" },
+    { "code": "CHOLINE", "amountPerDay": 450, "unit": "mg", "kind": "AI" },
+    { "code": "IODINE", "amountPerDay": 220, "unit": "mcg", "kind": "RDA" },
+    { "code": "VITAMIN_D", "amountPerDay": 15, "unit": "mcg", "kind": "RDA" }
+  ],
+
+  "_templateNote": "roleTargetShare là tỉ lệ năng lượng tham khảo của bữa trong ngày. Đây là giả định kỹ thuật dùng để xếp hạng ở nhánh 4, KHÔNG phải quy tắc y khoa. Bữa phụ chia đều cho snackCount ở nhánh 5.",
+  "mealTemplates": [
+    {
+      "mealType": "BREAKFAST",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["MAIN_DISH"],
+      "roleTargetShare": 0.25,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "BREAKFAST",
+      "mode": "ROLE_SET",
+      "requiredRoles": ["STAPLE", "PROTEIN"],
+      "roleTargetShare": 0.25,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "LUNCH",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["MAIN_DISH"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "LUNCH",
+      "mode": "ROLE_SET",
+      "requiredRoles": ["STAPLE", "PROTEIN", "VEGETABLE"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "DINNER",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["MAIN_DISH"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "DINNER",
+      "mode": "ROLE_SET",
+      "requiredRoles": ["STAPLE", "PROTEIN", "VEGETABLE"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "SNACK",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["SNACK"],
+      "roleTargetShare": 0.15,
+      "defaultServingOptions": "0.5,1,1.5"
+    }
+  ]
+}

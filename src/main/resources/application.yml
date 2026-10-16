@@ -195,6 +195,11 @@ app:
         assistant:
           capacity: 8
           window: PT1M
+        # Hai endpoint tra cứu món là công khai, nên khóa đếm rơi về IP (xem RateLimitKeyResolver).
+        # Ngưỡng rộng vì đây là đọc danh mục tĩnh, chỉ nhằm chặn quét hàng loạt.
+        recipes:
+          capacity: 60
+          window: PT1M
         invitation-create:
           capacity: 10
           window: PT1H
@@ -213,6 +218,10 @@ app:
           policy: devices
         - pattern: /api/v1/assistant/conversations/*/messages
           policy: assistant
+        - pattern: /api/v1/recipes
+          policy: recipes
+        - pattern: /api/v1/recipes/*
+          policy: recipes
         # Pattern CỤ THỂ phải đứng trước: RateLimitFilter lấy rule khớp ĐẦU TIÊN.
         # invitation-token dùng cho cả lối vào bằng token lẫn bằng id: tên giữ nguyên vì ngưỡng
         # mới là thứ đáng quan tâm, đẻ thêm một policy trùng số chỉ làm file này dài ra.
