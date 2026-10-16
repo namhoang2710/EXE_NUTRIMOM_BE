@@ -9,7 +9,8 @@ từng nhánh merge.
 | 1 — catalog và seed (V57) | **đã làm** |
 | 2 — NutritionCalculator (không có endpoint) | **đã làm** |
 | 3 — hồ sơ ăn uống (V58) | **đã làm** |
-| 4–10 | chưa |
+| 4 — lọc điều kiện và xếp hạng (V59) | **đã làm** |
+| 5–10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -400,6 +401,218 @@ khác vào đó thì hai module phải cùng giữ một bất biến mà không
 
 Khoá của `user_recipe_preferences` là `user_id` chứ không phải `profile_id`, đúng đặc tả: "tôi
 không thích món này" không mất đi khi mẹ bầu bắt đầu một thai kỳ mới.
+
+---
+
+## Gợi ý món (nhánh 4)
+
+**Cần JWT.** Không có phiên bản ẩn danh: gợi ý đọc hồ sơ ăn uống của người gọi (QĐ-06).
+
+```
+POST /api/v1/recommendations
+```
+
+`POST` chứ không `GET` vì yêu cầu chở theo lịch sử gần đây và bộ đếm trong tuần — những thứ nhánh 5
+truyền vào từ kế hoạch *đang dựng dở*. Lượt gọi cũng ghi một dòng nhật ký, nên nó không phải thao
+tác đọc thuần.
+
+### Yêu cầu
+
+```json
+{
+  "meal_types": ["LUNCH", "DINNER"],
+  "role": "MAIN_DISH",
+  "limit": 5,
+  "seed": 4242,
+  "strict_time": false,
+  "strict_budget": false,
+  "recent_recipe_ids": ["rec.ga-kho-gung"],
+  "yesterday_main_ingredient_tags": ["ing.thit-ga-uc"],
+  "week_recipe_counts": { "rec.com-trang": 2 },
+  "request_id": "req-1"
+}
+```
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `meal_types` | 1–4 loại bữa. Mỗi loại trả một danh sách **độc lập** |
+| `role` | lọc theo vai trò trong bữa; bỏ trống = mọi vai trò |
+| `limit` | 1–20, mặc định 5 |
+| `seed` | nút "Tạo lại". Bỏ trống = thứ tự chuẩn; cùng seed cho đúng danh sách cũ |
+| `strict_time` · `strict_budget` | **mặc định false** — thời gian và chi phí là ưu tiên *mềm*, chỉ thành bộ lọc cứng khi người dùng tự bật (BR13) |
+| ba trường lịch sử | do **người gọi** cung cấp, không phải service tự tra — xem bên dưới |
+| `request_id` | mã tương quan để tra nhật ký. **Không phải** idempotency key |
+
+**Vì sao lịch sử do người gọi truyền vào:** kế hoạch và nhật ký thuộc nhánh 5 và 8. Ngay cả khi đã
+có, `PlanGenerator` cần chấm điểm trên kế hoạch *đang dựng dở* chứ không phải trên thứ đã lưu trong
+database. Để người gọi truyền vào là cách duy nhất phục vụ cả hai tình huống bằng một đường.
+
+### Phản hồi
+
+```json
+{
+  "data": {
+    "profile_version": 3,
+    "rules_version": "nutrition-seed-v2",
+    "seed": 4242,
+    "allergy_checked": false,
+    "notes": [
+      { "code": "ALLERGY_STATUS_UNCONFIRMED",
+        "message": "Bạn chưa xác nhận tình trạng dị ứng, danh sách này chưa lọc theo dị ứng" }
+    ],
+    "meals": [
+      {
+        "meal_type": "LUNCH",
+        "status": "READY",
+        "notes": [],
+        "criteria_used": ["C", "N", "P", "V"],
+        "nutrition_status": "PARTIAL",
+        "items": [
+          {
+            "recipe_id": "rec.rau-muong-luoc",
+            "name": "Rau muống luộc",
+            "role": "VEGETABLE",
+            "minutes": 10,
+            "nutrition_status": "PARTIAL",
+            "reasons": [{ "code": "QUICK_TO_COOK", "message": "Khoảng 10 phút nấu" }]
+          }
+        ],
+        "excluded": [
+          { "recipe_id": "rec.canh-bi-do-tom", "name": "Canh bí đỏ nấu tôm",
+            "status": "BLOCKED",
+            "reasons": [{ "code": "ALLERGEN_MATCH",
+                          "message": "Có Tôm sú — thành phần bạn đã khai dị ứng" }] }
+        ],
+        "log_id": "7f1c…"
+      }
+    ]
+  }
+}
+```
+
+**Cố ý không có điểm số.** Điểm thuật toán giữ ở backend: đưa ra giao diện thì sớm muộn nó bị đọc
+thành "điểm sức khỏe" của món, mà nó không phải thứ đó. Cái hiển thị được là **thứ tự** và
+`reasons`. Điểm từng thành phần nằm trong `app.recommendation_log_entries`.
+
+`allergy_checked: false` → giao diện **không được gắn nhãn** "đã kiểm tra theo dị ứng của bạn"
+(BR01). Hồ sơ `UNKNOWN` vẫn nhận gợi ý bình thường — không có gì để lọc thì cũng không lọc sai.
+
+`status: "NO_MATCH"` trả **HTTP 200**, không phải mã lỗi: hết món hợp lệ là kết quả nghiệp vụ của
+một hồ sơ nhiều ràng buộc. Giao diện mời nới các ưu tiên **mềm** (thời gian, ngân sách, món không
+thích) — không bao giờ nới dị ứng hay chế độ ăn bắt buộc (bất biến 5).
+
+### Hai bước, nối tiếp
+
+```
+Hồ sơ + danh mục → EligibilityFilter → Ranker → (nhánh 5: PlanGenerator)
+```
+
+Món chưa qua lọc **không bao giờ** được chấm điểm (bất biến 2). `ProfileConstraints` — thứ bước lọc
+nhận vào — *không có chỗ nào* để truyền món yêu thích, nên sở thích không thể vượt qua một điều
+kiện dị ứng kể cả khi ai đó muốn (BR05, TC02).
+
+#### Bước lọc — `eligibility`
+
+| Giá trị | Nghĩa |
+|---|---|
+| `ELIGIBLE` | đã kiểm đủ, không vi phạm |
+| `BLOCKED` | đã biết rõ và vi phạm |
+| `UNKNOWN` | **chưa đủ dữ liệu để kết luận** — có nguyên liệu chưa rà soát (BR03) |
+
+`BLOCKED` và `UNKNOWN` **không được gộp**: gộp lại thì không nói được với người dùng rằng món vắng
+mặt vì *dữ liệu còn thiếu* chứ không phải vì nó không hợp với họ.
+
+Mọi phép kiểm — dị ứng, nguyên liệu phải tránh, chế độ ăn, nguyên liệu chưa rà soát — đều duyệt
+**đệ quy qua nguyên liệu con** (BR02). Nước dùng nấu bằng tôm khô chặn món với người dị ứng tôm dù
+công thức không hề viết chữ "tôm" (TC01); nước mắm mang nhóm `SEASONING` vẫn bị chế độ ăn chay
+trường loại vì bên trong là cá cơm.
+
+Thứ tự kiểm có chủ ý — món vừa chứa thành phần gây dị ứng vừa có nguyên liệu chưa rà soát ra
+`BLOCKED` chứ không `UNKNOWN`: đã biết là vi phạm thì không được hạ xuống thành "chưa rõ".
+
+> **Bộ lọc chế độ ăn đang chặt hơn mức cần, và nói ra điều đó.** `FoodGroup.MEAT_FISH_EGG` gộp
+> thịt, cá và trứng, nên không tách được "ăn chay có trứng sữa" khỏi "không ăn thịt". Chọn hướng
+> chặt vì đây là điều kiện cùng hạng với dị ứng, và kèm `DIET_FILTER_COARSE` trong `notes` thay vì
+> im lặng. Gỡ được khi danh mục có nhãn chế độ ăn riêng cho từng nguyên liệu.
+
+#### Bước chấm điểm
+
+```
+S = 0,35·N + 0,30·P + 0,15·V + 0,10·B + 0,10·C
+```
+
+Mỗi thành phần 0–100. **Cấu hình thử nghiệm sản phẩm, không phải công thức y khoa.**
+
+| | Nội dung | Khi không dùng được |
+|---|---|---|
+| N | khớp phần năng lượng và vi chất tham chiếu của bữa | chưa có dữ liệu vi chất nào và không có `e_slot` |
+| P | khẩu vị: 50 ± yêu thích, nguyên liệu không thích, phản hồi | luôn dùng được |
+| V | đa dạng: `100 − 40·I_recipe − 20·I_mainIngredient − 10·n_week` | luôn dùng được |
+| B | chi phí so với ngân sách bữa | người dùng bỏ qua ngân sách, **hoặc món chưa có giá** |
+| C | thời gian nấu so với giới hạn | người dùng bỏ qua giới hạn thời gian |
+
+Thiếu tiêu chí thì **bỏ trọng số rồi chuẩn hóa lại**, không bao giờ cho 0 điểm:
+
+```
+S = Σ(w_i · f_i) / Σ(w_i),   i ∈ tập tiêu chí dùng được
+```
+
+Cho 0 nghĩa là coi "chưa biết" bằng "kém", và như thế mọi món thiếu dữ liệu sẽ nằm đáy danh sách
+chỉ vì danh mục còn trống. `criteria_used` trong phản hồi nói đúng tập nào đã tham gia.
+
+Ví dụ kiểm tra phải khớp từng chữ số: 80/95/70/90/85 → **84,5** · 90/60/90/70/70 → **77,0** ·
+70/80/100/100/90 → **82,5** (TC07). Bỏ ngân sách khỏi dòng đầu → 75,5 / 0,90 = **83,889**, cao hơn
+hẳn cách làm sai (cho B = 0 ra 75,5) — đó chính là TC06.
+
+`N` nhân thêm **hệ số chất lượng dữ liệu** `coverage_ratio = số chất có dữ liệu / số chất cấu hình`,
+áp **theo từng nhánh** (vi chất, năng lượng). Thiếu nó, một món khai đúng một vi chất và khai vừa
+đủ sẽ được 100 điểm dinh dưỡng, cao hơn món khai đủ cả sáu chất. Hệ số này **không phải** cách thay
+giá trị thiếu bằng 0 — mọi `q_k` thiếu vẫn là `null` ở mọi nơi khác.
+
+> **Hai thành phần của P hiện ngủ đông.** "Hợp nhóm ẩm thực thích" (+15) và "hợp tags dung nạp"
+> (+15) đòi công thức phải mang nhãn nhóm ẩm thực và nhãn mùi/kết cấu; danh mục của nhánh 1 không
+> có hai nhãn đó. Công thức vẫn hiện thực đủ và có test, nhưng đầu vào luôn rỗng. **Cố ý không suy
+> chúng từ nguyên liệu chính** — suy bừa thì điểm khẩu vị sẽ nói dối rất thuyết phục.
+
+**Bằng điểm** → ưu tiên món được chấm trên nhiều tiêu chí hơn (hệ thống biết nó rõ hơn), rồi
+`seed`, rồi `recipe_id`. `seed` **chỉ chạm tới các món bằng điểm**; nếu nó được phép chạm tới cả
+thứ hạng theo điểm thì không còn gì để chứng minh.
+
+#### Lý do hiển thị
+
+Tối đa **hai** mỗi món, **luôn có ít nhất một**, và tất cả lấy từ dữ liệu thật (BR15). Danh sách mã
+là một tập đóng (`RecommendationReason`): mỗi mã chỉ dựng được khi nơi phát hiện cầm sẵn mẩu dữ
+liệu điền vào mẫu câu — tên nguyên liệu, số phút, tên chế độ ăn. **Không có chỗ nào sinh câu tự
+do**, nên cũng không cần dịch vụ AI bên ngoài.
+
+Dự phòng khi món không có lý do tích cực nào là thời gian nấu — nó đọc thẳng từ cột `minutes` nên
+luôn có và luôn đối chiếu được. Không bao giờ rơi về một câu chung chung kiểu "món phù hợp với
+bạn".
+
+### Nhật ký gợi ý (V59)
+
+| Bảng | Vai trò |
+|---|---|
+| `app.recommendation_logs` | một dòng mỗi lượt: `profile_version`, `rules_version`, `seed`, `status`, `criteria_used` |
+| `app.recommendation_log_entries` | một dòng mỗi món ứng viên, **kể cả món bị loại** |
+
+Bộ ba `(profile_version, rules_version, seed)` là điều kiện để dựng lại đúng thứ hạng cũ. Ghi cả
+món bị loại vì chỉ ghi món thắng thì mất nửa phần giải thích: người dùng hỏi "sao không thấy món cá
+hồi" và không ai trả lời được.
+
+Điểm thành phần `NULL` nghĩa là tiêu chí **không dùng được**, không phải 0 điểm. Database khóa bất
+biến 2 bằng một CHECK: món không `ELIGIBLE` thì không được mang `score_total` hay `rank`.
+
+Cố ý là bảng con chứ không phải ba cột JSON như đặc tả phác ra — "ghi đủ `feature_scores` để tái lập
+xếp hạng" chỉ có nghĩa khi truy vấn được bằng một câu `SELECT`.
+
+### Chi phí món
+
+`RecipeCostEstimator` chỉ quy đổi những đơn vị **thực sự là khối lượng** (`kg`, `g`) và **bỏ cuộc cả
+món** ngay khi gặp một nguyên liệu chưa có giá hoặc có giá theo `lít`/`quả`. Bỏ cuộc cả món chứ
+không bỏ qua dòng đó: cộng tổng trên một nửa số nguyên liệu cho ra con số thấp hơn thực tế mà nhìn
+vẫn như số đầy đủ, rồi điểm B sẽ khen một món đắt là rẻ. Không quy được giá → **B không hoạt
+động**, không phải B = 0. Đoán một mật độ chung để quy "lít" sang gram chính là lỗi đặc tả cấm.
 
 ---
 

@@ -91,6 +91,52 @@ public class NutritionProfileService {
     }
 
     /**
+     * Cùng dữ liệu, dạng phẳng cho các service khác trong module (nhánh 4 trở đi).
+     *
+     * <p>Tồn tại để chủ sở hữu vẫn được suy từ JWT ở <strong>đúng một chỗ</strong>. Bộ gợi ý đọc
+     * hồ sơ qua đây chứ không tự truy vấn {@code EatingPreferenceRepository}, nhờ vậy không mở ra
+     * lối nào đọc hồ sơ của người khác (BR19).</p>
+     */
+    @Transactional(readOnly = true)
+    public ProfileSnapshot snapshot(String userId) {
+        PregnancyEntity pregnancy = requireActivePregnancy(userId);
+        EatingPreferenceEntity preference = preferences.findById(pregnancy.getId()).orElse(null);
+        ZoneId zone = zones.resolve(pregnancy.getTimezone(), userId);
+        GestationalAge age = gestationalAge(pregnancy, zone);
+        List<UserRecipePreferenceEntity> recipePrefs = loadRecipePreferences(userId);
+
+        return new ProfileSnapshot(
+                pregnancy.getId(),
+                preference == null ? 0 : preference.getProfileVersion(),
+                age,
+                preference == null ? AllergyDeclarationStatus.UNKNOWN : preference.getAllergyStatus(),
+                preference == null ? Set.of() : Set.copyOf(preference.getAllergenIds()),
+                preference == null ? null : preference.getDietPattern(),
+                preference == null ? Set.of()
+                        : Set.copyOf(preference.getHardExclusionIngredientIds()),
+                preference == null ? Set.of() : Set.copyOf(preference.getDislikedIngredientIds()),
+                preference == null ? Set.of() : Set.copyOf(preference.getToleranceTags()),
+                Set.copyOf(recipeIds(recipePrefs, RecipePreferenceType.FAVORITE)),
+                Set.copyOf(recipeIds(recipePrefs, RecipePreferenceType.BLOCKED)),
+                preference == null ? null : preference.getDailyBudgetVnd(),
+                preference == null ? null : preference.getMaxMinutesPerMeal(),
+                preference == null ? Set.of() : Set.copyOf(preference.getMealTypes()),
+                preference == null ? null : preference.getSnackCount(),
+                energyEstimator.estimate(energyInputs(preference, age)));
+    }
+
+    /** Đầu vào EER từ hồ sơ; mọi trường cho phép null vì bước 5 onboarding bỏ qua được (TC05). */
+    private EnergyInputs energyInputs(EatingPreferenceEntity preference, GestationalAge age) {
+        return new EnergyInputs(
+                preference == null ? null : preference.getAgeYears(),
+                preference == null ? null : preference.getHeightCm(),
+                preference == null ? null : preference.getCurrentWeightKg(),
+                preference == null ? null : preference.getPrePregnancyWeightKg(),
+                age.days(),
+                preference == null ? null : preference.getActivityCategory());
+    }
+
+    /**
      * Lưu hồ sơ ăn uống.
      *
      * <p>Ngữ nghĩa là <strong>hợp nhất</strong>: trường null giữ nguyên giá trị cũ, danh sách rỗng
@@ -290,13 +336,7 @@ public class NutritionProfileService {
                 preference.getAgeYears(), preference.getHeightCm(),
                 preference.getPrePregnancyWeightKg(), preference.getCurrentWeightKg(),
                 preference.getActivityCategory());
-        EnergyEstimate estimate = energyEstimator.estimate(new EnergyInputs(
-                inputs == null ? null : inputs.ageYears(),
-                inputs == null ? null : inputs.heightCm(),
-                inputs == null ? null : inputs.currentWeightKg(),
-                inputs == null ? null : inputs.prePregnancyWeightKg(),
-                age.days(),
-                inputs == null ? null : inputs.activityCategory()));
+        EnergyEstimate estimate = energyEstimator.estimate(energyInputs(preference, age));
 
         List<UserRecipePreferenceEntity> recipePrefs = loadRecipePreferences(userId);
         AllergyDeclarationStatus allergyStatus = preference == null
