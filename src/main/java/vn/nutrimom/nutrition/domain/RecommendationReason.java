@@ -1,7 +1,7 @@
 package vn.nutrimom.nutrition.domain;
 
 /**
- * Lý do có thể hiển thị cho một món, hoặc cho cả một lượt gợi ý.
+ * Lý do có thể hiển thị cho một món, cho cả một lượt gợi ý, hoặc cho cả một kế hoạch một ngày.
  *
  * <p><strong>BR15: giải thích phải lấy từ dữ liệu thật.</strong> Danh sách đóng này chính là cách
  * ép điều đó: mỗi lý do chỉ phát ra được khi nơi gọi cầm trong tay đúng mẩu dữ liệu điền vào chỗ
@@ -100,8 +100,18 @@ public enum RecommendationReason {
      */
     NO_MATCH(Kind.RESULT, "Chưa tìm được món hợp với điều kiện bắt buộc của bạn"),
 
-    /** Đã chạm trần số món duyệt trong một lượt; còn món khác chưa được xét. */
-    SEARCH_LIMIT(Kind.RESULT, "Đã đạt giới hạn số món duyệt trong một lượt"),
+    /**
+     * Đã chạm giới hạn tìm kiếm của một lượt; còn phương án chưa được xét.
+     *
+     * <p>Hai nơi phát mã này chạm hai loại trần khác nhau — nhánh 4 chạm trần <em>số món duyệt</em>,
+     * nhánh 5 chạm <em>hạn thời gian</em> của bộ sinh — nhưng điều phải nói với người dùng thì giống
+     * hệt nhau, nên câu chữ cố ý không nhắc tới trần nào: hết lượt tìm
+     * <strong>không có nghĩa là không tồn tại thực đơn phù hợp</strong> (TC19). Khẳng định "không có
+     * món nào hợp với bạn" khi mới chỉ hết thời gian tìm là một lời nói dối rất dễ tin.</p>
+     */
+    SEARCH_LIMIT(Kind.RESULT,
+            "Đã đạt giới hạn tìm kiếm của một lượt — còn phương án chưa được xét, "
+                    + "không có nghĩa là không tồn tại thực đơn phù hợp"),
 
     /**
      * Không tiêu chí nào dùng được — danh sách chỉ là thứ tự ổn định của bộ món mẫu.
@@ -128,7 +138,62 @@ public enum RecommendationReason {
      * ứng của bạn". Mã này là cách bước gợi ý nói lại điều đó cho giao diện.</p>
      */
     ALLERGY_STATUS_UNCONFIRMED(Kind.RESULT,
-            "Bạn chưa xác nhận tình trạng dị ứng, danh sách này chưa lọc theo dị ứng");
+            "Bạn chưa xác nhận tình trạng dị ứng, danh sách này chưa lọc theo dị ứng"),
+
+    // --- Nói về cả một kế hoạch một ngày (nhánh 5) --------------------------------------------
+    //
+    // Cùng nằm ở enum này chứ không tách thành một danh mục lý do riêng cho kế hoạch: mã lý do là
+    // thứ đi ra tới giao diện, và hai bảng mã song song sẽ sớm có hai mã cùng nghĩa khác tên. Nhóm
+    // Kind.RESULT vốn đã là "nói về cả một lượt", còn một lượt sinh thực đơn thì cũng là một lượt.
+
+    /**
+     * Một vai trò bắt buộc của bữa không còn ứng viên nào sau bước lọc (TC18).
+     *
+     * <p>{@code detail} phải nêu <strong>vai trò nào, bữa nào và bộ lọc nào</strong> gây giới hạn.
+     * Một câu "không tìm được thực đơn" trống không thì người dùng không biết nên nới cái gì — mà
+     * nới đúng chỗ chính là việc duy nhất họ có thể làm.</p>
+     */
+    ROLE_NO_CANDIDATE(Kind.RESULT, "Không còn món nào cho %s"),
+
+    /**
+     * Người dùng chỉ lập một phần các bữa trong ngày (TC23).
+     *
+     * <p>Kế hoạch <strong>không</strong> chuẩn hóa các bữa đã chọn lên thành toàn bộ năng lượng
+     * ngày: mẹ bầu vẫn ăn những bữa ngoài kế hoạch, và coi hai bữa là cả ngày sẽ đẩy khẩu phần của
+     * hai bữa đó lên quá mức.</p>
+     */
+    PARTIAL_DAY_PLAN(Kind.RESULT,
+            "Đây là kế hoạch một phần ngày (%s) — các bữa ngoài kế hoạch không nằm trong tổng này"),
+
+    /** Tổng ngày còn chất chưa đủ dữ liệu, nên chỉ gồm phần đã biết (BR08). */
+    NUTRITION_DATA_INCOMPLETE(Kind.RESULT,
+            "Một số chất chưa đủ dữ liệu, tổng của ngày chỉ gồm phần đã biết"),
+
+    /** Chi phí ước tính của ngày vượt ngân sách <em>mềm</em> người dùng đặt. */
+    DAY_OVER_BUDGET(Kind.RESULT,
+            "Chi phí ước tính của ngày khoảng %s đồng, cao hơn ngân sách bạn đặt"),
+
+    /**
+     * Có bữa vượt thời gian mong muốn, tính trên <strong>toàn bữa</strong>.
+     *
+     * <p>MVP ước tính bảo thủ: thời gian một bữa là <em>tổng</em> thời gian các món, chưa giả định
+     * các bước nấu chạy song song.</p>
+     */
+    MEAL_OVER_TIME(Kind.RESULT, "Có bữa nấu lâu hơn %s phút bạn muốn dành cho một bữa"),
+
+    /**
+     * Bật giới hạn ngân sách <em>cứng</em> nhưng danh mục còn món chưa quy đổi được giá.
+     *
+     * <p>Không coi dữ liệu thiếu là đã đạt giới hạn: những món đó không được đưa vào kế hoạch, và
+     * người dùng được nói thẳng là có thể bổ sung giá hoặc tắt giới hạn — <strong>họ chọn</strong>,
+     * hệ thống không tự nới.</p>
+     */
+    STRICT_BUDGET_WITHOUT_PRICE(Kind.RESULT,
+            "Bạn đang bật giới hạn ngân sách cứng nhưng %s món chưa có giá quy đổi được, "
+                    + "nên chúng không được đưa vào kế hoạch — hãy bổ sung giá hoặc tắt giới hạn"),
+
+    /** Món đã khóa không đặt được vào cấu trúc nào của bữa (vai trò không thuộc template nào). */
+    LOCKED_ITEM_UNPLACEABLE(Kind.RESULT, "Món bạn khóa ở %s không hợp với cấu trúc nào của bữa đó");
 
     /** Nhóm của lý do — ngăn một mã chặn bị đem ra làm lời khen. */
     public enum Kind {
