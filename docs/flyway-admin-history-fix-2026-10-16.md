@@ -15,7 +15,9 @@ Khôi phục SQL từ lịch sử chỉnh sửa cục bộ, rồi tính checksum
 
 Cả bốn file hiện khớp checksum DB. Đây là thay đổi SQL thực, không chỉ comment/format. Không có câu lệnh sửa `flyway_schema_history` hoặc `flyway repair` trong bản sửa.
 
-## Migration mới V60
+## Migration mới V60 (nay là V62)
+
+> **Đổi số ngày 16/10/2026:** PR #45 (meal plan) cũng dùng V60 (`V60__meal_plans.sql`) và đã chạy trên DB dùng chung trước. File reconcile chưa chạy ở đâu nên được đổi thành `V62__reconcile_admin_migration_history.sql`, nội dung giữ nguyên. Các chỗ nhắc V60 bên dưới là tên cũ của file này.
 
 V59 đã xuất hiện trong lịch sử DB dưới tên `V59__recommendation_logs.sql`, nên không lấy lại số V59 cho Admin. Ban đầu source V59 chưa có trong `main`; trước khi push đã đồng bộ `main` sau PR #42 và xác nhận checksum V59 là `1564917947`, khớp DB. Nhánh fix hiện mang đủ chuỗi V59 → V60.
 
@@ -65,3 +67,9 @@ V32 đã được xử lý trên nhánh `fix/flyway-v32-assistant-history`:
 - Index được tạo lại bằng `V61__assistant_conversation_expiry_index.sql` (`CREATE INDEX IF NOT EXISTS`), để DB tạo mới và DB dùng chung có cùng schema.
 - Thử trên PostgreSQL riêng: migrate tới V59 (chưa có index) → migrate tiếp chạy V60, V61 (có index) → chạy lại không áp dụng gì → `validate` OK.
 - Không ghi gì vào DB dùng chung; V60 và V61 sẽ chạy ở lần khởi động BE kế tiếp nối vào DB đó.
+
+## Cập nhật trùng V60 (16/10/2026)
+
+- `main` từng có hai file version 60 (`V60__meal_plans.sql` và `V60__reconcile_admin_migration_history.sql`); Flyway dừng khởi động vì trùng version.
+- DB dùng chung đã chạy V60 = `meal_plans` (checksum khớp source). File reconcile đổi thành **V62**; V61 (index trợ lý) giữ nguyên.
+- `AdminMigrationHistoryPostgresTest` cập nhật theo trạng thái thật: DB ở V60, nâng cấp chạy 2 migration (V61, V62), version cuối là 62.
