@@ -372,7 +372,10 @@ class AdminNotificationIntegrationTest {
             var u = users.findById(id).orElseThrow(); u.setEmailActivationTokenHash(tokens.hash("654321")); users.saveAndFlush(u);
         });
         auth.activateAccount(new ActivateAccountRequest("654321", email, null));
-        auth.activateAccount(new ActivateAccountRequest("654321", email, null));
+        // The activation code is single-use: replaying it neither signs in nor emits a second event.
+        assertThatThrownBy(
+                () -> auth.activateAccount(new ActivateAccountRequest("654321", email, null)))
+                .isInstanceOf(BusinessException.class);
         assertThat(dispatcher.dispatchBatch()).isEqualTo(1);
         assertThat(count(admin)).isEqualTo(2);
     }

@@ -153,26 +153,27 @@ public class AuthService {
         UserEntity user;
 
         if (request.email() != null && !request.email().isBlank()) {
-            user = userRepository.findByEmailIgnoreCase(request.email().trim())
+            user = userRepository.findByEmailIgnoreCaseForUpdate(request.email().trim())
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
                             "Không tìm thấy tài khoản với email này."));
-
-            if (user.getStatus() == UserStatus.ACTIVE) {
-                return issueSession(user, request.deviceId());
-            }
 
             if (user.getEmailActivationTokenHash() == null || !user.getEmailActivationTokenHash().equals(tokenHash)) {
                 throw new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
                         "Mã xác thực kích hoạt không chính xác.");
             }
         } else {
-            user = userRepository.findByEmailActivationTokenHash(tokenHash)
+            user = userRepository.findByEmailActivationTokenHashForUpdate(tokenHash)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
                             "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."));
         }
 
-        if (user.getEmailActivationExpiresAt() != null
-                && user.getEmailActivationExpiresAt().isBefore(OffsetDateTime.now(ZoneOffset.UTC))) {
+        if (user.getStatus() != UserStatus.PENDING_ACTIVATION) {
+            throw new BusinessException(ErrorCode.INVALID_ACTIVATION_TOKEN,
+                    "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng.");
+        }
+
+        if (user.getEmailActivationExpiresAt() == null
+                || !user.getEmailActivationExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
             throw new BusinessException(ErrorCode.ACTIVATION_TOKEN_EXPIRED,
                     "Mã kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại mã mới.");
         }

@@ -36,6 +36,14 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
     Optional<UserEntity> findByEmailActivationTokenHash(String tokenHash);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from UserEntity user where lower(user.email) = lower(:email)")
+    Optional<UserEntity> findByEmailIgnoreCaseForUpdate(@Param("email") String email);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from UserEntity user where user.emailActivationTokenHash = :tokenHash")
+    Optional<UserEntity> findByEmailActivationTokenHashForUpdate(@Param("tokenHash") String tokenHash);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select user from UserEntity user where user.id = :id")
     Optional<UserEntity> findByIdForUpdate(@Param("id") String id);
 

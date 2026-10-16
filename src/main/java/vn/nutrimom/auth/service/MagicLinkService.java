@@ -11,6 +11,8 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.notification.service.AdminNotificationEvents;
@@ -21,6 +23,7 @@ import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.email.EmailService;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
+import vn.nutrimom.config.OtpProperties;
 
 @Service
 public class MagicLinkService {
@@ -33,6 +36,8 @@ public class MagicLinkService {
     private final EmailService emailService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final String baseUrl;
+    private final OtpProperties otpProperties;
+    private final Environment environment;
 
     private final AdminNotificationEvents adminEvents;
 
@@ -42,6 +47,8 @@ public class MagicLinkService {
             TokenService tokenService,
             AuthService authService,
             EmailService emailService,
+            OtpProperties otpProperties,
+            Environment environment,
             @Value("${app.auth.magic-link-base-url:http://localhost:5173/auth/verify}") String baseUrl,
             AdminNotificationEvents adminEvents) {
         this.adminEvents = adminEvents;
@@ -51,6 +58,8 @@ public class MagicLinkService {
         this.authService = authService;
         this.emailService = emailService;
         this.baseUrl = baseUrl;
+        this.otpProperties = otpProperties;
+        this.environment = environment;
     }
 
     @Transactional
@@ -96,11 +105,13 @@ public class MagicLinkService {
         // Gửi email chứa mã xác thực 6 chữ số
         emailService.sendEmailOtp(email, rawCode, loginUrl);
 
+        boolean exposeDebug = otpProperties.isExposeDebugCode()
+                && environment.acceptsProfiles(Profiles.of("test & !prod & !production"));
         return new MagicLinkResponse(
                 true,
                 "Mã xác thực 6 chữ số đã được gửi tới " + email + ". Vui lòng kiểm tra hộp thư của bạn.",
-                loginUrl,
-                rawCode
+                exposeDebug ? loginUrl : null,
+                exposeDebug ? rawCode : null
         );
     }
 
