@@ -7,7 +7,8 @@ từng nhánh merge.
 | Nhánh | Trạng thái |
 |---|---|
 | 1 — catalog và seed (V57) | **đã làm** |
-| 2–10 | chưa |
+| 2 — NutritionCalculator (không có endpoint) | **đã làm** |
+| 3–10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -108,6 +109,103 @@ công thức, mà quy tắc quy đổi chưa được định nghĩa — đoán 
 
 ---
 
+## NutritionCalculator (nhánh 2)
+
+Nhánh này **không thêm endpoint nào** — nó là bộ tính dinh dưỡng mà nhánh 5 (lập kế hoạch), nhánh 6
+(đổi món), nhánh 7 (mua sắm) và nhánh 8 (nhật ký) gọi lại. Ghi ở đây vì hình dạng khối dinh dưỡng
+trong mọi response sau này do nó quyết định.
+
+**Không nơi nào khác được tự cộng tổng dinh dưỡng.** Có nơi thứ hai là sớm muộn tổng API trả về sẽ
+lệch với tổng tính từ snapshot của từng mục, và không ai biết bên nào đúng.
+
+### API nội bộ
+
+| Lớp | Việc |
+|---|---|
+| `NutritionCalculator` | tổng của một món, một mục, hay một tập mục; quy phần ra lượng nguyên liệu |
+| `EnergyEstimator` | ước tính EER, **tùy chọn** |
+| `NutritionRulesProvider` | nạp bảng vi chất, hệ số EER và hệ số giữ lại từ `nutritionRules.json` |
+| `NutritionSnapshots` | ảnh chụp công thức và nguyên liệu — đầu vào của hai lớp trên |
+
+Calculator nhận **snapshot**, không nhận entity và không truy vấn database: người gọi nạp nguyên
+liệu một lượt (`findAllById`) rồi dựng snapshot bằng `NutritionSnapshots.snapshotOf`. Nhật ký và
+mục kế hoạch lưu lại chính snapshot đó kèm `recipe_version`, nên seed sửa công thức về sau không
+viết lại bữa đã ăn (BR17).
+
+```
+lượng chất k của công thức = Σ ( q_i / 100 × a_i,k × r_i,k )
+lượng chất k một phần      = lượng của công thức / servings_yield
+lượng chất k của mục       = lượng một phần × servings_selected
+```
+
+Chia trước, nhân số phần sau — nhờ vậy 1,5 phần bằng **đúng** 1,5 lần 1 phần, cả dinh dưỡng lẫn
+lượng nguyên liệu (TC08). Kết quả **chưa làm tròn**; làm tròn là việc của lớp hiển thị.
+
+### Hình dạng khối dinh dưỡng trong response các nhánh sau
+
+```json
+{
+  "nutrition": {
+    "ENERGY":  { "known_value": 612.5, "unit": "kcal",     "coverage": "COMPLETE" },
+    "FOLATE":  { "known_value": 8.0,   "unit": "mcg_dfe",  "coverage": "PARTIAL",
+                 "missing_ingredient_ids": ["ing.nuoc-mam"] },
+    "IODINE":  { "known_value": null,  "unit": "mcg",      "coverage": "PARTIAL",
+                 "missing_ingredient_ids": ["ing.gao-te", "ing.nuoc-mam"] }
+  },
+  "method_notes": []
+}
+```
+
+| Trường | Nghĩa |
+|---|---|
+| `known_value` | tổng của **phần đã biết**; `null` = chưa nguyên liệu nào có số liệu |
+| `coverage` | `COMPLETE` \| `PARTIAL` — PARTIAL ngay khi có một nguyên liệu thiếu |
+| `missing_ingredient_ids` | nguyên liệu chưa có số liệu cho chất đó |
+| `method_notes` | giả định đã dùng, ví dụ hệ số giữ lại `r = 1` khi chưa có hệ số phù hợp |
+
+- **`null` không phải 0.** Nguyên liệu không khai một chất, hoặc khai `status = MISSING`, đều là
+  chưa có dữ liệu. Giao diện ghi "chưa đủ dữ liệu cho chất này", không tô đầy thanh tiến trình.
+- Chất **không nguyên liệu nào khai** vẫn xuất hiện trong kết quả với `known_value: null` — bỏ nó
+  đi thì giao diện không có gì để nói là đang thiếu.
+- `coverage` là thuộc tính của **dữ liệu**, không phải trạng thái kế hoạch: thực đơn `READY` vẫn có
+  thể `PARTIAL`.
+
+### Trạng thái thực phẩm
+
+Bản ghi dinh dưỡng đã mô tả đúng trạng thái đang dùng → `r = 1`, **không áp hao hụt lần nữa**. Bản
+ghi mô tả nguyên liệu sống mà món dùng ở trạng thái khác → tra `retentionFactors`; chưa có hệ số
+phù hợp thì vẫn `r = 1` nhưng ghi vào `method_notes` rằng đó là **giả định ước tính**, không phải
+số đo sau nấu. Bảng `retentionFactors` trong seed hiện **cố ý rỗng**.
+
+Quy gram món đã nấu ra số phần dùng `serving_gram` (khối lượng **chín** một phần). Món chưa cân
+được thì không quy đổi — hỏi người dùng theo số phần, không bao giờ lấy gram nguyên liệu sống thay
+vào. Không có quy đổi ml sang gram nào.
+
+### Bảng vi chất tham chiếu
+
+Nạp từ `nutritionRules.json`, nhóm tuổi 19–50: folate 600 `mcg_dfe` · sắt 27 mg · canxi 1.000 mg ·
+choline 450 mg (AI) · iốt 220 `mcg` · vitamin D 15 `mcg`.
+
+Đây **không** phải mức phân bổ cho một bữa, cũng không phải liều cần bổ sung. **DFE khác lượng axit
+folic ghi trên nhãn.** MVP chỉ ghi lượng từ thực phẩm, chưa nhập thuốc và thực phẩm bổ sung, nên
+không kết luận tổng nạp vào.
+
+### Ước tính năng lượng EER — tùy chọn
+
+Chỉ tính khi có đủ tuổi (19–50), chiều cao, cân nặng hiện tại, tuổi thai, nhóm vận động — và thêm
+cân nặng trước thai kỳ từ tam cá nguyệt 2 (thành phần `D` chọn theo BMI trước thai kỳ). Ranh giới
+hai bộ hệ số là **14 tuần tròn**: 13 tuần 6 ngày vẫn dùng bộ tam cá nguyệt 1.
+
+Thiếu dữ liệu hoặc giá trị vô lý → **không tính**, trả danh sách `unmet` theo tên trường
+(`height_cm`, `current_weight_kg`, …) kèm lý do `MISSING` | `OUT_OF_RANGE` | `NOT_SUPPORTED`. Lúc
+đó **không hiển thị phần trăm hoàn thành năng lượng** và không mặc định 2.000 kcal (BR20).
+
+- Công thức **đã gồm** yếu tố thai kỳ → không cộng thêm 340 hay 450 kcal.
+- `D` là thành phần toán học của mô hình, **không phải** thiết lập giảm cân.
+- Không suy nhóm vận động từ số bước chân. EER là ước tính có sai số, không phải chỉ định khẩu phần.
+
+---
+
 ## Seed
 
 Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutrientSources.json`,
@@ -120,6 +218,9 @@ Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutr
 - **Cập nhật chứ không xoá sạch**: dòng biến mất khỏi seed chỉ bị ghi log cảnh báo. Từ nhánh 5 trở
   đi kế hoạch và nhật ký tham chiếu tới `recipes`; xoá đi là viết lại lịch sử đã ăn (BR17).
 - Tắt bằng `app.nutrition.seed-enabled=false` (profile test đặt sẵn `false`).
+- Nhánh 2 thêm `retentionFactors` và `energyEstimate` vào `nutritionRules.json`, nên
+  `rules_version` đã tăng lên `nutrition-seed-v2`. Hai khối này **không vào database**:
+  `NutritionRulesProvider` đọc thẳng từ classpath, và thiếu hệ số thì ứng dụng không khởi động.
 
 > Số liệu dinh dưỡng và giá trong seed hiện mang nguồn `src.demo-placeholder` — giá trị **tạm** để
 > chạy được luồng, **chưa đối chiếu nguồn chính thức**. Chuẩn hoá 40–60 món có dẫn nguồn là công
