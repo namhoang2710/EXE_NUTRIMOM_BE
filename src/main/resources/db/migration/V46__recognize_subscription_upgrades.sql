@@ -25,13 +25,12 @@ BEGIN
        OR (TG_OP = 'INSERT' AND EXISTS (
            SELECT 1 FROM app.user_subscriptions s WHERE s.user_id=NEW.user_id AND s.id<>NEW.id
            AND s.status='ACTIVE' AND s.plan_tier IN ('PLAN_99K','PLAN_399K')
-           AND s.start_date<NEW.end_date AND s.end_date>NEW.start_date)) THEN RETURN NEW; END IF;
+           AND s.start_date<=NEW.start_date AND s.end_date>NEW.start_date)) THEN RETURN NEW; END IF;
     -- PaymentService flushes the paid order before changing the subscription.
     -- xmin also covers older SQL/app writers in the same transaction without a new app flag.
     IF EXISTS (SELECT 1 FROM app.payment_orders p WHERE p.user_id=NEW.user_id
         AND p.plan_tier=NEW.plan_tier AND p.status='PAID' AND p.paid_at IS NOT NULL
-        AND p.recognition_key IS NULL
-        AND p.xmin::text::numeric=mod(pg_current_xact_id()::text::numeric,4294967296))
+        AND p.recognition_key IS NULL AND p.xmin::text=pg_current_xact_id()::text)
         THEN RETURN NEW; END IF;
     price := CASE NEW.plan_tier WHEN 'PLAN_99K' THEN 99000 ELSE 399000 END;
     INSERT INTO app.payment_orders(id,order_code,user_id,plan_tier,amount,currency,status,source,
@@ -41,33 +40,13 @@ BEGIN
         CASE WHEN TG_OP='INSERT' THEN NEW.start_date ELSE statement_timestamp() END,
         statement_timestamp(),statement_timestamp(),0,
         'SUB:'||NEW.id||':'||pg_current_xact_id()::text||':'||NEW.plan_tier)
-    ON CONFLICT (recognition_key) WHERE recognition_key IS NOT NULL DO NOTHING;
+    ON CONFLICT DO NOTHING;
     RETURN NEW;
 END;
 $$;
 CREATE TRIGGER trg_subscription_revenue
 AFTER INSERT OR UPDATE OF plan_tier,status,start_date,end_date ON app.user_subscriptions
 FOR EACH ROW EXECUTE FUNCTION app.recognize_subscription_upgrade();
-
--- Some older ORM writers flush the subscription INSERT before the order UPDATE.
--- The actual paid order replaces only a recognition created in that same transaction.
-CREATE OR REPLACE FUNCTION app.reconcile_subscription_revenue_order()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    IF NEW.status <> 'PAID' OR NEW.paid_at IS NULL OR NEW.recognition_key IS NOT NULL
-       THEN RETURN NEW; END IF;
-    IF TG_OP='UPDATE' THEN
-        IF OLD.status='PAID' AND OLD.paid_at IS NOT NULL THEN RETURN NEW; END IF;
-    END IF;
-    DELETE FROM app.payment_orders p WHERE p.user_id=NEW.user_id AND p.plan_tier=NEW.plan_tier
-        AND p.recognition_key LIKE 'SUB:%'
-        AND p.xmin::text::numeric=mod(pg_current_xact_id()::text::numeric,4294967296);
-    RETURN NEW;
-END;
-$$;
-CREATE TRIGGER trg_payment_subscription_revenue
-AFTER INSERT OR UPDATE OF status,paid_at ON app.payment_orders
-FOR EACH ROW EXECUTE FUNCTION app.reconcile_subscription_revenue_order();
 
 -- Existing current paid tiers with no paid order receive one nominal-price entry.
 -- An existing order (including a SQL-created PAID order) is already sufficient:
@@ -87,4 +66,4 @@ WHERE s.rn=1
   AND NOT EXISTS (SELECT 1 FROM app.user_roles WHERE user_id=s.user_id AND role IN ('ADMIN','EXPERT'))
   AND NOT EXISTS (SELECT 1 FROM app.payment_orders p WHERE p.user_id=s.user_id
       AND p.plan_tier=s.plan_tier AND p.status='PAID' AND p.paid_at IS NOT NULL)
-ON CONFLICT (recognition_key) WHERE recognition_key IS NOT NULL DO NOTHING;
+ON CONFLICT DO NOTHING;

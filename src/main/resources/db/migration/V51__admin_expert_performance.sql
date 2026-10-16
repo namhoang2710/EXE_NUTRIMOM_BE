@@ -1,6 +1,7 @@
 -- New read projection uses existing booking/review/provider evidence; no synthetic attendance backfill.
--- Reuse ix_consultation_admin_scheduled / ix_consultation_requests_expert / review PK;
--- do not add a second overlapping scheduled-date index for this aggregate.
+CREATE INDEX ix_admin_expert_performance_schedule
+    ON app.consultation_requests(scheduled_date,expert_user_id)
+    WHERE status IN ('PENDING_CONSULTATION','COMPLETED');
 
 -- Reuse commit-time, rollback-safe, coalesced dashboard revisions from V50.
 DO $$ DECLARE table_name TEXT; BEGIN

@@ -3,11 +3,10 @@ ALTER TABLE app.consultation_requests
   ADD COLUMN scheduled_starts_at timestamptz,
   ADD COLUMN scheduled_ends_at timestamptz,
   ADD COLUMN preferred_date date,
-  ADD COLUMN attendance_finalized_at timestamptz,
   ADD COLUMN acceptance_deadline_at timestamptz,
   ADD COLUMN acceptance_policy_version integer,
   ADD CONSTRAINT ck_consultation_canonical_window CHECK
-    ((scheduled_starts_at IS NULL AND scheduled_ends_at IS NULL) OR (scheduled_starts_at IS NOT NULL AND scheduled_ends_at IS NOT NULL AND scheduled_starts_at < scheduled_ends_at)),
+    ((scheduled_starts_at IS NULL AND scheduled_ends_at IS NULL) OR scheduled_starts_at < scheduled_ends_at),
   ADD CONSTRAINT ck_consultation_deadline CHECK
     (acceptance_deadline_at IS NULL OR (acceptance_opened_at IS NOT NULL AND acceptance_deadline_at >= acceptance_opened_at));
 
@@ -28,7 +27,7 @@ UPDATE app.consultation_requests SET acceptance_deadline_at=app.consultation_acc
 
 CREATE TABLE app.consultation_monitor_state (
   id integer PRIMARY KEY CHECK(id=1), started_at timestamptz NOT NULL,
-  tracking_started_at timestamptz, checked_at timestamptz, healthy boolean NOT NULL DEFAULT false
+  checked_at timestamptz, healthy boolean NOT NULL DEFAULT false
 );
 INSERT INTO app.consultation_monitor_state(id,started_at) VALUES(1,statement_timestamp());
 CREATE TABLE app.consultation_monitor_gaps (
@@ -45,14 +44,3 @@ CREATE INDEX ix_consultation_pending_deadline ON app.consultation_requests(accep
   WHERE status='PENDING_EXPERT' AND assignment_type='RANDOM';
 CREATE INDEX ix_consultation_monitored_start ON app.consultation_requests(scheduled_starts_at,id)
   WHERE status='PENDING_CONSULTATION';
-
--- Time-based decisions invalidate admin snapshots once, not on every heartbeat.
-CREATE TRIGGER trg_admin_realtime_collect AFTER INSERT OR UPDATE OR DELETE ON app.consultation_monitor_events
-  FOR EACH ROW EXECUTE FUNCTION app.collect_admin_realtime_change();
-CREATE CONSTRAINT TRIGGER trg_admin_realtime_flush AFTER INSERT OR UPDATE OR DELETE ON app.consultation_monitor_events
-  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION app.flush_admin_realtime_changes();
-
--- Completed monitoring rows leave the scan; cost does not grow with all historical consultations.
-CREATE INDEX ix_consultation_monitor_due ON app.consultation_requests(scheduled_ends_at,id)
-  WHERE attendance_finalized_at IS NULL AND scheduled_ends_at IS NOT NULL
-    AND status IN ('PENDING_CONSULTATION','COMPLETED');
