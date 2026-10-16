@@ -222,6 +222,12 @@ app:
           policy: recipes
         - pattern: /api/v1/recipes/*
           policy: recipes
+        # Chip dị ứng và ô tìm nguyên liệu của onboarding: cũng là danh mục công khai, cùng ngưỡng.
+        # Ô tìm gọi theo từng ký tự người dùng gõ nên đừng siết hơn con số của recipes.
+        - pattern: /api/v1/allergens
+          policy: recipes
+        - pattern: /api/v1/ingredients
+          policy: recipes
         # Pattern CỤ THỂ phải đứng trước: RateLimitFilter lấy rule khớp ĐẦU TIÊN.
         # invitation-token dùng cho cả lối vào bằng token lẫn bằng id: tên giữ nguyên vì ngưỡng
         # mới là thứ đáng quan tâm, đẻ thêm một policy trùng số chỉ làm file này dài ra.
