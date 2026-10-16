@@ -30,12 +30,14 @@ public class ConsultationVideoService {
     private final LiveKitGateway livekit;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final vn.nutrimom.consultation.service.ConsultationMonitoringService monitoring;
     public record VideoEnded(String requestId) { }
     public ConsultationVideoService(ConsultationRequestRepository requests, AvailabilitySlotRepository slots,
             ExpertProfileRepository experts, UserRepository users, VideoSessionRepository sessions,
-            VideoProperties properties, LiveKitGateway livekit, Clock clock, ApplicationEventPublisher events) {
+            VideoProperties properties, LiveKitGateway livekit, Clock clock, ApplicationEventPublisher events,
+            vn.nutrimom.consultation.service.ConsultationMonitoringService monitoring) {
         this.requests = requests; this.slots = slots; this.experts = experts; this.users = users;
-        this.sessions = sessions; this.properties = properties; this.livekit = livekit; this.clock = clock; this.events = events;
+        this.sessions = sessions; this.properties = properties; this.livekit = livekit; this.clock = clock; this.events = events; this.monitoring=monitoring;
     }
     @Transactional(readOnly = true)
     public RoomInfo info(String actor, String id) {
@@ -55,6 +57,8 @@ public class ConsultationVideoService {
         // All mutations (join, cancellation, completion, cleanup) lock the booking first.
         var request = requests.findByIdForUpdate(id).orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         authorize(actor, request);
+        if(request.getScheduledStartsAt()==null && request.getSlotId()!=null)
+            slots.findById(request.getSlotId()).ifPresent(request::captureScheduledSlot);
         var session = sessions.findById(id).orElse(null);
         var window = window(request, session);
         Instant now = clock.instant();
@@ -88,10 +92,14 @@ public class ConsultationVideoService {
         var request = requests.findByIdForUpdate(requestId).orElse(null);
         if (request == null) return;
         var session = sessions.findById(request.getId()).orElseThrow();
-        if (session.getEndedAt() != null || event.createdAt().isBefore(session.getOpensAt())
+        if ((session.getEndedAt()!=null && event.createdAt().isAfter(session.getEndedAt()))
+                || event.createdAt().isBefore(session.getOpensAt())
                 || !event.createdAt().isBefore(session.getClosesAt()) || event.createdAt().isAfter(clock.instant().plusSeconds(30))) return;
         if (request.getUserId().equals(event.identity())) session.markJoined(false, event.createdAt());
-        else if (request.getExpertUserId().equals(event.identity())) session.markJoined(true, event.createdAt());
+        else if (request.getExpertUserId()!=null && request.getExpertUserId().equals(event.identity())) {
+            session.markJoined(true, event.createdAt());
+            monitoring.verifiedExpertJoin(request,session.getExpertJoinedAt());
+        }
         // Replayed join notifications are harmless; leaving never fulfils a booking.
         sessions.save(session);
     }
@@ -112,6 +120,9 @@ public class ConsultationVideoService {
     }
     private Instant[] window(ConsultationRequestEntity request, VideoSession session) {
         if (session != null) return new Instant[]{session.getOpensAt(), session.getClosesAt()};
+        if(request.getScheduledStartsAt()!=null && request.getScheduledEndsAt()!=null)
+            return new Instant[]{request.getScheduledStartsAt().toInstant().minus(properties.getJoinEarly()),
+                    request.getScheduledEndsAt().toInstant().plus(properties.getEndGrace())};
         if (request.getSlotId() == null) return new Instant[]{null, null};
         return slots.findById(request.getSlotId()).map(s -> new Instant[]{
                 s.getSlotDate().atTime(s.getStartTime()).atZone(VN).toInstant().minus(properties.getJoinEarly()),

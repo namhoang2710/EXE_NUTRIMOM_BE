@@ -7,6 +7,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("app.consultation.video")
 public class VideoProperties {
     private boolean enabled = true;
+    private boolean presenceTrackingEnabled;
+    public boolean isPresenceTrackingEnabled() {return presenceTrackingEnabled;}
+    public void setPresenceTrackingEnabled(boolean value) {presenceTrackingEnabled=value;}
     private String url = "";
     private String apiKey = "";
     private String apiSecret = "";

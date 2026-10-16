@@ -38,6 +38,7 @@ import vn.nutrimom.consultation.domain.ExpertStatus;
 import vn.nutrimom.consultation.domain.SlotGrid;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -53,6 +54,7 @@ class ConsultationIntegrationTest {
     @Autowired UserRepository users;
     @Autowired ExpertProfileRepository experts;
     @Autowired JdbcTemplate jdbc;
+    @Autowired vn.nutrimom.consultation.repository.ConsultationRequestRepository consultationRequests;
 
     @Test
     void anonymousCanListAndViewExpertButProtectedConsultationEndpointsStillRequireAuthentication()
@@ -433,19 +435,19 @@ class ConsultationIntegrationTest {
         String userId = createUserAccount("0912000182", "Mom Bounds");
 
         bookDirect(userId, expertId, daysFromToday(1), "08:15:00")
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         bookDirect(userId, expertId, daysFromToday(1), "20:00:00")
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         bookDirect(userId, expertId, daysFromToday(SlotGrid.HORIZON_DAYS + 1), "09:00:00")
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         availability(userId, expertId, daysFromToday(SlotGrid.HORIZON_DAYS + 1))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -475,6 +477,38 @@ class ConsultationIntegrationTest {
     }
 
     @Test
+    void randomPreferredDateAndDeadlineAreReturnedAndCannotBeSilentlyChangedOnAccept() throws Exception {
+        String expertId=createExpert("0912000701","HEALTH","BS Preferred");
+        String userId=createUserAccount("0912000702","Mom Preferred");
+        LocalDate preferred=daysFromToday(3);
+        var created=mockMvc.perform(post("/api/v1/consultation-requests").with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"assignment_type\":\"RANDOM\",\"specialty\":\"HEALTH\",\"preferred_date\":\""+preferred+"\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.preferred_date").value(preferred.toString()))
+                .andExpect(jsonPath("$.data.acceptance_policy_version").value(2)).andExpect(jsonPath("$.data.acceptance_status").value("WAITING"))
+                .andExpect(jsonPath("$.data.acceptance_deadline_at").isString()).andExpect(jsonPath("$.data.server_time").isString()).andReturn();
+        String id=readData(created,"/data/id");
+        String path="/api/v1/expert/consultation-requests/"+id+"/accept";
+        mockMvc.perform(post(path).with(expertJwt(expertId)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"slot_date\":\""+preferred.plusDays(1)+"\",\"start_time\":\"09:00\"}"))
+                .andExpect(status().is(422));
+        mockMvc.perform(post(path).with(expertJwt(expertId)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"slot_date\":\""+preferred+"\",\"start_time\":\"09:00\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.acceptance_status").value("ACCEPTED_ON_TIME"))
+                .andExpect(jsonPath("$.data.accepted_at").isString());
+        var stored=jdbc.queryForMap("select scheduled_starts_at,scheduled_ends_at from app.consultation_requests where id=?",id);
+        org.junit.jupiter.api.Assertions.assertNotNull(stored.get("scheduled_starts_at"));
+        org.junit.jupiter.api.Assertions.assertNotNull(stored.get("scheduled_ends_at"));
+    }
+    @Test
+    void randomPreferredDateOutsideBookingHorizonIsRejected() throws Exception {
+        String userId=createUserAccount("0912000703","Mom Bound");
+        for(LocalDate day:List.of(daysFromToday(-1),daysFromToday(SlotGrid.HORIZON_DAYS+1)))
+            mockMvc.perform(post("/api/v1/consultation-requests").with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"assignment_type\":\"RANDOM\",\"specialty\":\"HEALTH\",\"preferred_date\":\""+day+"\"}"))
+                    .andExpect(status().is(422));
+    }
+
+    @Test
     void randomFlowPoolAcceptCompleteThenReviewUpdatesAverage() throws Exception {
         String expertId = createExpert("0912000021", "HEALTH", "BS Suc Khoe");
         String userId = createUserAccount("0912000022", "Mom R");
@@ -489,6 +523,9 @@ class ConsultationIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("PENDING_EXPERT"))
                 .andReturn();
         String requestId = readData(created, "/data/id");
+        OffsetDateTime opened=jdbc.queryForObject("select acceptance_opened_at from app.consultation_requests where id=?",OffsetDateTime.class,requestId);
+        org.junit.jupiter.api.Assertions.assertNotNull(opened);
+        org.junit.jupiter.api.Assertions.assertNull(jdbc.queryForObject("select accepted_at from app.consultation_requests where id=?",OffsetDateTime.class,requestId));
 
         mockMvc.perform(get("/api/v1/expert/consultation-requests")
                         .param("type", "pool").with(expertJwt(expertId)))
@@ -500,6 +537,9 @@ class ConsultationIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("PENDING_CONSULTATION"))
                 .andExpect(jsonPath("$.data.slot.start_time").value("10:00:00"));
 
+        OffsetDateTime accepted=jdbc.queryForObject("select accepted_at from app.consultation_requests where id=?",OffsetDateTime.class,requestId);
+        org.junit.jupiter.api.Assertions.assertNotNull(accepted);
+        org.junit.jupiter.api.Assertions.assertFalse(accepted.isBefore(opened));
         mockMvc.perform(post("/api/v1/expert/consultation-requests/{id}/complete", requestId)
                         .with(expertJwt(expertId)))
                 .andExpect(status().isOk())
@@ -518,6 +558,8 @@ class ConsultationIntegrationTest {
                 .andExpect(jsonPath("$.data.average_rating").value(4.0))
                 .andExpect(jsonPath("$.data.rating_count").value(1));
 
+        org.junit.jupiter.api.Assertions.assertEquals(accepted.toInstant(),jdbc.queryForObject("select accepted_at from app.consultation_requests where id=?",OffsetDateTime.class,requestId).toInstant());
+        org.junit.jupiter.api.Assertions.assertEquals(opened.toInstant(),jdbc.queryForObject("select acceptance_opened_at from app.consultation_requests where id=?",OffsetDateTime.class,requestId).toInstant());
         // Đánh giá lần hai -> 409
         mockMvc.perform(post("/api/v1/consultation-requests/{id}/review", requestId)
                         .with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
@@ -558,7 +600,7 @@ class ConsultationIntegrationTest {
         MvcResult createdLater = bookDirect(user1, expertId, later, "09:00:00")
                 .andExpect(status().isCreated()).andReturn();
         String reqLater = readData(createdLater, "/data/id");
-        bookDirect(user2, expertId, earlier, "09:00:00").andExpect(status().isCreated());
+        String reqEarlier=readData(bookDirect(user2, expertId, earlier, "09:00:00").andExpect(status().isCreated()).andReturn(),"/data/id");
 
         // Mặc định PENDING_CONSULTATION, giờ hẹn mới nhất nằm trên
         mockMvc.perform(get("/api/v1/expert/consultation-requests").with(expertJwt(expertId)))
@@ -566,6 +608,17 @@ class ConsultationIntegrationTest {
                 .andExpect(jsonPath("$.data.total_items").value(2))
                 .andExpect(jsonPath("$.data.items[0].slot.slot_date").value(later.toString()))
                 .andExpect(jsonPath("$.data.items[1].slot.slot_date").value(earlier.toString()));
+
+        // The next appointment is independent of the descending list/page boundary.
+        mockMvc.perform(get("/api/v1/expert/consultation-requests").param("includeNext","true").param("pageSize","1").with(expertJwt(expertId)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items[0].id").value(reqLater))
+                .andExpect(jsonPath("$.data.next_consultation.id").value(reqEarlier))
+                .andExpect(jsonPath("$.data.next_consultation.slot.slot_date").value(earlier.toString()))
+                .andExpect(jsonPath("$.data.server_time").isNotEmpty());
+        mockMvc.perform(get("/api/v1/expert/consultation-requests").param("includeNext","true").param("from",later.toString()).with(expertJwt(expertId)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.next_consultation.id").value(reqLater));
+        mockMvc.perform(get("/api/v1/expert/consultation-requests").param("includeNext","true").param("q","ali").with(expertJwt(expertId)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.next_consultation.id").value(reqLater));
 
         // Tìm theo tên user
         mockMvc.perform(get("/api/v1/expert/consultation-requests").param("q", "ali")
@@ -582,7 +635,26 @@ class ConsultationIntegrationTest {
                         .with(expertJwt(expertId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total_items").value(1))
-                .andExpect(jsonPath("$.data.items[0].id").value(reqLater));
+                .andExpect(jsonPath("$.data.items[0].id").value(reqLater))
+                .andExpect(jsonPath("$.data.next_consultation").isEmpty());
+    }
+
+    @Test
+    void nearestAssignedUsesStartTimeRatherThanCreationAndSkipsEndedSessions() throws Exception {
+        String expertId=createExpert("0912000871","HEALTH","BS Next");
+        String a=createUserAccount("0912000872","Next A"),b=createUserAccount("0912000873","Next B"),c=createUserAccount("0912000874","Next C");
+        LocalDate date=daysFromToday(1);
+        String last=readData(bookDirect(a,expertId,date,"15:00:00").andExpect(status().isCreated()).andReturn(),"/data/id");
+        String middle=readData(bookDirect(b,expertId,date,"14:30:00").andExpect(status().isCreated()).andReturn(),"/data/id");
+        String first=readData(bookDirect(c,expertId,date,"14:00:00").andExpect(status().isCreated()).andReturn(),"/data/id");
+        for(boolean legacy:new boolean[]{false,true}) {
+            if(legacy)jdbc.update("update app.consultation_requests set scheduled_starts_at=null,scheduled_ends_at=null where expert_user_id=?",expertId);
+            for(String[] sample:new String[][]{{"07:00",first},{"13:31",first},{"14:15",first},{"14:30",middle},{"15:00",last},{"15:30",""},{"20:30",""}}) {
+                var time=LocalTime.parse(sample[0]);var now=date.atTime(time).atZone(VN).toOffsetDateTime();
+                var next=consultationRequests.nextAssigned(expertId,null,null,"%%",now,date,time,time.isBefore(SlotGrid.OPENING),!time.isBefore(SlotGrid.CLOSING),org.springframework.data.domain.PageRequest.of(0,1));
+                org.junit.jupiter.api.Assertions.assertEquals(sample[1],next.isEmpty()?"":next.get(0).getId(),"legacy="+legacy+", time="+time);
+            }
+        }
     }
 
     @Test
@@ -733,6 +805,7 @@ class ConsultationIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,"admin");
         return jwt().jwt(token -> token.subject("admin").claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

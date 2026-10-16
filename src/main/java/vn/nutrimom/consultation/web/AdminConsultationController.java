@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.time.LocalDate;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
 import vn.nutrimom.consultation.dto.PageResponse;
@@ -39,7 +40,12 @@ public class AdminConsultationController {
     public ApiResponse<PageResponse<AdminConsultationResponse>> list(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "1") @Min(1) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int pageSize) {
-        return ApiResponses.success(service.list(q, page, pageSize));
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int pageSize,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate,
+            @RequestParam(required = false) String specialty,
+            @RequestParam(required = false) String expertUserId,
+            @RequestParam(required = false) Boolean reviewed) {
+        return ApiResponses.success(service.list(q, page, pageSize, fromDate, toDate, specialty, expertUserId, reviewed));
     }
 }

@@ -28,6 +28,7 @@ import vn.nutrimom.consultation.dto.PageResponse;
 import vn.nutrimom.consultation.dto.ExpertDtos.AdminExpertResponse;
 import vn.nutrimom.consultation.dto.RequestDtos.AcceptConsultationRequest;
 import vn.nutrimom.consultation.dto.RequestDtos.ConsultationRequestResponse;
+import vn.nutrimom.consultation.dto.RequestDtos.ExpertConsultationPage;
 import vn.nutrimom.consultation.dto.ReviewDtos.ReviewResponse;
 import vn.nutrimom.consultation.dto.SlotDtos.DayScheduleResponse;
 import vn.nutrimom.consultation.dto.SlotDtos.DaySummary;
@@ -105,19 +106,21 @@ public class ExpertConsoleController {
 
     @GetMapping("/consultation-requests")
     @Operation(summary = "type=assigned: buổi tư vấn được giao (giờ hẹn mới nhất trước); type=pool: yêu cầu ngẫu nhiên chờ nhận. "
-            + "Với assigned: lọc status (mặc định PENDING_CONSULTATION, dùng COMPLETED/CANCELLED để xem lịch sử), khoảng ngày, tên user.")
-    public ApiResponse<PageResponse<ConsultationRequestResponse>> requests(
+            + "Với assigned: lọc status (mặc định PENDING_CONSULTATION, dùng COMPLETED/CANCELLED để xem lịch sử), khoảng ngày, tên user. "
+            + "includeNext=true: kèm buổi đang diễn ra/sắp tới gần nhất trong phạm vi lọc, độc lập phân trang.")
+    public ApiResponse<ExpertConsultationPage> requests(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "assigned") String type,
             @RequestParam(required = false) ConsultationStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "false") boolean includeNext,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int pageSize) {
-        PageResponse<ConsultationRequestResponse> data = "pool".equalsIgnoreCase(type)
-                ? requestService.listPool(jwt.getSubject(), q, page, pageSize)
-                : requestService.listAssigned(jwt.getSubject(), status, from, to, q, page, pageSize);
+        ExpertConsultationPage data = "pool".equalsIgnoreCase(type)
+                ? ExpertConsultationPage.of(requestService.listPool(jwt.getSubject(), q, page, pageSize))
+                : requestService.assignedSchedule(jwt.getSubject(), status, from, to, q, page, pageSize,includeNext);
         return ApiResponses.success(data);
     }
 

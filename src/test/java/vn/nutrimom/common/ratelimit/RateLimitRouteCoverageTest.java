@@ -20,12 +20,29 @@ import org.springframework.util.AntPathMatcher;
  * dựng, bài này kiểm chính cấu hình đang chạy.</p>
  */
 @SpringBootTest
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @ActiveProfiles("test")
 class RateLimitRouteCoverageTest {
 
     private static final AntPathMatcher MATCHER = new AntPathMatcher();
 
     @Autowired RateLimitProperties properties;
+
+    @Test void adminStreamReconnectsHaveTheirOwnQuota() {
+        assertThat(policyFor("/api/v1/admin/realtime/stream")).isEqualTo("admin-stream");
+        assertThat(properties.getPolicies().get("admin-stream").capacity()).isEqualTo(20);
+    }
+    @Test void expertEntryActionsUseTheNormalAuthenticatedQuota() {
+        assertThat(policyFor("/api/v1/consultation-requests/booking/video/check-in")).isEqualTo("default");
+        assertThat(policyFor("/api/v1/consultation-requests/booking/video/join")).isEqualTo("default");
+    }
+
+    @Test
+    void adminExportsUseSpecificQuotaBeforeTheDefaultAdminRule() {
+        assertThat(policyFor("/api/v1/admin/reports/REVENUE/export")).isEqualTo("admin-export");
+        assertThat(policyFor("/api/v1/admin/dashboard")).isEqualTo("default");
+        assertThat(properties.getPolicies().get("admin-export").capacity()).isEqualTo(5);
+    }
 
     @Test
     void everyFamilyInvitationEndpointResolvesToAPolicy() {
