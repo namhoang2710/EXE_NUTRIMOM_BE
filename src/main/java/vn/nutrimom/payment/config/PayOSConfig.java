@@ -16,7 +16,7 @@ public class PayOSConfig {
     @Bean
     public PayOS payOS(PayOSProperties properties) {
         if (!properties.isConfigured()) {
-            log.warn("PayOS credentials are not fully configured. Payment link generation will run in mock/test mode. " +
+            log.warn("PayOS credentials are not fully configured. Checkout is disabled unless demo is explicitly enabled. " +
                     "Set PAYOS_CLIENT_ID, PAYOS_API_KEY, and PAYOS_CHECKSUM_KEY in .env to enable real PayOS gateway.");
             return new PayOS("mock-client-id", "mock-api-key", "mock-checksum-key");
         }

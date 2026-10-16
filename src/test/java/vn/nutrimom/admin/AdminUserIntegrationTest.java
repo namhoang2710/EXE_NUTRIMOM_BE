@@ -44,6 +44,7 @@ import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest(properties = {
         "springdoc.api-docs.enabled=true",
         "spring.jpa.properties.hibernate.generate_statistics=true"
@@ -56,7 +57,7 @@ class AdminUserIntegrationTest {
     private static final Instant SEPTEMBER_NOW = Instant.parse("2026-09-30T16:59:59.999999Z");
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean UserRepository users;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager entityManager;
     @Autowired EntityManagerFactory entityManagerFactory;
@@ -348,7 +349,7 @@ class AdminUserIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/users")
                         .param(parameter, value)
                         .with(adminJwt()))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -379,7 +380,10 @@ class AdminUserIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
-        return jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
+        // This read-view suite keeps its synthetic principal outside counted fixture users; real account checks have integration coverage in AdminOperationsIntegrationTest.
+        String principal = UUID.randomUUID().toString();
+        org.mockito.Mockito.doReturn(true).when(users).isActiveAdmin(principal);
+        return jwt().jwt(token -> token.subject(principal)
                         .claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

@@ -1,0 +1,94 @@
+{
+  "_note": "rulesVersion là mã của TOÀN BỘ tập seed. Tăng nó mỗi lần sửa bất kỳ file nào trong thư mục này: loader so sánh để biết có phải nạp lại hay không, và các nhánh sau ghi nó vào snapshot kế hoạch để tái lập được kết quả.",
+  "rulesVersion": "nutrition-seed-v2",
+
+  "_micronutrientNote": "Mức tham chiếu NIH cho nhóm tuổi 19-50 khi mang thai. Choline là AI, các chất còn lại là RDA. Đây KHÔNG phải mức phân bổ cho một bữa, cũng không phải liều cần bổ sung. Nhánh 2 (NutritionCalculator) đọc bảng này; nhánh 1 chỉ nạp và kiểm tra tính hợp lệ.",
+  "micronutrientTargets": [
+    { "code": "FOLATE", "amountPerDay": 600, "unit": "mcg_dfe", "kind": "RDA" },
+    { "code": "IRON", "amountPerDay": 27, "unit": "mg", "kind": "RDA" },
+    { "code": "CALCIUM", "amountPerDay": 1000, "unit": "mg", "kind": "RDA" },
+    { "code": "CHOLINE", "amountPerDay": 450, "unit": "mg", "kind": "AI" },
+    { "code": "IODINE", "amountPerDay": 220, "unit": "mcg", "kind": "RDA" },
+    { "code": "VITAMIN_D", "amountPerDay": 15, "unit": "mcg", "kind": "RDA" }
+  ],
+
+  "_retentionNote": "Hệ số giữ lại r chỉ dùng khi bản ghi dinh dưỡng mô tả nguyên liệu SỐNG mà công thức dùng nó ở trạng thái khác. Bản ghi đã mô tả thực phẩm chín thì r = 1, KHÔNG áp hao hụt lần nữa. Danh sách dưới đây cố ý RỖNG: chưa có bộ hệ số nào đối chiếu được nguồn cho nhóm món Việt. Thiếu hệ số thì calculator vẫn dùng r = 1 nhưng ghi rõ đó là GIẢ ĐỊNH ƯỚC TÍNH trong phương pháp của món, chứ không trình bày như số đo sau nấu. Mỗi dòng khai: fromState, toState, nutrientCode (null = mọi chất), foodGroup (null = mọi nhóm), factor, sourceId.",
+  "retentionFactors": [],
+
+  "_eerNote": "Hệ số của mô hình EER cho thai kỳ, nhóm tuổi 19-50. Công thức ĐÃ GỒM yếu tố thai kỳ: không cộng thêm 340 hay 450 kcal. D (bmiAdjustments) là thành phần toán học của mô hình, KHÔNG phải thiết lập giảm cân. EER là ước tính có sai số, không phải chỉ định khẩu phần.",
+  "energyEstimate": {
+    "minAgeYears": 19,
+    "maxAgeYears": 50,
+    "trimester2StartWeek": 14,
+    "formulas": [
+      { "trimesterGroup": "FIRST",        "activity": "INACTIVE",    "intercept":  584.90, "agePerYear": -7.01, "heightPerCm":  5.72, "weightPerKg": 11.71, "gestationPerWeek": 0,    "bmiAdjusted": false },
+      { "trimesterGroup": "FIRST",        "activity": "LOW_ACTIVE",  "intercept":  575.77, "agePerYear": -7.01, "heightPerCm":  6.60, "weightPerKg": 12.14, "gestationPerWeek": 0,    "bmiAdjusted": false },
+      { "trimesterGroup": "FIRST",        "activity": "ACTIVE",      "intercept":  710.25, "agePerYear": -7.01, "heightPerCm":  6.54, "weightPerKg": 12.34, "gestationPerWeek": 0,    "bmiAdjusted": false },
+      { "trimesterGroup": "FIRST",        "activity": "VERY_ACTIVE", "intercept":  511.83, "agePerYear": -7.01, "heightPerCm":  9.07, "weightPerKg": 12.56, "gestationPerWeek": 0,    "bmiAdjusted": false },
+      { "trimesterGroup": "SECOND_THIRD", "activity": "INACTIVE",    "intercept": 1131.20, "agePerYear": -2.04, "heightPerCm":  0.34, "weightPerKg": 12.15, "gestationPerWeek": 9.16, "bmiAdjusted": true },
+      { "trimesterGroup": "SECOND_THIRD", "activity": "LOW_ACTIVE",  "intercept":  693.35, "agePerYear": -2.04, "heightPerCm":  5.73, "weightPerKg": 10.20, "gestationPerWeek": 9.16, "bmiAdjusted": true },
+      { "trimesterGroup": "SECOND_THIRD", "activity": "ACTIVE",      "intercept": -223.84, "agePerYear": -2.04, "heightPerCm": 13.23, "weightPerKg":  8.15, "gestationPerWeek": 9.16, "bmiAdjusted": true },
+      { "trimesterGroup": "SECOND_THIRD", "activity": "VERY_ACTIVE", "intercept": -779.72, "agePerYear": -2.04, "heightPerCm": 18.45, "weightPerKg":  8.73, "gestationPerWeek": 9.16, "bmiAdjusted": true }
+    ],
+    "_bmiNote": "Chọn theo BMI TRƯỚC thai kỳ, so sánh bằng cận trên loại trừ. Dòng cuối có maxBmiExclusive = null là dòng bắt mọi giá trị còn lại.",
+    "bmiAdjustments": [
+      { "maxBmiExclusive": 18.5, "kcalPerDay": 300 },
+      { "maxBmiExclusive": 25,   "kcalPerDay": 200 },
+      { "maxBmiExclusive": 30,   "kcalPerDay": 150 },
+      { "maxBmiExclusive": null, "kcalPerDay": -50 }
+    ]
+  },
+
+  "_templateNote": "roleTargetShare là tỉ lệ năng lượng tham khảo của bữa trong ngày. Đây là giả định kỹ thuật dùng để xếp hạng ở nhánh 4, KHÔNG phải quy tắc y khoa. Bữa phụ chia đều cho snackCount ở nhánh 5.",
+  "mealTemplates": [
+    {
+      "mealType": "BREAKFAST",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["MAIN_DISH"],
+      "roleTargetShare": 0.25,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "BREAKFAST",
+      "mode": "ROLE_SET",
+      "requiredRoles": ["STAPLE", "PROTEIN"],
+      "roleTargetShare": 0.25,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "LUNCH",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["MAIN_DISH"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "LUNCH",
+      "mode": "ROLE_SET",
+      "requiredRoles": ["STAPLE", "PROTEIN", "VEGETABLE"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "DINNER",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["MAIN_DISH"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "DINNER",
+      "mode": "ROLE_SET",
+      "requiredRoles": ["STAPLE", "PROTEIN", "VEGETABLE"],
+      "roleTargetShare": 0.3,
+      "defaultServingOptions": "0.5,1,1.5,2"
+    },
+    {
+      "mealType": "SNACK",
+      "mode": "SINGLE_DISH",
+      "requiredRoles": ["SNACK"],
+      "roleTargetShare": 0.15,
+      "defaultServingOptions": "0.5,1,1.5"
+    }
+  ]
+}

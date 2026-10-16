@@ -1,5 +1,7 @@
 package vn.nutrimom.auth.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCOUNT_CREATED;
+
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -11,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.dto.*;
 import vn.nutrimom.auth.repository.*;
@@ -28,9 +31,12 @@ public class OtpService {
     private final AuthService authService;
     private final SecureRandom secureRandom = new SecureRandom();
 
+    private final AdminNotificationEvents adminEvents;
+
     public OtpService(OtpChallengeRepository challenges, UserRepository users,
                       PhoneNormalizer phoneNormalizer, OtpDeliveryGateway deliveryGateway,
-                      OtpProperties properties, AuthService authService) {
+                      OtpProperties properties, AuthService authService, AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.challengeRepository = challenges;
         this.userRepository = users;
         this.phoneNormalizer = phoneNormalizer;
@@ -140,6 +146,7 @@ public class OtpService {
             user.setTermsAcceptedAt(now);
             user.setPrivacyAcceptedAt(now);
             userRepository.saveAndFlush(user);
+            adminEvents.record(ADMIN_ACCOUNT_CREATED, user.getId());
         } else {
             user = userRepository.findByPhone(challenge.getPhone())
                     .filter(value -> value.getStatus() == UserStatus.ACTIVE)

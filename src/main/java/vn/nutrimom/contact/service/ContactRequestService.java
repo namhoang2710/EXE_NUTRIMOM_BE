@@ -1,11 +1,15 @@
 package vn.nutrimom.contact.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_CONTACT_CANCELLED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_CONTACT_NEW;
+
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
@@ -33,8 +37,12 @@ public class ContactRequestService {
     private final UserRepository users;
     private final NotificationService notifications;
 
+    private final AdminNotificationEvents adminEvents;
+
     public ContactRequestService(ContactRequestRepository requests, AccessGuard guard,
-                                 UserRepository users, NotificationService notifications) {
+                                 UserRepository users, NotificationService notifications,
+                                 AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.requests = requests;
         this.guard = guard;
         this.users = users;
@@ -52,6 +60,7 @@ public class ContactRequestService {
         entity.setMessage(request.message().trim());
         entity.setStatus(ContactRequestStatus.PENDING);
         requests.saveAndFlush(entity);
+        adminEvents.record(ADMIN_CONTACT_NEW, entity.getId());
         notifyAdmins(entity);
         return toResponse(entity);
     }
@@ -65,7 +74,7 @@ public class ContactRequestService {
      */
     private void notifyAdmins(ContactRequestEntity entity) {
         users.findIdsByRoleAndStatus(UserRole.ADMIN, UserStatus.ACTIVE)
-                .forEach(adminUserId -> notifications.publish(adminUserId,
+                .stream().sorted().forEach(adminUserId -> notifications.publishAdminOnce(adminUserId,
                         NotificationType.CONTACT,
                         "Có yêu cầu hỗ trợ mới",
                         "Một người dùng vừa gửi yêu cầu hỗ trợ. Mở hộp thư để xem và liên hệ lại.",
@@ -96,7 +105,9 @@ public class ContactRequestService {
         }
         entity.setStatus(ContactRequestStatus.CANCELLED);
         entity.setCancelledAt(OffsetDateTime.now(ZoneOffset.UTC));
-        return toResponse(requests.saveAndFlush(entity));
+        requests.saveAndFlush(entity);
+        adminEvents.record(ADMIN_CONTACT_CANCELLED, entity.getId());
+        return toResponse(entity);
     }
 
     static ContactRequestResponse toResponse(ContactRequestEntity entity) {
