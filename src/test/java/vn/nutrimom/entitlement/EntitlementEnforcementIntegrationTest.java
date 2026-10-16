@@ -30,6 +30,9 @@ import vn.nutrimom.support.ApiIntegrationTestSupport;
  * {@code planNinetyNineStillCannotUseFamilySharing} là bằng chứng chặn <em>đúng theo bảng giá</em>
  * chứ không phải chặn thô kiểu "cứ trả tiền là mở hết".</p>
  */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {
+        vn.nutrimom.assistant.service.GroqAssistantClient.class,
+        vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

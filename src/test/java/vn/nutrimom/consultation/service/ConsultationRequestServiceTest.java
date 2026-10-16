@@ -73,7 +73,8 @@ class ConsultationRequestServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         service = new ConsultationRequestService(
                 requests, slots, dayOffs, experts, reviews, users, new AccessGuard(), clock,
-                notifications, activityFeed, video);
+                notifications, activityFeed, video,
+                org.mockito.Mockito.mock(vn.nutrimom.notification.service.AdminNotificationEvents.class));
     }
 
     private static ExpertProfileEntity expert(String userId, Specialty specialty) {

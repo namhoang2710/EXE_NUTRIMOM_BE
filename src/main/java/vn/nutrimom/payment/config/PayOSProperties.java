@@ -4,6 +4,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "payos")
 public class PayOSProperties {
+    private boolean demoEnabled = false;
+    public boolean isDemoEnabled() { return demoEnabled; }
+    public void setDemoEnabled(boolean demoEnabled) { this.demoEnabled = demoEnabled; }
     private String clientId;
     private String apiKey;
     private String checksumKey;

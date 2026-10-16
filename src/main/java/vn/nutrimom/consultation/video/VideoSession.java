@@ -29,8 +29,10 @@ public class VideoSession {
     public Instant getEndedAt() { return endedAt; }
     public Instant getCleanupAt() { return cleanupAt; }
     public void markJoined(boolean expert, Instant at) {
-        if (expert && expertJoinedAt == null) expertJoinedAt = at;
-        if (!expert && userJoinedAt == null) userJoinedAt = at;
+        // Provider retries can arrive out of order. Keep the earliest verified occurrence,
+        // rather than the first webhook delivered, so punctuality does not depend on delivery order.
+        if (expert && (expertJoinedAt == null || at.isBefore(expertJoinedAt))) expertJoinedAt = at;
+        if (!expert && (userJoinedAt == null || at.isBefore(userJoinedAt))) userJoinedAt = at;
     }
     public void end(Instant at) { if (endedAt == null) endedAt = at; }
     public void cleaned(Instant at) { cleanupAt = at; }

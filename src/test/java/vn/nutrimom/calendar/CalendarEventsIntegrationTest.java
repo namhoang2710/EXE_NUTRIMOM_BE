@@ -32,6 +32,7 @@ import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.entitlement.PlanFixtures;
 
 /** Lịch trộn ba nguồn: hồ sơ y tế, buổi tư vấn đã xác nhận, nhắc nhở tự tạo (spec mục 10). */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -183,20 +184,20 @@ class CalendarEventsIntegrationTest {
         mockMvc.perform(get("/api/v1/calendar/events")
                         .param("from", today.toString()).param("to", today.minusDays(1).toString())
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(get("/api/v1/calendar/events")
                         .param("from", today.toString()).param("to", today.plusDays(367).toString())
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(get("/api/v1/calendar/events")
                         .param("from", today.toString()).param("to", today.toString())
                         .param("timezone", "Mars/Olympus")
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -222,7 +223,7 @@ class CalendarEventsIntegrationTest {
         mockMvc.perform(get("/api/v1/calendar/month")
                         .param("year", String.valueOf(day.getYear())).param("month", "13")
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -305,6 +306,7 @@ class CalendarEventsIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,"admin");
         return jwt().jwt(token -> token.subject("admin").claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

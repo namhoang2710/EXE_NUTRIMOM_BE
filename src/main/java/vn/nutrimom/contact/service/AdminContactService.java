@@ -1,5 +1,7 @@
 package vn.nutrimom.contact.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_CONTACT_COMPLETED;
+
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -11,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
@@ -40,8 +43,11 @@ public class AdminContactService {
     private final NotificationService notifications;
     private final ActivityFeedService activityFeed;
 
+    private final AdminNotificationEvents adminEvents;
+
     public AdminContactService(ContactRequestRepository requests, UserRepository users,
-                               NotificationService notifications, ActivityFeedService activityFeed) {
+                               NotificationService notifications, ActivityFeedService activityFeed, AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.requests = requests;
         this.users = users;
         this.notifications = notifications;
@@ -87,6 +93,7 @@ public class AdminContactService {
         entity.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         entity.setCompletedBy(adminUserId);
         requests.saveAndFlush(entity);
+        adminEvents.record(ADMIN_CONTACT_COMPLETED, entity.getId());
         // Báo cho người gửi biết đã được xử lý (task 18). Không nhắc lại nội dung thắc mắc trong
         // body vì thông báo có thể hiện trên màn hình khoá.
         notifications.publish(entity.getUserId(), NotificationType.CONTACT,

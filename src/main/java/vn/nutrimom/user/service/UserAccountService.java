@@ -1,5 +1,7 @@
 package vn.nutrimom.user.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCOUNT_DISABLED;
+
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -8,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.RefreshTokenRepository;
@@ -28,8 +31,11 @@ public class UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
 
+    private final AdminNotificationEvents adminEvents;
+
     public UserAccountService(UserRepository users, RefreshTokenRepository refreshTokens,
-                              PasswordEncoder passwordEncoder, OtpService otpService) {
+                              PasswordEncoder passwordEncoder, OtpService otpService, AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
@@ -49,6 +55,7 @@ public class UserAccountService {
         refreshTokens.revokeAllActiveByUserId(userId, disabledAt);
         user.setStatus(UserStatus.DISABLED);
         users.saveAndFlush(user);
+        adminEvents.record(ADMIN_ACCOUNT_DISABLED, userId);
         log.info("Account disabled: deletionRequestId={}, userId={}, reason={}",
                 deletionRequestId, userId, request.reason().trim());
         return new DeleteAccountResponse(

@@ -37,7 +37,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http,
             ApiAuthenticationEntryPoint entryPoint, ApiAccessDeniedHandler denied,
             JwtAuthenticationConverter converter, RateLimitProperties rateLimitProperties,
-            RateLimiterStore rateLimiterStore, RateLimitKeyResolver rateLimitKeyResolver) throws Exception {
+            RateLimiterStore rateLimiterStore, RateLimitKeyResolver rateLimitKeyResolver,
+            UserRepository users) throws Exception {
         // Chạy sau khi xác thực (trước AuthorizationFilter) để request đã đăng nhập được khóa theo user,
         // còn login/OTP (chưa xác thực) khóa theo IP. Khởi tạo tại chỗ, không để thành bean, tránh servlet
         // container tự đăng ký filter lần hai.
@@ -45,8 +46,13 @@ public class SecurityConfig {
                 new RateLimitFilter(rateLimitProperties, rateLimiterStore, rateLimitKeyResolver);
         http.csrf(csrf -> csrf.disable()).cors(Customizer.withDefaults())
                 .addFilterBefore(rateLimitFilter, AuthorizationFilter.class)
+                .addFilterAfter(new ActiveAdminFilter(users), AuthorizationFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Only completion of an already authorized SSE request; never permit arbitrary ASYNC routes.
+                        .requestMatchers(request -> request.getDispatcherType()==jakarta.servlet.DispatcherType.ASYNC
+                                && "/api/v1/admin/realtime/stream".equals(request.getServletPath())
+                                && Boolean.TRUE.equals(request.getAttribute("nutrimom.admin-sse-authorized"))).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
                                 "/api/v1/auth/activate", "/api/v1/auth/resend-activation",
@@ -149,7 +155,7 @@ public class SecurityConfig {
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
                 "X-Device-Id", "Accept-Language"));
-        config.setExposedHeaders(List.of("X-Request-Id", "Retry-After"));
+        config.setExposedHeaders(List.of("X-Request-Id", "Retry-After", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

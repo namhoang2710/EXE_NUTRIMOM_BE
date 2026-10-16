@@ -25,6 +25,7 @@ import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -73,7 +74,7 @@ class ContactRequestIntegrationTest {
                         .content("""
                                 {"message":"Làm sao đổi mật khẩu?"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(post("/api/v1/contact-requests")
@@ -81,7 +82,7 @@ class ContactRequestIntegrationTest {
                         .content("""
                                 {"topic":"ACCOUNT","message":"   "}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -211,6 +212,7 @@ class ContactRequestIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,"admin");
         return jwt().jwt(token -> token.subject("admin").claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
