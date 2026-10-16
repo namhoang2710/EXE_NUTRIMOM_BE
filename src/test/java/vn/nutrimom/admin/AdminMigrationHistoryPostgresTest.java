@@ -82,30 +82,31 @@ class AdminMigrationHistoryPostgresTest {
     }
     @Test void freshInstallValidatesAndSecondMigrateDoesNothing() throws Exception {
         var current = flyway("latest"); current.migrate(); contract();
-        assertEquals("60", current.info().current().getVersion().getVersion());
+        assertEquals("62", current.info().current().getVersion().getVersion());
         assertEquals(0, current.migrate().migrationsExecuted);
     }
     @Test void upgradesAppliedHistoryWithoutBackfillOrEditingReceiptsBalancesOrReadStates() throws Exception {
-        flyway("59").migrate(); appliedChecksums(); seed();
+        // Shared DB state: V60 meal_plans applied; V61 and V62 are the pending upgrade.
+        flyway("60").migrate(); appliedChecksums(); seed();
         assertEquals("1", scalar("select count(*) from app.payment_orders"));
         Map<String, String> before = snapshot();
-        var current = flyway("latest"); assertEquals(1, current.migrate().migrationsExecuted);
+        var current = flyway("latest"); assertEquals(2, current.migrate().migrationsExecuted);
         assertEquals(before, snapshot()); contract(); assertEquals(0, current.migrate().migrationsExecuted);
     }
     @Test void alreadyPresentObjectsAreNotDuplicated() throws Exception {
-        flyway("59").migrate(); seed();
-        execute(new ClassPathResource("db/migration/V60__reconcile_admin_migration_history.sql").getContentAsString(StandardCharsets.UTF_8));
+        flyway("60").migrate(); seed();
+        execute(new ClassPathResource("db/migration/V62__reconcile_admin_migration_history.sql").getContentAsString(StandardCharsets.UTF_8));
         Map<String, String> before = snapshot();
-        assertEquals(1, flyway("latest").migrate().migrationsExecuted);
+        assertEquals(2, flyway("latest").migrate().migrationsExecuted);
         assertEquals(before, snapshot()); contract();
     }
     @Test void invalidLegacyWindowFailsAtomicallyInsteadOfSilentlyRewritingAppointments() throws Exception {
-        flyway("59").migrate(); seed();
+        flyway("60").migrate(); seed();
         execute("update app.consultation_requests set scheduled_starts_at=now(),scheduled_ends_at=null where id='" + REQUEST + "'");
         Map<String, String> before = snapshot();
         assertThrows(FlywayException.class, () -> flyway("latest").migrate());
         assertEquals(before, snapshot()); appliedChecksums();
-        assertEquals("0", scalar("select count(*) from app.flyway_schema_history where version='60'"));
+        assertEquals("0", scalar("select count(*) from app.flyway_schema_history where version='62'"));
         assertNotNull(scalar("select to_regclass('app.ix_admin_expert_performance_schedule')"));
         assertNull(scalar("select to_regclass('app.ix_users_admin_created')"));
     }
