@@ -18,7 +18,7 @@ import vn.nutrimom.pregnancy.service.PregnancyWeekContentService;
 @RestController
 @Validated
 @RequestMapping("/api/v1/pregnancy-content/weeks")
-@Tag(name = "Pregnancy weekly content", description = "Curated content by gestational week")
+@Tag(name = "Pregnancy weekly content", description = "Deprecated: weekly articles were dropped; kept only for old clients")
 @SecurityRequirement(name = "bearerAuth")
 public class PregnancyWeekContentController {
     private final PregnancyWeekContentService service;
@@ -28,7 +28,7 @@ public class PregnancyWeekContentController {
     }
 
     @GetMapping("/{week}")
-    @Operation(summary = "Get pregnancy content for a gestational week")
+    @Operation(summary = "Get pregnancy content for a gestational week (deprecated)", deprecated = true)
     public ApiResponse<PregnancyWeekContentResponse> getWeek(
             @PathVariable @Min(0) @Max(42) int week) {
         return ApiResponses.success(service.getWeek(week));

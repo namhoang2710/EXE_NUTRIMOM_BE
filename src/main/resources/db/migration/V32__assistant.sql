@@ -20,7 +20,6 @@ CREATE TABLE app.assistant_conversations (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 CREATE INDEX ix_assistant_conversations_owner ON app.assistant_conversations(owner_user_id, updated_at DESC);
-CREATE INDEX ix_assistant_conversations_expiry ON app.assistant_conversations(updated_at);
 CREATE TABLE app.assistant_messages (
     id VARCHAR(36) PRIMARY KEY,
     conversation_id VARCHAR(36) NOT NULL REFERENCES app.assistant_conversations(id) ON DELETE CASCADE,

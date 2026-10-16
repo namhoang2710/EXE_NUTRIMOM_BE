@@ -37,17 +37,20 @@ class AdminKpiV54MigrationPostgresTest {
                 var service=new AdminExpertPerformanceService(new AdminExpertPerformanceRepository(jdbc),
                         new AdminOperationsRepository(jdbc),new AdminRealtimeRepository(jdbc),Clock.systemUTC());
                 if(earlierShape) {
-                    sql.execute("alter table app.consultation_monitor_state drop column tracking_started_at");
-                    sql.execute("alter table app.consultation_requests drop column attendance_finalized_at");
+                    sql.execute("alter table app.consultation_monitor_state drop column if exists tracking_started_at");
+                    sql.execute("alter table app.consultation_requests drop column if exists attendance_finalized_at");
                     var failure=assertThrows(org.springframework.jdbc.BadSqlGrammarException.class,
                             ()->service.snapshot(null,null,null,null,true,2));
                     assertEquals("42703",failure.getSQLException().getSQLState());
                 } else {
+                    sql.execute("alter table app.consultation_monitor_state add column if not exists tracking_started_at timestamptz");
+                    sql.execute("alter table app.consultation_requests add column if not exists attendance_finalized_at timestamptz");
                     sql.execute("update app.consultation_monitor_state set tracking_started_at='2026-10-15T08:00:00+07:00'");
                 }
                 long requests;
                 try(var r=sql.executeQuery("select count(*) from app.consultation_requests")){r.next();requests=r.getLong(1);}
-                var latest=flyway("latest");assertEquals(3,latest.migrate().migrationsExecuted);
+                // This regression specifically verifies the V53 -> V56 rollout, independent of later modules.
+                var latest=flyway("56");assertEquals(3,latest.migrate().migrationsExecuted);
                 assertEquals(0,latest.migrate().migrationsExecuted);
                 assertTrue(latest.validateWithResult().validationSuccessful);
                 var snapshot=service.snapshot(null,null,null,null,true,2);

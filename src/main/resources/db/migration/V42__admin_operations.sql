@@ -12,7 +12,6 @@ CREATE INDEX ix_consultation_admin_status_created ON app.consultation_requests(s
 CREATE INDEX ix_consultation_admin_completed ON app.consultation_requests(completed_at,id) WHERE status='COMPLETED';
 CREATE INDEX ix_consultation_slots_admin_day ON app.consultation_slots(slot_date,start_time,id);
 CREATE INDEX ix_subscription_admin_effective ON app.user_subscriptions(status,end_date,user_id);
-CREATE INDEX ix_users_admin_created ON app.users(created_at,id);
 
 -- Scope dedup to admin new-support events only. Lifecycle events for users remain untouched.
 ALTER TABLE app.notifications ADD COLUMN dedup_key VARCHAR(160);

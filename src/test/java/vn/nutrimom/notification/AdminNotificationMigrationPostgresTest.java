@@ -75,7 +75,7 @@ class AdminNotificationMigrationPostgresTest {
                 row.next(); assertThat(row.getLong(1)).isZero();
             }
             var latest = Flyway.configure().dataSource(url, "adminqa", "").schemas("app")
-                    .defaultSchema("app").locations("classpath:db/migration").load();
+                    .defaultSchema("app").locations("classpath:db/migration").target("56").load();
             assertThat(latest.migrate().migrationsExecuted).isEqualTo(8);
             assertThat(latest.migrate().migrationsExecuted).isZero();
             try(var query=connection.prepareStatement("select acceptance_opened_at,accepted_at,acceptance_deadline_at,acceptance_policy_version,preferred_date,scheduled_starts_at,scheduled_ends_at from app.consultation_requests where id=?")) {
