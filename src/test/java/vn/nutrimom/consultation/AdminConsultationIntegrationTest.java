@@ -44,6 +44,7 @@ import vn.nutrimom.consultation.repository.ConsultationRequestRepository;
 import vn.nutrimom.consultation.repository.ConsultationReviewRepository;
 import vn.nutrimom.consultation.repository.ExpertProfileRepository;
 
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest(properties = "springdoc.api-docs.enabled=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -173,7 +174,7 @@ class AdminConsultationIntegrationTest {
 
     private void assertInvalidPageSize(String value) throws Exception {
         mockMvc.perform(get(ENDPOINT).param("pageSize", value).with(adminJwt()))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -241,7 +242,8 @@ class AdminConsultationIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
-        return jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
+        String principal = vn.nutrimom.admin.AdminTestAccounts.ensure(users, UUID.randomUUID().toString());
+        return jwt().jwt(token -> token.subject(principal)
                         .claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

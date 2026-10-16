@@ -67,6 +67,19 @@ class RateLimitFilterTest {
         return invoke(filter, "/api/v1/auth/login");
     }
 
+    @Test void encodedStreamPathAndContextPrefixCannotBypassItsQuota() throws Exception {
+        var properties=new RateLimitProperties();properties.setEnabled(true);
+        properties.setPolicies(Map.of("admin-stream",new RateLimitPolicy(1,Duration.ofMinutes(1))));
+        properties.setRoutes(List.of(new RateLimitProperties.RouteRule("/api/v1/admin/realtime/stream","admin-stream")));
+        var filter=new RateLimitFilter(properties,new InMemoryRateLimiterStore(),new RateLimitKeyResolver());
+        for(int i=0;i<2;i++) {
+            var request=new MockHttpServletRequest("GET","/prefix/api/v1/a%64min/realtime/stream");
+            request.setContextPath("/prefix");request.setRemoteAddr("203.0.113.9");
+            var response=new MockHttpServletResponse();var chain=new MockFilterChain();filter.doFilter(request,response,chain);
+            assertThat(response.getStatus()).isEqualTo(i==0?200:429);
+        }
+    }
+
     private Outcome invoke(RateLimitFilter filter, String uri) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", uri);
         request.setRequestURI(uri);

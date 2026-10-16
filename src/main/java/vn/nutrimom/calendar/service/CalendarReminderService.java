@@ -28,6 +28,8 @@ import vn.nutrimom.calendar.repository.CalendarReminderRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
+import vn.nutrimom.entitlement.domain.PlanFeature;
+import vn.nutrimom.entitlement.service.EntitlementGuard;
 import vn.nutrimom.config.CalendarProperties;
 import vn.nutrimom.medicalrecord.domain.MedicalRecordEntity;
 import vn.nutrimom.medicalrecord.repository.MedicalRecordRepository;
@@ -50,6 +52,7 @@ public class CalendarReminderService {
     private final MedicalRecordRepository medicalRecords;
     private final PregnancyRepository pregnancies;
     private final AccessGuard guard;
+    private final EntitlementGuard entitlements;
     private final CalendarZone zones;
     private final CalendarProperties properties;
     private final Clock clock;
@@ -59,6 +62,7 @@ public class CalendarReminderService {
                                    MedicalRecordRepository medicalRecords,
                                    PregnancyRepository pregnancies,
                                    AccessGuard guard,
+                                   EntitlementGuard entitlements,
                                    CalendarZone zones,
                                    CalendarProperties properties,
                                    Clock clock) {
@@ -67,6 +71,7 @@ public class CalendarReminderService {
         this.medicalRecords = medicalRecords;
         this.pregnancies = pregnancies;
         this.guard = guard;
+        this.entitlements = entitlements;
         this.zones = zones;
         this.properties = properties;
         this.clock = clock;
@@ -105,6 +110,9 @@ public class CalendarReminderService {
 
     @Transactional
     public ReminderResponse create(String userId, CreateReminderRequest request) {
+        // Chỉ chặn đường GHI. list/get/patch/delete để mở: nhắc nhở user tạo lúc chưa có cổng vẫn
+        // phải xem và xoá được, nếu không thì bật cổng đồng nghĩa với nuốt mất dữ liệu của họ.
+        entitlements.requireFeature(userId, PlanFeature.CALENDAR_REMINDERS);
         ZoneId zone = zones.resolve(request.timezone(), userId);
         CalendarReminderEntity reminder = new CalendarReminderEntity();
         reminder.setOwnerUserId(userId);
@@ -134,6 +142,9 @@ public class CalendarReminderService {
     @Transactional
     public ReminderResponse createFromMedicalRecord(String userId, String recordId,
                                                     CreateReminderFromRecordRequest request) {
+        // Đường ghi thứ hai, độc lập với create(): nút "thêm vào lịch" trên hồ sơ y tế. Quên chỗ này
+        // là cổng thủng.
+        entitlements.requireFeature(userId, PlanFeature.CALENDAR_REMINDERS);
         MedicalRecordEntity record = guard.requireOwned(
                 medicalRecords.findByIdAndOwnerUserIdAndDeletedAtIsNull(recordId, userId),
                 RECORD_NOT_FOUND_MESSAGE);

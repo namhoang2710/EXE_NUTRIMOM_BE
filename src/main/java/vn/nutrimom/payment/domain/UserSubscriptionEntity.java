@@ -144,6 +144,6 @@ public class UserSubscriptionEntity {
             return false;
         }
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        return !now.isBefore(startDate) && !now.isAfter(endDate);
+        return !now.isBefore(startDate) && now.isBefore(endDate);
     }
 }

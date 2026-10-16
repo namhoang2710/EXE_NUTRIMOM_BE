@@ -21,6 +21,10 @@ import vn.nutrimom.notification.dto.NotificationDtos.NotificationResponse;
 import vn.nutrimom.notification.dto.NotificationDtos.ReadAllResponse;
 import vn.nutrimom.notification.dto.NotificationDtos.UnreadCountResponse;
 import vn.nutrimom.notification.service.NotificationService;
+import vn.nutrimom.notification.domain.NotificationAudience;
+import vn.nutrimom.notification.domain.NotificationCategory;
+import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 
 @Validated
 @RestController
@@ -40,14 +44,20 @@ public class NotificationController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int limit,
-            @RequestParam(defaultValue = "false") boolean unreadOnly) {
-        return ApiResponses.success(service.list(jwt.getSubject(), cursor, limit, unreadOnly));
+            @RequestParam(defaultValue = "false") boolean unreadOnly,
+            @RequestParam(required = false) String audience,
+            @RequestParam(required = false) String category) {
+        return ApiResponses.success(service.list(jwt.getSubject(), cursor, limit, unreadOnly,
+                filter(NotificationAudience.class, audience), filter(NotificationCategory.class, category)));
     }
 
     @GetMapping("/unread-count")
     @Operation(summary = "Số thông báo chưa đọc của chính người gọi; dùng cho chuông thông báo")
-    public ApiResponse<UnreadCountResponse> unreadCount(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponses.success(new UnreadCountResponse(service.unreadCount(jwt.getSubject())));
+    public ApiResponse<UnreadCountResponse> unreadCount(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String audience,
+            @RequestParam(required = false) String category) {
+        return ApiResponses.success(service.unreadCountResponse(jwt.getSubject(),
+                filter(NotificationAudience.class, audience), filter(NotificationCategory.class, category)));
     }
 
     @PostMapping("/{id}/read")
@@ -59,7 +69,19 @@ public class NotificationController {
 
     @PostMapping("/read-all")
     @Operation(summary = "Đánh dấu toàn bộ thông báo đã đọc; idempotent, trả số dòng vừa đổi")
-    public ApiResponse<ReadAllResponse> readAll(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponses.success(new ReadAllResponse(service.markAllRead(jwt.getSubject())));
+    public ApiResponse<ReadAllResponse> readAll(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String audience,
+            @RequestParam(required = false) String category) {
+        return ApiResponses.success(new ReadAllResponse(service.markAllRead(jwt.getSubject(),
+                filter(NotificationAudience.class, audience), filter(NotificationCategory.class, category))));
+    }
+
+    private static <T extends Enum<T>> T filter(Class<T> type, String value) {
+        if (value == null) return null;
+        try {
+            return Enum.valueOf(type, value);
+        } catch (IllegalArgumentException failure) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Bộ lọc thông báo không hợp lệ.");
+        }
     }
 }

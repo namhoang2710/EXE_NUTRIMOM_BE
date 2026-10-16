@@ -104,8 +104,19 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  admin:
+    metrics-snapshot-enabled: ${NUTRIMOM_ADMIN_METRICS_SNAPSHOT_ENABLED:true}
+    expert-performance:
+      acceptance-sla-minutes: ${NUTRIMOM_EXPERT_ACCEPTANCE_SLA_MINUTES:30}
+    realtime:
+      enabled: ${NUTRIMOM_ADMIN_REALTIME_ENABLED:false}
+      max-connections: 100
+      max-connections-per-user: 5
   consultation:
+    monitor-enabled: ${NUTRIMOM_CONSULTATION_MONITOR_ENABLED:true}
+    monitor-interval-ms: 15000
     video:
+      presence-tracking-enabled: ${NUTRIMOM_VIDEO_PRESENCE_TRACKING_ENABLED:false}
       enabled: ${NUTRIMOM_VIDEO_ENABLED:true}
       url: ${LIVEKIT_URL:}
       api-key: ${LIVEKIT_API_KEY:}
@@ -156,6 +167,7 @@ app:
       bucket-name: ${R2_BUCKET_NAME:}
       public-base-url: ${R2_PUBLIC_BASE_URL:}
   notification:
+    admin-job-enabled: ${NUTRIMOM_ADMIN_NOTIFICATION_JOB_ENABLED:true}
     # Key AES-256 (base64 của 32 byte) để mã hóa push token trước khi lưu — spec mục 18.
     # Sinh key mới: openssl rand -base64 32
     push-token-key: ${NUTRIMOM_PUSH_TOKEN_KEY}
@@ -195,16 +207,37 @@ app:
         assistant:
           capacity: 8
           window: PT1M
+        # Hai endpoint tra cứu món là công khai, nên khóa đếm rơi về IP (xem RateLimitKeyResolver).
+        # Ngưỡng rộng vì đây là đọc danh mục tĩnh, chỉ nhằm chặn quét hàng loạt.
+        recipes:
+          capacity: 60
+          window: PT1M
         invitation-create:
           capacity: 10
           window: PT1H
         invitation-token:
           capacity: 20
           window: PT1M
+        admin-export:
+          capacity: 5
+          window: PT1M
+        admin-stream:
+          capacity: 20
+          window: PT1M
         default:
           capacity: 100
           window: PT1M
       routes:
+        - pattern: /api/v1/consultation-requests/*/video/check-in
+          policy: default
+        - pattern: /api/v1/consultation-requests/*/video/join
+          policy: default
+        - pattern: /api/v1/admin/realtime/stream
+          policy: admin-stream
+        - pattern: /api/v1/admin/reports/*/export
+          policy: admin-export
+        - pattern: /api/v1/admin/**
+          policy: default
         - pattern: /api/v1/auth/login
           policy: login
         - pattern: /api/v1/auth/otp/**
@@ -213,6 +246,16 @@ app:
           policy: devices
         - pattern: /api/v1/assistant/conversations/*/messages
           policy: assistant
+        - pattern: /api/v1/recipes
+          policy: recipes
+        - pattern: /api/v1/recipes/*
+          policy: recipes
+        # Chip dị ứng và ô tìm nguyên liệu của onboarding: cũng là danh mục công khai, cùng ngưỡng.
+        # Ô tìm gọi theo từng ký tự người dùng gõ nên đừng siết hơn con số của recipes.
+        - pattern: /api/v1/allergens
+          policy: recipes
+        - pattern: /api/v1/ingredients
+          policy: recipes
         # Pattern CỤ THỂ phải đứng trước: RateLimitFilter lấy rule khớp ĐẦU TIÊN.
         # invitation-token dùng cho cả lối vào bằng token lẫn bằng id: tên giữ nguyên vì ngưỡng
         # mới là thứ đáng quan tâm, đẻ thêm một policy trùng số chỉ làm file này dài ra.
@@ -228,6 +271,11 @@ app:
           policy: invitation-token
         - pattern: /api/v1/family-invitations
           policy: invitation-create
+        # Endpoint công khai (không cần token) nên khoá theo IP. Cũng là route đầu tiên thực sự
+        # trỏ tới policy `default`: RateLimitFilter cho qua VÔ HẠN khi không rule nào khớp, nên
+        # một endpoint ẩn danh mà không khai ở đây là bỏ ngỏ hoàn toàn.
+        - pattern: /api/v1/subscription-plans
+          policy: default
   otp:
     code-length: 6
     ttl: ${NUTRIMOM_OTP_TTL:PT5M}
@@ -243,6 +291,7 @@ app:
     admin-display-name: ${NUTRIMOM_ADMIN_DISPLAY_NAME:NutriMom Admin}
 
 payos:
+  demo-enabled: ${NUTRIMOM_PAYMENT_DEMO_ENABLED:false}
   client-id: ${PAYOS_CLIENT_ID:}
   api-key: ${PAYOS_API_KEY:}
   checksum-key: ${PAYOS_CHECKSUM_KEY:}

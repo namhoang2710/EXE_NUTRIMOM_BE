@@ -17,6 +17,13 @@ import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 
 public interface UserRepository extends JpaRepository<UserEntity, String> {
+    @Query("""
+            select count(u) > 0 from UserEntity u
+            where u.id = :id and u.status = vn.nutrimom.auth.domain.UserStatus.ACTIVE
+              and vn.nutrimom.auth.domain.UserRole.ADMIN member of u.roles
+            """)
+    boolean isActiveAdmin(@Param("id") String id);
+
     interface UserDisplayNameView {
         String getId();
         String getDisplayName();

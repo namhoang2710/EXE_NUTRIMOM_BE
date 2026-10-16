@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.*;
 import tools.jackson.databind.*;
@@ -25,6 +26,7 @@ class AuthFlowIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository users;
+    @Autowired PasswordEncoder passwordEncoder;
 
     @Test
     void activationRequiresProofAndConsumesCodeBeforeIssuingSession() throws Exception {
@@ -108,6 +110,61 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("TERMS_NOT_ACCEPTED"))
                 .andExpect(jsonPath("$.error.fields.accepted_terms").isNotEmpty());
+    }
+
+    @Test
+    void passwordRegistrationEnforcesPasswordPolicy() throws Exception {
+        // Thiếu ký tự đặc biệt.
+        rejectsPassword("0912345610", "Nutrimom123");
+        // Thiếu chữ hoa.
+        rejectsPassword("0912345611", "nutri@2026");
+        // Thiếu chữ thường.
+        rejectsPassword("0912345612", "NUTRI@2026");
+        // Thiếu chữ số.
+        rejectsPassword("0912345613", "Nutrimom@ab");
+        // Ngắn hơn 8 ký tự.
+        rejectsPassword("0912345614", "Nu@1");
+        // Dài hơn 20 ký tự.
+        rejectsPassword("0912345615", "Nu@1xxxxxxxxxxxxxxxxx");
+        // Chứa khoảng trắng.
+        rejectsPassword("0912345616", "Nutri @2026");
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345617","password":"Nutri@2026",
+                                 "display_name":"Policy Ok","accepted_terms":true}
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void registeredPasswordIsStoredAsBcryptHash() throws Exception {
+        String rawPassword = "Nutri@2026";
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"0912345618","password":"%s",
+                                 "display_name":"Hash Check","accepted_terms":true}
+                                """.formatted(rawPassword)))
+                .andExpect(status().isCreated());
+
+        String storedHash = users.findByPhone("+84912345618").orElseThrow().getPasswordHash();
+        assertThat(storedHash).isNotEqualTo(rawPassword);
+        assertThat(storedHash).matches("^\\$2[aby]\\$12\\$.+");
+        assertThat(passwordEncoder.matches(rawPassword, storedHash)).isTrue();
+    }
+
+    private void rejectsPassword(String phone, String password) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"%s",
+                                 "display_name":"Weak Password","accepted_terms":true}
+                                """.formatted(phone, password)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.fields.password").isNotEmpty());
     }
 
     @Test

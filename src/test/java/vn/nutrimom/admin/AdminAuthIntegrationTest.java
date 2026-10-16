@@ -28,6 +28,7 @@ import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.bootstrap.AdminUserInitializer;
 
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest(properties = {
         "springdoc.api-docs.enabled=false",
         "app.bootstrap.admin-user-enabled=true",

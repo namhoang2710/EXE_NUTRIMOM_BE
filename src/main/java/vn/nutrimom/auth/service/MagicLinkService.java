@@ -1,5 +1,8 @@
 package vn.nutrimom.auth.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCOUNT_ACTIVATED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCOUNT_CREATED;
+
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -12,6 +15,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.dto.*;
 import vn.nutrimom.auth.repository.MagicLoginTokenRepository;
@@ -35,6 +39,8 @@ public class MagicLinkService {
     private final OtpProperties otpProperties;
     private final Environment environment;
 
+    private final AdminNotificationEvents adminEvents;
+
     public MagicLinkService(
             MagicLoginTokenRepository tokenRepository,
             UserRepository userRepository,
@@ -43,7 +49,9 @@ public class MagicLinkService {
             EmailService emailService,
             OtpProperties otpProperties,
             Environment environment,
-            @Value("${app.auth.magic-link-base-url:http://localhost:5173/auth/verify}") String baseUrl) {
+            @Value("${app.auth.magic-link-base-url:http://localhost:5173/auth/verify}") String baseUrl,
+            AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
         this.tokenService = tokenService;
@@ -151,7 +159,9 @@ public class MagicLinkService {
                     newUser.setTermsAcceptedAt(now);
                     newUser.setPrivacyAcceptedAt(now);
                     newUser.getRoles().add(UserRole.USER);
-                    return userRepository.saveAndFlush(newUser);
+                    userRepository.saveAndFlush(newUser);
+                    adminEvents.record(ADMIN_ACCOUNT_CREATED, newUser.getId());
+                    return newUser;
                 });
 
         if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
@@ -160,6 +170,7 @@ public class MagicLinkService {
             user.setEmailActivationTokenHash(null);
             user.setEmailActivationExpiresAt(null);
             userRepository.saveAndFlush(user);
+            adminEvents.record(ADMIN_ACCOUNT_ACTIVATED, user.getId());
         } else if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ACCOUNT_UNAVAILABLE, "Tài khoản của bạn đang bị khóa hoặc vô hiệu hóa.");
         }

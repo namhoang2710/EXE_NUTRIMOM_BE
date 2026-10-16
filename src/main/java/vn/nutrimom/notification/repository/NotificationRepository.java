@@ -9,8 +9,46 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.nutrimom.notification.domain.NotificationEntity;
+import vn.nutrimom.notification.domain.NotificationAudience;
+import vn.nutrimom.notification.domain.NotificationCategory;
 
 public interface NotificationRepository extends JpaRepository<NotificationEntity, String> {
+    @Query("""
+            select n from NotificationEntity n where n.userId=:userId
+              and (:allowAdmin=true or n.audience=vn.nutrimom.notification.domain.NotificationAudience.USER)
+              and (:audience is null or n.audience=:audience)
+              and (:category is null or n.category=:category)
+              and (:unreadOnly=false or n.readAt is null)
+              and (n.createdAt<:cursorAt or (n.createdAt=:cursorAt and n.id<:cursorId))
+            order by n.createdAt desc,n.id desc
+            """)
+    List<NotificationEntity> findVisiblePage(@Param("userId") String userId,
+            @Param("allowAdmin") boolean allowAdmin, @Param("audience") NotificationAudience audience,
+            @Param("category") NotificationCategory category, @Param("unreadOnly") boolean unreadOnly,
+            @Param("cursorAt") OffsetDateTime cursorAt, @Param("cursorId") String cursorId, Pageable pageable);
+
+    @Query("""
+            select count(n) from NotificationEntity n where n.userId=:userId and n.readAt is null
+              and (:allowAdmin=true or n.audience=vn.nutrimom.notification.domain.NotificationAudience.USER)
+              and (:audience is null or n.audience=:audience)
+              and (:category is null or n.category=:category)
+            """)
+    long countVisibleUnread(@Param("userId") String userId, @Param("allowAdmin") boolean allowAdmin,
+            @Param("audience") NotificationAudience audience, @Param("category") NotificationCategory category);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update NotificationEntity n set n.readAt=:at,n.updatedAt=:at,n.version=n.version+1
+            where n.userId=:userId and n.readAt is null
+              and (:allowAdmin=true or n.audience=vn.nutrimom.notification.domain.NotificationAudience.USER)
+              and (:audience is null or n.audience=:audience)
+              and (:category is null or n.category=:category)
+            """)
+    int markVisibleRead(@Param("userId") String userId, @Param("allowAdmin") boolean allowAdmin,
+            @Param("audience") NotificationAudience audience, @Param("category") NotificationCategory category,
+            @Param("at") OffsetDateTime at);
+
+    Optional<NotificationEntity> findByDedupKey(String dedupKey);
 
     /** Row-level security: luôn lọc kèm chủ sở hữu, không sở hữu thì 404 qua {@code AccessGuard}. */
     Optional<NotificationEntity> findByIdAndUserId(String id, String userId);

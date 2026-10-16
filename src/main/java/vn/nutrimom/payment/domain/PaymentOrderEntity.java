@@ -41,6 +41,10 @@ public class PaymentOrderEntity {
     @Column(name = "status", nullable = false, length = 20)
     private PaymentOrderStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 20)
+    private PaymentSource source = PaymentSource.LEGACY_UNKNOWN;
+
     @Column(name = "payos_payment_link_id", length = 100)
     private String payosPaymentLinkId;
 
@@ -108,6 +112,9 @@ public class PaymentOrderEntity {
     public String getId() {
         return id;
     }
+
+    public PaymentSource getSource() { return source; }
+    public void setSource(PaymentSource source) { this.source = source; }
 
     public void setId(String id) {
         this.id = id;

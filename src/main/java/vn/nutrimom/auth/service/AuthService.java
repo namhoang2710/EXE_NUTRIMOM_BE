@@ -1,5 +1,8 @@
 package vn.nutrimom.auth.service;
 
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCOUNT_ACTIVATED;
+import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCOUNT_CREATED;
+
 import java.time.*;
 import java.util.List;
 import java.util.Optional;
@@ -9,6 +12,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.auth.domain.*;
 import vn.nutrimom.auth.dto.*;
 import vn.nutrimom.auth.repository.*;
@@ -29,12 +33,16 @@ public class AuthService {
     private final String magicLinkBaseUrl;
     private final java.security.SecureRandom secureRandom = new java.security.SecureRandom();
 
+    private final AdminNotificationEvents adminEvents;
+
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
                        PhoneNormalizer phoneNormalizer, TokenService tokenService,
                        UserPersonaService personaService,
                        vn.nutrimom.common.email.EmailService emailService,
-                       @org.springframework.beans.factory.annotation.Value("${app.auth.magic-link-base-url:http://localhost:5173}") String magicLinkBaseUrl) {
+                       @org.springframework.beans.factory.annotation.Value("${app.auth.magic-link-base-url:http://localhost:5173}") String magicLinkBaseUrl,
+                       AdminNotificationEvents adminEvents) {
+        this.adminEvents = adminEvents;
         this.userRepository = users;
         this.refreshTokenRepository = refreshTokens;
         this.passwordEncoder = passwordEncoder;
@@ -93,6 +101,8 @@ public class AuthService {
             if (phone != null && userRepository.existsByPhone(phone)) throw duplicatePhone();
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email hoặc số điện thoại này đã được sử dụng.");
         }
+
+        adminEvents.record(ADMIN_ACCOUNT_CREATED, user.getId());
 
         if (email != null && rawActivationToken != null) {
             try {
@@ -173,6 +183,7 @@ public class AuthService {
         user.setEmailActivationTokenHash(null);
         user.setEmailActivationExpiresAt(null);
         userRepository.save(user);
+        adminEvents.record(ADMIN_ACCOUNT_ACTIVATED, user.getId());
 
         return issueSession(user, request.deviceId());
     }

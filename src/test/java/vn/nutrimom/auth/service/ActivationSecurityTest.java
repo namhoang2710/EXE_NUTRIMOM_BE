@@ -20,6 +20,7 @@ import vn.nutrimom.auth.dto.ActivateAccountRequest;
 import vn.nutrimom.auth.repository.*;
 import vn.nutrimom.common.email.EmailService;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 import vn.nutrimom.user.service.UserPersonaService;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,13 +33,14 @@ class ActivationSecurityTest {
     @Mock TokenService tokens;
     @Mock UserPersonaService personas;
     @Mock EmailService email;
+    @Mock AdminNotificationEvents adminEvents;
     private AuthService service;
     private UserEntity user;
 
     @BeforeEach
     void setUp() {
         service = new AuthService(users, refreshTokens, passwords, authentication, phones,
-                tokens, personas, email, "http://localhost:5173/auth/verify");
+                tokens, personas, email, "http://localhost:5173/auth/verify", adminEvents);
         user = new UserEntity();
         user.setId("activation-fixture");
         user.setDisplayName("Fixture");

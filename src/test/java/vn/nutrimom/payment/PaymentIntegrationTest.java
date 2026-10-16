@@ -32,6 +32,10 @@ class PaymentIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository users;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    vn.nutrimom.assistant.service.GroqAssistantClient groq;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    vn.nutrimom.consultation.video.LiveKitClient livekit;
 
     @Test
     void userCreatesPaymentAndChecksSubscription() throws Exception {

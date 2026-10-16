@@ -33,6 +33,7 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.entitlement.PlanFixtures;
 
 /** CRUD nhắc nhở, nút tạo từ hồ sơ y tế, optimistic lock và quy ước 404-không-403. */
 @SpringBootTest
@@ -48,6 +49,7 @@ class CalendarReminderIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository users;
+    @Autowired vn.nutrimom.payment.repository.UserSubscriptionRepository subscriptions;
 
     @Test
     void createdReminderShowsUpOnTheCalendarAndInItsOwnList() throws Exception {
@@ -317,7 +319,11 @@ class CalendarReminderIntegrationTest {
         user.setDisplayName(displayName);
         user.setStatus(UserStatus.ACTIVE);
         user.setRoles(Set.of(UserRole.USER));
-        return users.saveAndFlush(user).getId();
+        String userId = users.saveAndFlush(user).getId();
+        // Nhac nho la tinh nang tra phi tu task 17; bai nay kiem hanh vi cua lich chu khong kiem
+        // chuyen ban hang, nen tai khoan test duoc cap san goi day du.
+        PlanFixtures.grantFullPlan(subscriptions, userId);
+        return userId;
     }
 
     private String readData(MvcResult result, String pointer) throws Exception {

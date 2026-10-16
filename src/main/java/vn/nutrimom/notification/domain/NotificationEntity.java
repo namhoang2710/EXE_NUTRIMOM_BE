@@ -37,6 +37,19 @@ public class NotificationEntity {
     @Column(name = "type", nullable = false, length = 40)
     private NotificationType type;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NotificationAudience audience = NotificationAudience.USER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private NotificationCategory category = NotificationCategory.GENERAL;
+
+    public NotificationAudience getAudience() { return audience; }
+    public void setAudience(NotificationAudience value) { audience = value; }
+    public NotificationCategory getCategory() { return category; }
+    public void setCategory(NotificationCategory value) { category = value; }
+
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
@@ -51,6 +64,11 @@ public class NotificationEntity {
 
     @Column(name = "source_id", length = 36)
     private String sourceId;
+
+    @Column(name = "dedup_key", length = 160, unique = true)
+    private String dedupKey;
+    public String getDedupKey() { return dedupKey; }
+    public void setDedupKey(String value) { dedupKey = value; }
 
     @Column(name = "read_at")
     private OffsetDateTime readAt;

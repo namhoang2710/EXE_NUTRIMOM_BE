@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,7 @@ import vn.nutrimom.notification.service.NotificationService;
 import vn.nutrimom.notification.service.PushTokenCipher;
 
 /** Contract test của task 18: devices, notifications và activity feed. */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -48,7 +52,10 @@ class NotificationIntegrationTest {
     @Autowired PushDeviceRepository devices;
     @Autowired PushTokenCipher cipher;
     @Autowired NotificationService notifications;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired ActivityFeedService activityFeed;
+    private int notificationSequence;
 
     // ----- POST /devices -----
 
@@ -118,7 +125,7 @@ class NotificationIntegrationTest {
                         .content("""
                                 {"push_token":"t","device_id":"d"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(post("/api/v1/devices").with(userJwt(userId))
@@ -126,7 +133,7 @@ class NotificationIntegrationTest {
                         .content("""
                                 {"platform":"ANDROID","push_token":"   ","device_id":"d"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -223,13 +230,47 @@ class NotificationIntegrationTest {
                 .andExpect(jsonPath("$.data.has_more").value(false));
     }
 
+    /** Equal created_at values are ordered by id; paging through them must not skip or repeat rows. */
+    @Test
+    void notificationsSharingATimestampArePagedWithoutGapsOrDuplicates() throws Exception {
+        String userId = account("0914000015", "Tie Mom");
+        OffsetDateTime tie = OffsetDateTime.parse("2026-02-01T00:00:00Z");
+        List<String> tied = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            tied.add(publishAt(userId, "Cùng lúc " + i, tie));
+        }
+        String newest = publishAt(userId, "Mới hơn", tie.plusSeconds(1));
+        String oldest = publishAt(userId, "Cũ hơn", tie.minusSeconds(1));
+
+        List<String> seen = new ArrayList<>();
+        String cursor = null;
+        boolean hasMore = true;
+        while (hasMore) {
+            var request = get("/api/v1/notifications").param("limit", "2").with(userJwt(userId));
+            if (cursor != null) {
+                request.param("cursor", cursor);
+            }
+            var data = objectMapper.readTree(mockMvc.perform(request).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString()).at("/data");
+            data.at("/items").forEach(item -> seen.add(item.at("/id").stringValue()));
+            hasMore = data.at("/has_more").booleanValue();
+            cursor = hasMore ? data.at("/next_cursor").stringValue() : null;
+        }
+
+        List<String> expected = new ArrayList<>();
+        expected.add(newest);
+        tied.stream().sorted(Comparator.reverseOrder()).forEach(expected::add);
+        expected.add(oldest);
+        assertThat(seen).containsExactlyElementsOf(expected);
+    }
+
     @Test
     void invalidCursorIsRejectedInsteadOfSilentlyReturningPageOne() throws Exception {
         String userId = account("0914000013", "Bad Cursor Mom");
 
         mockMvc.perform(get("/api/v1/notifications")
                         .param("cursor", "kh0ng-phai-cursor").with(userJwt(userId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -424,9 +465,25 @@ class NotificationIntegrationTest {
         devices.saveAndFlush(device);
     }
 
+    /** Like {@link #publish} but with an explicit created_at, e.g. to create identical timestamps. */
+    private String publishAt(String userId, String title, OffsetDateTime createdAt) {
+        String id = publish(userId, title);
+        jdbc.update("update app.notifications set created_at=? where id=?", createdAt, id);
+        entityManager.refresh(entityManager.getReference(
+                vn.nutrimom.notification.domain.NotificationEntity.class, id));
+        return id;
+    }
+
     private String publish(String userId, String title) {
-        return notifications.publish(userId, NotificationType.SYSTEM, title,
+        String id = notifications.publish(userId, NotificationType.SYSTEM, title,
                 "Nội dung thông báo.", "nutrimom://notifications", null, null).id();
+        // Windows clocks may repeat a timestamp; insertion order is not the UUID tie-break order.
+        jdbc.update("update app.notifications set created_at=? where id=?",
+                java.time.OffsetDateTime.parse("2026-01-01T00:00:00Z")
+                        .plusSeconds(++notificationSequence), id);
+        entityManager.refresh(entityManager.getReference(
+                vn.nutrimom.notification.domain.NotificationEntity.class, id));
+        return id;
     }
 
     private org.springframework.test.web.servlet.ResultActions registerDevice(
@@ -460,6 +517,7 @@ class NotificationIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,"admin");
         return jwt().jwt(token -> token.subject("admin").claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

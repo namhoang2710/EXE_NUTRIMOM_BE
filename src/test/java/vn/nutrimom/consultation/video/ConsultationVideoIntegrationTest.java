@@ -36,9 +36,11 @@ import vn.nutrimom.consultation.repository.*;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@org.springframework.test.context.jdbc.Sql("/expert-checkin-h2.sql")
 class ConsultationVideoIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-10-03T02:58:00Z"); // 09:58 VN
     @Autowired MockMvc mvc;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired UserRepository users;
     @Autowired ExpertProfileRepository experts;
@@ -48,8 +50,10 @@ class ConsultationVideoIntegrationTest {
     @Autowired VideoSessionRepository sessions;
     @Autowired VideoProperties properties;
     @Autowired ConsultationVideoService video;
+    @Autowired vn.nutrimom.consultation.service.ExpertCheckinService checkins;
     @Autowired VideoSessionCleanup cleanup;
     @MockitoBean LiveKitGateway livekit;
+    @MockitoBean vn.nutrimom.assistant.service.GroqAssistantClient groq;
     @MockitoBean Clock clock;
     private String patient, expert, id;
     @BeforeEach void setup() {
@@ -79,6 +83,39 @@ class ConsultationVideoIntegrationTest {
         mvc.perform(get(path()).with(actor(stranger, "USER"))).andExpect(status().isNotFound());
         mvc.perform(post(path() + "/join").with(actor(stranger, "ADMIN"))).andExpect(status().isNotFound());
         assertThat(sessions.count()).isZero(); verifyNoInteractions(livekit);
+    }
+    @Test void expertCheckinIsAuthenticatedServerTimestampAndPreviewDoesNotCount() throws Exception {
+        mvc.perform(get(path()).with(actor(expert,"EXPERT"))).andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("select count(*) from app.expert_consultation_checkins where request_id=?",Integer.class,id)).isZero();
+        mvc.perform(post(path()+"/check-in")).andExpect(status().isUnauthorized());
+        mvc.perform(post(path()+"/check-in").with(actor(patient,"USER"))).andExpect(status().isForbidden());
+        mvc.perform(post(path()+"/check-in").with(actor(expert,"EXPERT")))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("$.data.checked_in_at").value(NOW.toString()))
+                .andExpect(jsonPath("$.data.on_time").value(true)).andExpect(jsonPath("$.data.evidence").value("SERVER_ENTRY_ACTION"));
+        when(clock.instant()).thenReturn(NOW.plusSeconds(900));
+        mvc.perform(post(path()+"/check-in").with(actor(expert,"EXPERT"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.checked_in_at").value(NOW.toString()));
+        verifyNoInteractions(livekit);
+    }
+    @Test
+    @Transactional(propagation=Propagation.NOT_SUPPORTED)
+    void providerFailureCannotRollBackExpertEntryReceipt() throws Exception {
+        doThrow(new BusinessException(ErrorCode.VIDEO_PROVIDER_UNAVAILABLE)).when(livekit).ensureRoom(anyString());
+        mvc.perform(post(path()+"/join").with(actor(expert,"EXPERT"))).andExpect(status().isServiceUnavailable());
+        assertThat(jdbc.queryForObject("select checked_in_at from app.expert_consultation_checkins where request_id=?",OffsetDateTime.class,id).toInstant()).isEqualTo(NOW);
+        assertThat(requests.findById(id).orElseThrow().getStatus()).isEqualTo(ConsultationStatus.PENDING_CONSULTATION);
+    }
+    @Test
+    @Transactional(propagation=Propagation.NOT_SUPPORTED)
+    void concurrentExpertEntryActionsPersistOneReceipt() throws Exception {
+        var pool=Executors.newFixedThreadPool(2);var barrier=new CyclicBarrier(2);
+        try {
+            Callable<vn.nutrimom.consultation.service.ExpertCheckinService.Checkin> work=()->{barrier.await(5,TimeUnit.SECONDS);return checkins.checkIn(expert,id);};
+            var a=pool.submit(work);var b=pool.submit(work);
+            assertThat(a.get(10,TimeUnit.SECONDS).checkedInAt()).isEqualTo(b.get(10,TimeUnit.SECONDS).checkedInAt());
+            assertThat(jdbc.queryForObject("select count(*) from app.expert_consultation_checkins where request_id=?",Integer.class,id)).isEqualTo(1);
+        } finally {pool.shutdownNow();}
     }
     @Test void bothAssignedParticipantsUseOneOpaqueRoomAndNoSecretsAppearInInfo() throws Exception {
         when(livekit.participantToken(anyString(), anyString(), any())).thenReturn("scoped-token");
@@ -150,6 +187,21 @@ class ConsultationVideoIntegrationTest {
         doThrow(new BusinessException(ErrorCode.VIDEO_PROVIDER_UNAVAILABLE)).when(livekit).ensureRoom(anyString());
         mvc.perform(post(path() + "/join").with(actor(patient, "USER"))).andExpect(status().isServiceUnavailable());
         assertThat(requests.findById(id).orElseThrow().getStatus()).isEqualTo(ConsultationStatus.PENDING_CONSULTATION);
+    }
+    @Test void delayedVerifiedJoinSurvivesRoomEndAndOutOfOrderReplayKeepsEarliestArrival() {
+        var request=requests.findById(id).orElseThrow();request.captureScheduledSlot(slots.findById(request.getSlotId()).orElseThrow());requests.saveAndFlush(request);
+        video.join(patient,id);var session=sessions.findById(id).orElseThrow();String room=session.getRoomName();
+        when(clock.instant()).thenReturn(Instant.parse("2026-10-03T03:20:00Z"));
+        video.stop(id);
+        when(livekit.verifyWebhook("late","signed")).thenReturn(new LiveKitGateway.RoomEvent("participant_joined",room,expert,Instant.parse("2026-10-03T03:15:00Z")));
+        video.webhook("late","signed");video.webhook("late","signed");
+        assertThat(session.getExpertJoinedAt()).isEqualTo(Instant.parse("2026-10-03T03:15:00Z"));
+        when(livekit.verifyWebhook("early","signed")).thenReturn(new LiveKitGateway.RoomEvent("participant_joined",room,expert,Instant.parse("2026-10-03T03:00:00Z")));
+        video.webhook("early","signed");assertThat(session.getExpertJoinedAt()).isEqualTo(Instant.parse("2026-10-03T03:00:00Z"));
+        assertThat(session.getEndedAt()).isNotNull();
+        assertThat(jdbc.queryForObject("select count(*) from app.notifications where user_id=? and source_id=?",Integer.class,expert,id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select title from app.notifications where dedup_key=?",String.class,"EXPERT_ARRIVAL:"+expert+":"+id))
+                .isEqualTo("Đã xác nhận vào phòng đúng giờ");
     }
     @Test void webhookReplaysAreHarmlessAndDoNotIncludeUnknownParticipants() throws Exception {
         video.join(patient, id);

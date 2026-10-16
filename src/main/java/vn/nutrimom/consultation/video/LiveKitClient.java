@@ -48,6 +48,9 @@ public class LiveKitClient implements LiveKitGateway {
         factory.setReadTimeout(Duration.ofSeconds(8));
         return RestClient.builder().requestFactory(factory).build();
     }
+    @Override public void probe() {
+        call("ListRooms", Map.of("names", new String[]{"nutrimom-health-probe"}), Map.of("roomList", true), false);
+    }
     @Override public void ensureRoom(String room) {
         call("CreateRoom", Map.of("name", room, "max_participants", 2,
                 "empty_timeout", 120, "departure_timeout", 30), Map.of("roomCreate", true), false);

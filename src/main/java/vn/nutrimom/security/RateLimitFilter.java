@@ -62,7 +62,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String matchPolicy(HttpServletRequest request) {
-        String path = request.getRequestURI();
+        String path = org.springframework.web.util.UriUtils.decode(request.getRequestURI(), java.nio.charset.StandardCharsets.UTF_8);
+        String context = org.springframework.web.util.UriUtils.decode(request.getContextPath(), java.nio.charset.StandardCharsets.UTF_8);
+        if (!context.isEmpty() && path.startsWith(context)) path = path.substring(context.length());
         for (RateLimitProperties.RouteRule rule : properties.getRoutes()) {
             if (pathMatcher.match(rule.pattern(), path)) {
                 return rule.policy();

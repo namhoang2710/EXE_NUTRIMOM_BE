@@ -14,6 +14,7 @@ import vn.nutrimom.auth.dto.MagicLinkRequest;
 import vn.nutrimom.auth.repository.*;
 import vn.nutrimom.common.email.EmailService;
 import vn.nutrimom.config.OtpProperties;
+import vn.nutrimom.notification.service.AdminNotificationEvents;
 
 @ExtendWith(MockitoExtension.class)
 class MagicLinkDebugSecurityTest {
@@ -22,6 +23,7 @@ class MagicLinkDebugSecurityTest {
     @Mock TokenService tokens;
     @Mock AuthService auth;
     @Mock EmailService mail;
+    @Mock AdminNotificationEvents adminEvents;
 
     private MagicLinkService service(boolean debug, String... profiles) {
         var settings = new OtpProperties();
@@ -30,7 +32,7 @@ class MagicLinkDebugSecurityTest {
         environment.setActiveProfiles(profiles);
         when(tokens.hash(anyString())).thenReturn("fixture-hash");
         return new MagicLinkService(challenges, users, tokens, auth, mail, settings,
-                environment, "http://localhost:5173/auth/verify");
+                environment, "http://localhost:5173/auth/verify", adminEvents);
     }
 
     @Test void defaultProfileNeverReturnsOtpEvenWithDebugFlagEnabled() {

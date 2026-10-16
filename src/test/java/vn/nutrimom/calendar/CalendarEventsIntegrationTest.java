@@ -29,8 +29,10 @@ import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.domain.UserRole;
 import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
+import vn.nutrimom.entitlement.PlanFixtures;
 
 /** Lịch trộn ba nguồn: hồ sơ y tế, buổi tư vấn đã xác nhận, nhắc nhở tự tạo (spec mục 10). */
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {vn.nutrimom.assistant.service.GroqAssistantClient.class, vn.nutrimom.consultation.video.LiveKitClient.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -42,6 +44,7 @@ class CalendarEventsIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository users;
+    @Autowired vn.nutrimom.payment.repository.UserSubscriptionRepository subscriptions;
 
     @Test
     void mergedEventsCoverAllThreeSourcesSortedByStart() throws Exception {
@@ -181,20 +184,20 @@ class CalendarEventsIntegrationTest {
         mockMvc.perform(get("/api/v1/calendar/events")
                         .param("from", today.toString()).param("to", today.minusDays(1).toString())
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(get("/api/v1/calendar/events")
                         .param("from", today.toString()).param("to", today.plusDays(367).toString())
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 
         mockMvc.perform(get("/api/v1/calendar/events")
                         .param("from", today.toString()).param("to", today.toString())
                         .param("timezone", "Mars/Olympus")
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -220,7 +223,7 @@ class CalendarEventsIntegrationTest {
         mockMvc.perform(get("/api/v1/calendar/month")
                         .param("year", String.valueOf(day.getYear())).param("month", "13")
                         .with(userJwt(momId)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
@@ -290,7 +293,11 @@ class CalendarEventsIntegrationTest {
         user.setDisplayName(displayName);
         user.setStatus(UserStatus.ACTIVE);
         user.setRoles(Set.of(UserRole.USER));
-        return users.saveAndFlush(user).getId();
+        String userId = users.saveAndFlush(user).getId();
+        // Nhac nho la tinh nang tra phi tu task 17; bai nay kiem hanh vi cua lich chu khong kiem
+        // chuyen ban hang, nen tai khoan test duoc cap san goi day du.
+        PlanFixtures.grantFullPlan(subscriptions, userId);
+        return userId;
     }
 
     private String readData(MvcResult result, String pointer) throws Exception {
@@ -299,6 +306,7 @@ class CalendarEventsIntegrationTest {
     }
 
     private RequestPostProcessor adminJwt() {
+        vn.nutrimom.admin.AdminTestAccounts.ensure(users,"admin");
         return jwt().jwt(token -> token.subject("admin").claim("roles", List.of("ADMIN")))
                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }

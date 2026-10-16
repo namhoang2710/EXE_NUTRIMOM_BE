@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public abstract class ApiIntegrationTestSupport {
     @Autowired protected MockMvc mockMvc;
     @Autowired protected ObjectMapper objectMapper;
+    @Autowired protected vn.nutrimom.payment.repository.UserSubscriptionRepository subscriptions;
 
     protected Session registerViaOtp(String phone, String displayName) throws Exception {
         MvcResult requested = mockMvc.perform(post("/api/v1/auth/otp/request")
@@ -70,6 +71,17 @@ public abstract class ApiIntegrationTestSupport {
         return new OtpChallenge(
                 challenge.at("/data/challenge_id").stringValue(),
                 challenge.at("/data/debug_code").stringValue());
+    }
+
+    /**
+     * Cap goi day du cho mot phien test.
+     *
+     * <p>Co y goi TUONG MINH chu khong tu cap trong registerViaOtp/registerWithPassword: mot tai
+     * khoan vua dang ky THUC SU dang o goi FREE, tu cap ngam se che mat chinh cai cong ma task 17
+     * vua dung len — va lam moi bai test auth noi doi ve trang thai mac dinh.</p>
+     */
+    protected void grantFullPlan(Session session) {
+        vn.nutrimom.entitlement.PlanFixtures.grantFullPlan(subscriptions, session.userId());
     }
 
     protected record Session(String accessToken, String refreshToken, String userId, String phone) { }

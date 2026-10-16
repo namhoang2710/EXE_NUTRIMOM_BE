@@ -14,8 +14,10 @@ import vn.nutrimom.consultation.service.ConsultationRequestService;
 public class ConsultationVideoController {
     private final ConsultationVideoService video;
     private final ConsultationRequestService requests;
-    public ConsultationVideoController(ConsultationVideoService video, ConsultationRequestService requests) {
-        this.video = video; this.requests = requests;
+    private final vn.nutrimom.consultation.service.ExpertCheckinService checkins;
+    public ConsultationVideoController(ConsultationVideoService video, ConsultationRequestService requests,
+            vn.nutrimom.consultation.service.ExpertCheckinService checkins) {
+        this.video = video; this.requests = requests; this.checkins=checkins;
     }
     @GetMapping("/api/v1/consultation-requests/{id}/video")
     public ResponseEntity<ApiResponse<VideoDtos.RoomInfo>> info(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
@@ -23,7 +25,17 @@ public class ConsultationVideoController {
     }
     @PostMapping("/api/v1/consultation-requests/{id}/video/join")
     public ResponseEntity<ApiResponse<VideoDtos.JoinRoom>> join(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+        // Separate transaction: a provider outage must not erase the expert's entry action.
+        checkins.checkInIfExpert(jwt.getSubject(),id);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponses.success(video.join(jwt.getSubject(), id)));
+    }
+    @PreAuthorize("hasRole('EXPERT')")
+    @PostMapping("/api/v1/consultation-requests/{id}/video/check-in")
+    @io.swagger.v3.oas.annotations.Operation(summary="Record the expert's first entry action using server time",
+            description="No request body or client timestamp. Opens 5 minutes early; on time through start +3 minutes inclusive. Idempotent, independent of LiveKit.")
+    public ResponseEntity<ApiResponse<vn.nutrimom.consultation.service.ExpertCheckinService.Checkin>> checkIn(
+            @AuthenticationPrincipal Jwt jwt,@PathVariable String id) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponses.success(checkins.checkIn(jwt.getSubject(),id)));
     }
     @PreAuthorize("hasRole('EXPERT')")
     @PostMapping("/api/v1/consultation-requests/{id}/video/complete")

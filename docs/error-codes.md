@@ -18,7 +18,7 @@ Mọi lỗi trả về theo đúng shape sau (serialize snake_case; `request_id`
 }
 ```
 
-- `fields`: chỉ có với lỗi validation (map field → message); các lỗi khác trả `{}`.
+- `fields`: thường chỉ có với lỗi validation (map field → message); các lỗi khác trả `{}`. **Ngoại lệ duy nhất, có chủ đích:** `PLAN_UPGRADE_REQUIRED` dùng `fields` để chở thông tin nâng cấp (`feature`, `required_plan`, `current_plan`) — xem mục "Chặn theo gói" bên dưới. Client không được coi `fields` là danh sách lỗi field khi `code` là `PLAN_UPGRADE_REQUIRED`.
 - `retryable`: client có thể thử lại (rate-limit, sự cố tạm thời) hay không.
 - Lớp security (401/403) phát cùng shape này qua `SecurityErrorWriter` (chạy trước controller advice).
 
@@ -106,11 +106,49 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | INVALID_CONSULTATION_STATE | 409 | false | consultation (thao tác sai trạng thái yêu cầu) |
 | INVALID_CONTACT_REQUEST_STATE | 409 | false | contact (huỷ/hoàn tất yêu cầu hỗ trợ không còn ở PENDING) |
 | CONTACT_REQUEST_LIMIT_REACHED | 409 | false | contact (user đã có 3 yêu cầu hỗ trợ đang chờ) |
+| PAYMENT_ORDER_NOT_FOUND | 404 | false | payment |
+| PAYMENT_FAILED | 400 | false | payment (PayOS từ chối / lỗi khởi tạo link) |
+| PAYMENT_SIGNATURE_INVALID | 400 | false | payment (webhook sai chữ ký) |
+| INVALID_PLAN_TIER | 400 | false | payment (gói không hợp lệ, vd thanh toán gói FREE) |
+| PLAN_UPGRADE_REQUIRED | 403 | false | entitlement (tính năng không có trong gói hiện tại) |
+| ASSISTANT_BUSY | 409 | true | assistant |
+| ASSISTANT_HISTORY_LIMIT | 409 | false | assistant |
 | INVALID_MULTIPART | 400 | false | handler (multipart hỏng/thiếu part) |
 | INVALID_CONTENT_TYPE | 415 | false | handler (Content-Type không hỗ trợ) |
 | INVALID_REQUEST_PARAMETER | 400 | false | handler (query param sai kiểu/thiếu) |
 | MALFORMED_JSON | 400 | false | handler (body JSON hỏng) |
 | INTERNAL_ERROR | 500 | true | handler (lỗi không lường trước) |
+
+## Chặn theo gói (task 17)
+
+`PLAN_UPGRADE_REQUIRED` (403) nghĩa là **gói hiện tại không bán tính năng này**, khác hẳn:
+
+- `FORBIDDEN` (403) — không đủ quyền với *dữ liệu* này;
+- `QUOTA_EXCEEDED` (429) — có quyền nhưng **đã dùng hết lượt** trong chu kỳ.
+
+Tách riêng để FE biết lúc nào nên mời nâng cấp thay vì báo lỗi chung chung. Body kèm `fields`:
+
+```json
+{
+  "error": {
+    "code": "PLAN_UPGRADE_REQUIRED",
+    "message": "Liên kết gia đình chỉ có ở Gói Toàn diện 399K.",
+    "fields": {
+      "feature": "FAMILY_SHARING",
+      "required_plan": "PLAN_399K",
+      "current_plan": "FREE"
+    },
+    "retryable": false,
+    "request_id": "..."
+  }
+}
+```
+
+`required_plan` là gói **rẻ nhất** có bán tính năng đó (tính từ `PlanCatalog`, không ghim cứng ở chỗ
+ném lỗi). Danh sách gói và quyền lợi lấy ở `GET /api/v1/subscription-plans`.
+
+Chỉ **đường ghi** mới bị chặn: dữ liệu người dùng đã tạo trước đó vẫn đọc và xoá được, nếu không thì
+bật cổng đồng nghĩa với nuốt mất dữ liệu của họ.
 
 ## Ghi chú cho các nhánh sau (17–22 và module người khác)
 

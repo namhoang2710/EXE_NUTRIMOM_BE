@@ -84,7 +84,7 @@ public class PaymentController {
     public ApiResponse<String> confirmMockPayment(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long orderCode) {
-        paymentService.confirmMockPayment(orderCode);
+        paymentService.confirmMockPayment(jwt.getSubject(), orderCode);
         return ApiResponses.success("Thanh toán demo thành công, gói dịch vụ đã được kích hoạt.");
     }
 }
