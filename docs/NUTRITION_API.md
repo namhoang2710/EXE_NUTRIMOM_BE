@@ -8,7 +8,8 @@ từng nhánh merge.
 |---|---|
 | 1 — catalog và seed (V57) | **đã làm** |
 | 2 — NutritionCalculator (không có endpoint) | **đã làm** |
-| 3–10 | chưa |
+| 3 — hồ sơ ăn uống (V58) | **đã làm** |
+| 4–10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -107,6 +108,31 @@ Chi tiết một món. Không tìm thấy → `404 RESOURCE_NOT_FOUND`.
 `NutritionCalculator` ở nhánh 2. Tổng chi phí đòi quy đổi đơn vị (kg, lít, quả) sang lượng gram của
 công thức, mà quy tắc quy đổi chưa được định nghĩa — đoán một mật độ chung chính là lỗi đặc tả cấm.
 
+### `GET /api/v1/allergens` và `GET /api/v1/ingredients` (thêm ở nhánh 3)
+
+Hai danh sách chọn cho bước 2 và bước 3 của onboarding: chip thành phần gây dị ứng, và ô tìm
+nguyên liệu. Cùng là dữ liệu seed dùng chung nên **công khai** như hai endpoint món ở trên.
+
+Chúng đọc bảng của nhánh 1 nhưng ra đời ở nhánh 3, vì nhánh 1 chỉ mở endpoint cho *công thức* —
+mà không có hai cái này thì giao diện phải nhúng cứng danh sách dị ứng, và nó sẽ lệch khỏi seed
+ngay lần cập nhật đầu tiên.
+
+```json
+{ "data": [ { "id": "alg.giap-xac", "name": "Giáp xác (tôm, cua, ghẹ)" } ] }
+```
+
+`GET /api/v1/ingredients?q=tôm&limit=20` — `q` tìm trong cả `canonical_name` **và bảng alias**
+(người dùng gõ tên địa phương vẫn phải ra); bỏ trống `q` thì trả vài dòng đầu danh mục để ô tìm
+không trống trơn. `limit` 1–50, mặc định 20.
+
+```json
+{ "data": [ { "id": "ing.tom-su", "canonical_name": "Tôm sú",
+              "food_group": "SEAFOOD", "allergen_status": "KNOWN" } ] }
+```
+
+`allergen_status` đi kèm để giao diện nói trước được rằng nguyên liệu **chưa được rà soát** thành
+phần gây dị ứng, thay vì để người dùng ngạc nhiên khi món chứa nó bị loại (BR03).
+
 ---
 
 ## NutritionCalculator (nhánh 2)
@@ -203,6 +229,177 @@ Thiếu dữ liệu hoặc giá trị vô lý → **không tính**, trả danh s
 - Công thức **đã gồm** yếu tố thai kỳ → không cộng thêm 340 hay 450 kcal.
 - `D` là thành phần toán học của mô hình, **không phải** thiết lập giảm cân.
 - Không suy nhóm vận động từ số bước chân. EER là ước tính có sai số, không phải chỉ định khẩu phần.
+
+---
+
+## Hồ sơ ăn uống (nhánh 3)
+
+Hai endpoint **cần JWT**. Chủ sở hữu suy từ token; đường dẫn cố ý không mang mã người dùng, nên
+không có cách nào trỏ sang hồ sơ của người khác (BR19).
+
+Hồ sơ gắn vào **thai kỳ đang hoạt động** của người gọi. Nhánh này *không* tạo lại hồ sơ thai kỳ và
+không bao giờ ghi vào `app.pregnancies`: bước 1 của onboarding (ngày dự sinh **hoặc** tuần + ngày
+thai) vẫn là `POST /api/v1/pregnancies` của module thai kỳ. Chưa có thai kỳ ACTIVE → `404
+ACTIVE_PREGNANCY_NOT_FOUND`.
+
+### `GET /api/v1/me/nutrition-profile`
+
+```json
+{
+  "data": {
+    "profile_id": "3f2a…",
+    "profile_version": 3,
+    "pregnancy": {
+      "pregnancy_id": "3f2a…",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "local_date": "2026-10-16",
+      "estimated_due_date": "2027-04-15",
+      "gestational_days": 97,
+      "gestational_week": 13,
+      "gestational_day": 6,
+      "trimester": 1,
+      "days_until_due": 183,
+      "due_date_passed": false,
+      "auto_plan_paused": false
+    },
+    "allergy_status": "KNOWN_LIST",
+    "allergen_ids": ["alg.giap-xac"],
+    "allergy_checked_label_allowed": true,
+    "needs_allergy_confirmation": false,
+    "diet_pattern": "OMNIVORE",
+    "hard_exclusion_ingredient_ids": [],
+    "disliked_ingredient_ids": ["ing.rau-nem"],
+    "tolerance_tags": ["TANH"],
+    "favorite_recipe_ids": ["rec.com-trang"],
+    "blocked_recipe_ids": [],
+    "daily_budget_vnd": 120000,
+    "max_minutes_per_meal": 30,
+    "meal_types": ["BREAKFAST", "LUNCH", "DINNER"],
+    "snack_count": null,
+    "energy_inputs": { "age_years": 29, "height_cm": 160.00, "activity_category": "LOW_ACTIVE" },
+    "energy_estimate": { "kcal_per_day": null, "rules_version": "nutrition-seed-v2",
+                         "unmet": [ { "field": "current_weight_kg", "kind": "MISSING" } ] }
+  }
+}
+```
+
+### `PUT /api/v1/me/nutrition-profile`
+
+```json
+{
+  "data": {
+    "profile_version": 4,
+    "items_to_revalidate": [],
+    "profile": { "...": "y hệt thân của GET" }
+  }
+}
+```
+
+`items_to_revalidate` **luôn rỗng ở nhánh này**. Đánh dấu mục kế hoạch tương lai là
+`NEEDS_UPDATE` là việc của nhánh 10; trường có mặt từ bây giờ để nhánh đó không phải đổi hình dạng
+hợp đồng đã công bố.
+
+#### Hợp nhất, không thay thế
+
+| Gửi gì | Nghĩa |
+|---|---|
+| trường vắng mặt hoặc `null` | **giữ nguyên** giá trị cũ |
+| mảng rỗng `[]` | **xoá sạch** danh sách đó |
+| giá trị mới | ghi đè |
+
+Onboarding lưu theo từng bước và bước 3, 5 bỏ qua được, nên ngữ nghĩa "thay thế toàn bộ" sẽ khiến
+bước 4 xoá mất những gì bước 2 vừa lưu. Đây cũng là nếp của `PATCH /api/v1/users/me/preferences`
+đang có trong repo.
+
+Không gửi `user_id` (suy từ JWT) và không gửi `profile_version` (máy chủ tự tăng).
+
+#### `profile_version`
+
+Tăng **đúng một** mỗi lần lưu *có thay đổi thật*, so sánh ảnh chụp trước và sau. Gửi lại y nguyên
+dữ liệu cũ — người dùng bấm Lưu hai lần, hoặc mạng gửi lại — **không** tăng, vì điều đó sẽ bắt
+người dùng xem lại toàn bộ thực đơn đang có ở nhánh 10 mà chẳng có gì đổi.
+
+Hiện mọi trường của hồ sơ đều ảnh hưởng gợi ý nên đều nằm trong ảnh chụp, kể cả món yêu thích và
+món bị chặn. Thêm một trường thuần hiển thị về sau thì **đừng** đưa vào ảnh chụp đó.
+
+#### `allergy_status` — ba trạng thái, không phải boolean
+
+| Giá trị | Nghĩa | `allergy_checked_label_allowed` |
+|---|---|---|
+| `KNOWN_NONE` | đã hỏi, không có dị ứng nào | `true` |
+| `KNOWN_LIST` | đã hỏi, có danh sách trong `allergen_ids` | `true` |
+| `UNKNOWN` | chưa hỏi, hoặc người dùng chọn "chưa rõ" — **mặc định** | `false` |
+
+BR01: hồ sơ `UNKNOWN` **vẫn xem được** mọi nội dung và công thức, nhưng danh sách gợi ý
+**không được gắn nhãn** "đã kiểm tra theo dị ứng của bạn", và `needs_allergy_confirmation` bật lên
+để giao diện nhắc xác nhận trước khi lưu thực đơn cá nhân hoá. Đây là kiểm tra dữ liệu đầu vào,
+**không có actor nào duyệt hồ sơ**.
+
+Hai lượt lưu bị từ chối (`422 VALIDATION_ERROR`), vì cả hai đều tạo ra hồ sơ nói dối về chính nó:
+`KNOWN_LIST` với `allergen_ids` rỗng, và `allergen_ids` không rỗng với trạng thái khác
+`KNOWN_LIST`.
+
+#### Hai danh sách nguyên liệu không phải một
+
+| Trường | Hạng | Khi hết món |
+|---|---|---|
+| `hard_exclusion_ingredient_ids` | **cứng**, cùng hạng với dị ứng | không bao giờ nới ra |
+| `disliked_ingredient_ids` | mềm | được mời người dùng nới ra |
+
+Một nguyên liệu nằm cả hai chỗ → `422`: nhánh 4 sẽ vừa loại món vừa hạ điểm nó, và thông báo cho
+người dùng sẽ nói hai lý do khác nhau cho cùng một món bị ẩn.
+
+Mã lạ (nguyên liệu, dị ứng, món không có trong danh mục) bị **từ chối**, không bị lặng lẽ bỏ qua:
+một mã dị ứng gõ sai mà biến mất không ai hay là cách chắc chắn nhất để người dùng tin rằng mình
+đã khai xong.
+
+#### Tuổi thai
+
+```
+tuổi thai hôm nay = số ngày thai tại mốc ghi nhận + số ngày lịch đã trôi qua
+hiển thị          = floor(days / 7) tuần  và  days mod 7 ngày
+```
+
+Đếm theo **ngày lịch trong múi giờ người dùng** (dùng lại `CalendarZone` của module lịch), không
+theo giờ UTC. `trimester` đổi đúng ranh giới tuần: 13 tuần 6 ngày vẫn là 1, 14 tuần 0 ngày đã là 2
+(TC04). Mốc neo lấy theo thứ tự: mốc thủ công → ngày đầu kỳ kinh cuối → ngày dự sinh quy đổi theo
+280 ngày.
+
+`trimester` (1/2/3) là giai đoạn **để hiển thị**. Bộ hệ số của công thức EER là một con số khác
+(`FIRST` | `SECOND_THIRD`) và nằm ở `energy_estimate.trimester_group`, cố ý **không** lặp lại
+trong khối `pregnancy`: hai trường tên gần giống nhau nằm cạnh nhau là chỗ chắc chắn sẽ có người
+dùng nhầm.
+
+Qua ngày dự sinh thì `due_date_passed` và `auto_plan_paused` bật lên — nhưng **không** đồng nghĩa
+đã sinh: hồ sơ vẫn đọc được nguyên vẹn, chỉ dừng *tự* tạo kế hoạch mới và để giao diện hỏi lại
+trạng thái. Ngày dự sinh người dùng đã xác nhận không bao giờ bị tự thay bằng giá trị khác.
+
+#### Bước 5 bỏ qua được (TC05)
+
+Không khai tuổi, chiều cao, cân nặng, nhóm vận động thì `energy_inputs` là `null` và
+`energy_estimate.kcal_per_day` là `null` kèm `unmet` chỉ đúng tên trường còn thiếu. Giao diện lúc
+đó **không hiển thị phần trăm hoàn thành năng lượng** và không mượn mặc định 2.000 kcal (BR20).
+Mọi thứ khác — xem danh mục, lưu hồ sơ, dùng chế độ nhanh — vẫn chạy bình thường.
+
+#### Bảng dữ liệu (V58)
+
+| Bảng | Vai trò |
+|---|---|
+| `app.eating_preferences` | hồ sơ, khoá bằng `app.pregnancies.id`; giữ `allergy_status` và `profile_version` |
+| `app.user_allergens` | dị ứng đã khai, unique `(profile_id, allergen_id)` |
+| `app.eating_preference_hard_exclusions` · `_disliked_ingredients` · `_tolerance_tags` · `_meal_types` | bốn danh sách con |
+| `app.user_recipe_preferences` | `FAVORITE` \| `BLOCKED`, unique `(user_id, recipe_id)` |
+
+`app.user_recipe_preferences` **không có cột `expires_at`** (QĐ-03), dù đặc tả gốc có. Đó là lựa
+chọn chủ động, sống đến khi người dùng tự đổi; phản hồi *có hạn* sau bữa ăn thuộc
+`app.meal_feedbacks` ở nhánh 8. Thêm lại cột đó là làm sống lại đúng chỗ trùng lặp đã bỏ.
+
+`profile_version` nằm ở `app.eating_preferences`, **không** ở `app.pregnancies`: bảng kia thuộc
+module thai kỳ và đã có cột `version` làm optimistic lock, thêm một cột version thứ hai mang nghĩa
+khác vào đó thì hai module phải cùng giữ một bất biến mà không bên nào thấy hết.
+
+Khoá của `user_recipe_preferences` là `user_id` chứ không phải `profile_id`, đúng đặc tả: "tôi
+không thích món này" không mất đi khi mẹ bầu bắt đầu một thai kỳ mới.
 
 ---
 
