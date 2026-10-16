@@ -55,3 +55,13 @@ Lượt đối chiếu chỉ đọc cuối trước push xác nhận bốn check
 **Bốn lỗi Admin đã sửa và V59 đã đồng bộ; chưa tuyên bố toàn bộ DB dùng chung validate sạch hoặc sẵn sàng triển khai do V32 còn lệch.** Cần lấy đúng bản V32 để đối chiếu trước khi deploy. Source/contract FE không đổi.
 
 Log cục bộ ngoài Git: `D:\KI8\.tmp\flyway-history-prepush-full-verify.log`, `flyway-history-prepush-regression.log`, `flyway-history-prepush-lint.log`, `flyway-shared-prepush-readonly.log`. Bản sao build QA: `D:\KI8\.tmp\flyway-admin-history-qa`.
+
+## Cập nhật V32 (16/10/2026)
+
+V32 đã được xử lý trên nhánh `fix/flyway-v32-assistant-history`:
+
+- Bản đã chạy trên DB = bản trên `main` bỏ đúng dòng `CREATE INDEX ix_assistant_conversations_expiry ...`. Bằng chứng: checksum Flyway ra đúng `598666640` như DB, và DB dùng chung không có index này (chỉ có `assistant_conversations_pkey`, `ix_assistant_conversations_owner`).
+- `V32__assistant.sql` được trả về bản đã chạy; `AssistantMigrationChecksumTest` khoá checksum `598666640`.
+- Index được tạo lại bằng `V61__assistant_conversation_expiry_index.sql` (`CREATE INDEX IF NOT EXISTS`), để DB tạo mới và DB dùng chung có cùng schema.
+- Thử trên PostgreSQL riêng: migrate tới V59 (chưa có index) → migrate tiếp chạy V60, V61 (có index) → chạy lại không áp dụng gì → `validate` OK.
+- Không ghi gì vào DB dùng chung; V60 và V61 sẽ chạy ở lần khởi động BE kế tiếp nối vào DB đó.
