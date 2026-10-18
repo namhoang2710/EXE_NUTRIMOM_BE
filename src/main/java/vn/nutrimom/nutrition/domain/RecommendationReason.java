@@ -193,7 +193,52 @@ public enum RecommendationReason {
                     + "nên chúng không được đưa vào kế hoạch — hãy bổ sung giá hoặc tắt giới hạn"),
 
     /** Món đã khóa không đặt được vào cấu trúc nào của bữa (vai trò không thuộc template nào). */
-    LOCKED_ITEM_UNPLACEABLE(Kind.RESULT, "Món bạn khóa ở %s không hợp với cấu trúc nào của bữa đó");
+    LOCKED_ITEM_UNPLACEABLE(Kind.RESULT, "Món bạn khóa ở %s không hợp với cấu trúc nào của bữa đó"),
+
+    // --- Nói về danh sách mua sắm (nhánh 7) ---------------------------------------------------
+    //
+    // Vẫn ở enum này, cùng lý do đã viết cho nhóm kế hoạch: mã lý do là thứ đi ra tới giao diện,
+    // và hai bảng mã song song sẽ sớm có hai mã cùng nghĩa khác tên. Tất cả đều Kind.RESULT —
+    // chúng nói về một dòng hoặc cả một danh sách, không bao giờ là lời khen hay lời chặn một món.
+
+    /**
+     * Lượng cần đã tăng sau khi người dùng đổi món, trong khi dòng đã được đánh dấu đã mua (TC22).
+     *
+     * <p>Dòng <strong>giữ nguyên</strong> trạng thái đã mua: người ta đã đi chợ thật, và xóa dấu
+     * đó đi để bắt mua lại từ đầu là nói sai về việc đã xảy ra. Thứ phải nói là phần còn thiếu.</p>
+     */
+    SHOPPING_NEED_MORE(Kind.RESULT, "Thực đơn đã đổi nên cần thêm %s so với lượng bạn đã có"),
+
+    /**
+     * Nguyên liệu <strong>chưa có giá</strong> quy đổi được, nên dòng này không nằm trong tổng.
+     *
+     * <p>Chưa có giá khác với rẻ. Dòng vẫn phải mua, chỉ là hệ thống không biết nó bao nhiêu tiền
+     * — và cộng nó vào tổng như số 0 sẽ cho ra một tổng thấp hơn thực tế mà nhìn vẫn đầy đủ.</p>
+     */
+    SHOPPING_PRICE_UNAVAILABLE(Kind.RESULT, "Chưa có giá cho %s"),
+
+    /** Tổng chi phí của danh sách chỉ gồm những dòng đã có giá quy đổi được. */
+    SHOPPING_COST_INCOMPLETE(Kind.RESULT,
+            "Tổng chi phí chưa đầy đủ: %s nguyên liệu chưa có giá quy đổi được, "
+                    + "và đây là giá ước tính từ dữ liệu mẫu, không phải báo giá cửa hàng"),
+
+    /**
+     * Nhắc đọc nhãn thành phần ở <strong>mức nguyên liệu</strong>, cho gia vị và đồ đóng gói.
+     *
+     * <p>Bài học từ Mealime: lọc công thức theo dị ứng <em>không</em> thay thế việc đọc nhãn sản
+     * phẩm. Một gói gia vị nêm sẵn hay một chai nước mắm có thể chứa thành phần mà danh mục chưa
+     * rà hết, nên chỗ duy nhất kiểm được là cái nhãn trên tay người mua.</p>
+     */
+    SHOPPING_READ_PRODUCT_LABEL(Kind.RESULT,
+            "Hãy đọc nhãn thành phần của %s khi mua — lọc công thức không thay cho việc đọc nhãn"),
+
+    /** Dòng đã mua nhưng nguyên liệu không còn trong thực đơn sau khi người dùng đổi món. */
+    SHOPPING_ITEM_NO_LONGER_NEEDED(Kind.RESULT,
+            "Thực đơn đã đổi, %s không còn cần cho các món hiện tại"),
+
+    /** Dòng tự nhập: nằm ngoài thực đơn, nên nằm ngoài mọi phép tính dinh dưỡng (bất biến 3 và 4). */
+    SHOPPING_CUSTOM_LINE(Kind.RESULT,
+            "Dòng bạn tự thêm — không nằm trong thực đơn và không tính vào dinh dưỡng");
 
     /** Nhóm của lý do — ngăn một mã chặn bị đem ra làm lời khen. */
     public enum Kind {
