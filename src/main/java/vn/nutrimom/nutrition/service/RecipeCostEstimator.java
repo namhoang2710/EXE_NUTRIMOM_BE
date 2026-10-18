@@ -29,13 +29,6 @@ import vn.nutrimom.nutrition.domain.RecipeEntity;
 public class RecipeCostEstimator {
 
     private static final MathContext MATH = new MathContext(16, RoundingMode.HALF_UP);
-    private static final BigDecimal GRAMS_PER_KG = new BigDecimal("1000");
-
-    /** Đơn vị khối lượng quy đổi được sang gram, kèm số gram của một đơn vị. */
-    private static final Map<String, BigDecimal> MASS_UNITS = Map.of(
-            "kg", GRAMS_PER_KG,
-            "g", BigDecimal.ONE,
-            "gram", BigDecimal.ONE);
 
     /**
      * Chi phí một khẩu phần, hoặc rỗng khi món có bất kỳ nguyên liệu nào chưa quy đổi được giá.
@@ -53,23 +46,25 @@ public class RecipeCostEstimator {
             if (price == null || price.getPricePerBaseUnitVnd() == null) {
                 return Optional.empty();
             }
-            BigDecimal gramsPerUnit = MASS_UNITS.get(normalize(price.getBaseUnit()));
-            if (gramsPerUnit == null) {
+            Optional<BigDecimal> units =
+                    MassUnits.fromGram(line.getQuantityGram(), price.getBaseUnit());
+            if (units.isEmpty()) {
                 return Optional.empty();
             }
-            BigDecimal units = line.getQuantityGram().divide(gramsPerUnit, MATH);
-            total = total.add(units.multiply(price.getPricePerBaseUnitVnd()));
+            total = total.add(units.get().multiply(price.getPricePerBaseUnitVnd()));
         }
         return Optional.of(total.divide(recipe.getServingsYield(), MATH)
                 .setScale(2, RoundingMode.HALF_UP));
     }
 
-    /** Đơn vị nào quy đổi được — công khai để tài liệu và test không phải chép lại danh sách. */
+    /**
+     * Đơn vị nào quy đổi được — công khai để tài liệu và test không phải chép lại danh sách.
+     *
+     * <p>Bảng quy đổi sống ở {@link MassUnits}: danh sách mua sắm (nhánh 7) hỏi đúng câu hỏi này
+     * khi người dùng nhập lượng đã có, và hai định nghĩa "quy đổi được" lệch nhau giữa hai màn
+     * hình là một cách rất kín đáo để một con số đoán lọt ra giao diện.</p>
+     */
     public Set<String> convertibleUnits() {
-        return MASS_UNITS.keySet();
-    }
-
-    private String normalize(String unit) {
-        return unit == null ? "" : unit.trim().toLowerCase();
+        return MassUnits.convertible();
     }
 }
