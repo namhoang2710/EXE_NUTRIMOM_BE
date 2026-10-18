@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import vn.nutrimom.nutrition.domain.IngredientEntity;
+import vn.nutrimom.nutrition.domain.MealFeedbackSignal;
 import vn.nutrimom.nutrition.domain.MealTemplateEntity;
 import vn.nutrimom.nutrition.domain.MealType;
 import vn.nutrimom.nutrition.domain.PriceEstimateEntity;
@@ -91,19 +92,36 @@ public class MealPlanCandidates {
     // =========================================================================================
 
     /**
-     * Giới hạn của <em>một lượt</em>, tách khỏi hình dạng request của bất kỳ endpoint nào.
+     * Bối cảnh của <em>một lượt</em> lập hoặc sửa thực đơn, tách khỏi hình dạng request của bất kỳ
+     * endpoint nào.
      *
      * <p>Nhánh 5 dựng từ {@code constraints} của yêu cầu xem trước, nhánh 6 dựng từ hồ sơ ăn uống.
      * Hai nguồn, một kiểu dữ liệu — nên chuỗi lọc và chấm điểm không phải biết ai đang gọi.</p>
      *
      * <p>{@code strictBudget} và {@code strictTime} mặc định tắt: chi phí và thời gian là ưu tiên
      * <strong>mềm</strong> trừ khi người dùng tự bật (BR13).</p>
+     *
+     * <p>Không phải trường nào ở đây cũng là một "giới hạn": {@code seed} và
+     * {@code feedbackByRecipe} là dữ liệu <em>của lượt này</em>, nạp một lần ở nơi gọi rồi đi cùng
+     * nhau xuống mọi bước. Gom chúng vào đây thay vì truyền song song là cách giữ cho hai đường
+     * chấm điểm của một lượt không bao giờ cầm hai bộ dữ liệu khác nhau.</p>
+     *
+     * @param feedbackByRecipe phản hồi sau bữa còn hiệu lực của người dùng, nạp <strong>một
+     *                         lượt</strong> cho cả lượt lập (xem {@code MealFeedbackService}). Tra
+     *                         lại trong vòng lặp chọn ứng viên sẽ là một câu truy vấn cho mỗi vai
+     *                         trò của mỗi bữa — và với thực đơn bảy ngày của nhánh 9 thì là hàng
+     *                         chục câu giống hệt nhau
      */
     public record PlanLimits(BigDecimal dailyBudgetVnd, Integer maxMinutesPerMeal,
-                             boolean strictBudget, boolean strictTime, long seed) {
+                             boolean strictBudget, boolean strictTime, long seed,
+                             Map<String, MealFeedbackSignal> feedbackByRecipe) {
+
+        public PlanLimits {
+            feedbackByRecipe = feedbackByRecipe == null ? Map.of() : Map.copyOf(feedbackByRecipe);
+        }
 
         public static PlanLimits none() {
-            return new PlanLimits(null, null, false, false, 0L);
+            return new PlanLimits(null, null, false, false, 0L, Map.of());
         }
 
         /** Giới hạn thời gian chỉ khi người dùng bật; dùng cho bước lọc ở mức món. */
@@ -239,7 +257,7 @@ public class MealPlanCandidates {
             Candidate planCandidate = new Candidate(candidate, snapshot, cost.orElse(null), null);
             byId.put(recipe.getId(), planCandidate);
             scorables.add(new RecipeRanker.Scorable(candidate,
-                    calculator.forPortion(snapshot, BigDecimal.ONE), cost.orElse(null), null));
+                    calculator.forPortion(snapshot, BigDecimal.ONE), cost.orElse(null)));
         }
 
         for (RecipeScore score : ranker.rank(scorables, slotInputs(profile, limits, share))) {
@@ -294,7 +312,8 @@ public class MealPlanCandidates {
      */
     public RankingInputs preferenceInputs(ProfileSnapshot profile, PlanLimits limits) {
         return new RankingInputs(null, Map.of(), null, null,
-                profile.favoriteRecipeIds(), profile.dislikedIngredientIds(),
+                profile.favoriteRecipeIds(), limits.feedbackByRecipe(),
+                profile.dislikedIngredientIds(),
                 Set.of(), Set.of(), Set.of(), Set.of(), Map.of(), limits.seed());
     }
 
@@ -315,8 +334,8 @@ public class MealPlanCandidates {
         }
         return new RankingInputs(energyPerSlot, micronutrients, budgetPerSlot,
                 limits.maxMinutesPerMeal(), profile.favoriteRecipeIds(),
-                profile.dislikedIngredientIds(), Set.of(), Set.of(), Set.of(), Set.of(), Map.of(),
-                limits.seed());
+                limits.feedbackByRecipe(), profile.dislikedIngredientIds(),
+                Set.of(), Set.of(), Set.of(), Set.of(), Map.of(), limits.seed());
     }
 
     // =========================================================================================

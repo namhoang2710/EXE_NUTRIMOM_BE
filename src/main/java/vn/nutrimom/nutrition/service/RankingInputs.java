@@ -3,6 +3,7 @@ package vn.nutrimom.nutrition.service;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Set;
+import vn.nutrimom.nutrition.domain.MealFeedbackSignal;
 
 /**
  * Bối cảnh của một lượt chấm điểm: mục tiêu của <em>bữa đang xét</em> và lịch sử gần đây.
@@ -20,6 +21,20 @@ import java.util.Set;
  *                                   hẳn điểm B (TC06)
  * @param maxMinutes                 giới hạn thời gian nấu <em>mềm</em>. null = bỏ hẳn điểm C
  * @param favoriteRecipeIds          món đã đánh dấu yêu thích
+ * @param feedbackByRecipe           phản hồi sau bữa gần nhất <strong>còn hiệu lực</strong> của
+ *                                   từng món (QĐ-03), đã lọc hạn sẵn ở
+ *                                   {@code MealFeedbackService} — lớp chấm điểm không biết ngày
+ *                                   tháng và không nên biết. Món không có khóa ở đây nghĩa là
+ *                                   người dùng chưa phản hồi bao giờ, hoặc phản hồi cũ đã hết hạn.
+ *                                   <p>Để ở đây chứ không ở {@code RecipeRanker.Scorable} là có
+ *                                   chủ đích: {@link RankingInputs} là <strong>vật thể duy nhất
+ *                                   đi qua cả hai đường chấm điểm</strong> — chọn ứng viên cho một
+ *                                   vị trí ({@code MealPlanCandidates}) và chấm lại điểm P trên
+ *                                   từng phương án đang dựng ({@link MealPlanGenerator}). Nếu tín
+ *                                   hiệu này đi kèm từng {@code Scorable}, một trong hai đường sẽ
+ *                                   quên truyền nó và cùng một món nhận hai thứ hạng khác nhau
+ *                                   trong cùng một lượt lập. Đặt cạnh {@code favoriteRecipeIds}
+ *                                   thì không đường nào quên được.</p>
  * @param dislikedIngredientIds      nguyên liệu không thích — ưu tiên <strong>mềm</strong>, hạ
  *                                   điểm P chứ không loại món
  * @param preferredCuisineTags       <strong>chưa có nguồn dữ liệu</strong>; xem ghi chú ở
@@ -38,6 +53,7 @@ public record RankingInputs(BigDecimal energyTargetPerSlot,
                             BigDecimal budgetPerSlotVnd,
                             Integer maxMinutes,
                             Set<String> favoriteRecipeIds,
+                            Map<String, MealFeedbackSignal> feedbackByRecipe,
                             Set<String> dislikedIngredientIds,
                             Set<String> preferredCuisineTags,
                             Set<String> toleranceTags,
@@ -50,6 +66,7 @@ public record RankingInputs(BigDecimal energyTargetPerSlot,
         micronutrientTargetsPerSlot = micronutrientTargetsPerSlot == null
                 ? Map.of() : Map.copyOf(micronutrientTargetsPerSlot);
         favoriteRecipeIds = favoriteRecipeIds == null ? Set.of() : Set.copyOf(favoriteRecipeIds);
+        feedbackByRecipe = feedbackByRecipe == null ? Map.of() : Map.copyOf(feedbackByRecipe);
         dislikedIngredientIds = dislikedIngredientIds == null
                 ? Set.of() : Set.copyOf(dislikedIngredientIds);
         preferredCuisineTags = preferredCuisineTags == null

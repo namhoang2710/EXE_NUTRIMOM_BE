@@ -51,8 +51,8 @@ class MealPlanGeneratorTest {
             new MealPlanGenerator(calculator, new RecipeRanker());
 
     private static final RankingInputs NO_PREFERENCES = new RankingInputs(
-            null, Map.of(), null, null, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of(),
-            Map.of(), 0L);
+            null, Map.of(), null, null, Set.of(), Map.of(), Set.of(), Set.of(), Set.of(), Set.of(),
+            Set.of(), Map.of(), 0L);
 
     // =========================================================================================
     // Hàm mục tiêu

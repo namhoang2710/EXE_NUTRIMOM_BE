@@ -238,7 +238,74 @@ public enum RecommendationReason {
 
     /** Dòng tự nhập: nằm ngoài thực đơn, nên nằm ngoài mọi phép tính dinh dưỡng (bất biến 3 và 4). */
     SHOPPING_CUSTOM_LINE(Kind.RESULT,
-            "Dòng bạn tự thêm — không nằm trong thực đơn và không tính vào dinh dưỡng");
+            "Dòng bạn tự thêm — không nằm trong thực đơn và không tính vào dinh dưỡng"),
+
+    // --- Nói về nhật ký một ngày (nhánh 8) ----------------------------------------------------
+    //
+    // Vẫn ở enum này, cùng lý do đã viết cho hai nhóm trên. Tất cả đều Kind.RESULT: chúng nói về một
+    // dòng nhật ký hoặc về tổng của một ngày, không bao giờ là lời khen hay lời chặn một món.
+
+    /**
+     * Tổng "đã ghi" là tổng của <strong>những món đã ghi</strong>, không phải lượng ăn cả ngày.
+     *
+     * <p>Phát ra ở <strong>mọi</strong> lượt đọc nhật ký, kể cả khi đã ghi đủ ba bữa. Hệ thống chỉ
+     * biết những gì người dùng bấm vào; mọi thứ khác họ ăn trong ngày nó không hề thấy. Gắn nhãn
+     * "tổng lượng ăn cả ngày" lên con số này là một lời khẳng định mà không có dữ liệu nào đỡ, và
+     * nó rất dễ tin vì con số trông đầy đủ.</p>
+     */
+    DIARY_LOGGED_TOTAL_ONLY(Kind.RESULT,
+            "Tổng của các món bạn đã ghi — không phải tổng lượng ăn cả ngày"),
+
+    /**
+     * Kế hoạch của ngày còn bữa chưa được ghi.
+     *
+     * <p>Bữa chưa ghi <strong>không tự thành đã ăn</strong> (bất biến 3): nó vẫn nằm ở tổng dự kiến
+     * và không góp một con số nào vào tổng đã ghi. Mã này chỉ nói ra khoảng cách đó, không mời ghi
+     * hộ.</p>
+     */
+    DIARY_PLANNED_MEAL_NOT_LOGGED(Kind.RESULT,
+            "Kế hoạch hôm nay còn %s bữa chưa được ghi — chúng không nằm trong tổng đã ghi"),
+
+    /**
+     * Có dòng là món <strong>ngoài bộ dữ liệu</strong>: chỉ có tên và lượng, không có số liệu.
+     *
+     * <p>Hệ thống không suy vi chất từ tên món, nên tổng của ngày thiếu đúng phần của những dòng
+     * đó và mang {@link CoverageStatus#PARTIAL}. Nói ra chứ không lặng lẽ bỏ qua: người dùng cần
+     * biết tổng đang thiếu cái gì.</p>
+     */
+    DIARY_OFF_CATALOG_ENTRY(Kind.RESULT,
+            "%s món bạn ghi nằm ngoài bộ dữ liệu — hệ thống chỉ lưu tên và lượng, "
+                    + "không suy ra số liệu dinh dưỡng từ tên món"),
+
+    /**
+     * Có dòng người dùng tự đánh dấu "nguyên liệu đã đổi đáng kể, đây chỉ là ước tính".
+     *
+     * <p>Số vẫn tính theo công thức gốc vì không có nguồn nào khác, nhưng coi nó là chính xác cho
+     * một món đã đổi nguyên liệu là một lời khẳng định không có cơ sở.</p>
+     */
+    DIARY_ESTIMATE_INCOMPLETE(Kind.RESULT,
+            "%s món bạn đánh dấu là ước tính chưa đầy đủ vì nguyên liệu đã đổi so với công thức"),
+
+    /**
+     * Phần còn lại của ngày là <strong>ước tính để gợi ý</strong>, không phải lượng cần bù.
+     *
+     * <p>Đi kèm mỗi lần khối "phần còn lại" có số. Khoảng cách tới mức tham chiếu không phải một
+     * đơn thuốc: nó là mức cả ngày của một nhóm tuổi, và ép bù trọn khoảng cách đó bằng một món là
+     * đúng thứ mục 5 của nhánh cấm.</p>
+     */
+    DIARY_REMAINING_ESTIMATE(Kind.RESULT,
+            "Phần còn lại tính từ những món bạn đã ghi — đây là ước tính để gợi ý thêm bữa phụ, "
+                    + "không phải lượng cần bù trong hôm nay"),
+
+    /**
+     * Nhật ký hôm nay quá thiếu dữ liệu để nói về khẩu phần cả ngày.
+     *
+     * <p>Lúc này khu vực gợi ý phải quay về <strong>gợi ý đa dạng thông thường</strong> và tuyệt
+     * đối không khẳng định đã đánh giá khẩu phần cả ngày.</p>
+     */
+    DIARY_TOO_SPARSE(Kind.RESULT,
+            "Nhật ký hôm nay chưa đủ dữ liệu để nói về khẩu phần cả ngày — "
+                    + "gợi ý bên dưới là gợi ý đa dạng thông thường");
 
     /** Nhóm của lý do — ngăn một mã chặn bị đem ra làm lời khen. */
     public enum Kind {
