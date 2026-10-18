@@ -11,7 +11,9 @@ từng nhánh merge.
 | 3 — hồ sơ ăn uống (V58) | **đã làm** |
 | 4 — lọc điều kiện và xếp hạng (V59) | **đã làm** |
 | 5 — thực đơn một ngày (V60) | **đã làm** |
-| 6–10 | chưa |
+| 6 — sửa thực đơn đã lưu (không có migration) | **đã làm** |
+| 7 — danh sách mua sắm (V63) | **đã làm** |
+| 8–10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -1025,6 +1027,206 @@ chuỗi *lọc → chấm điểm*, chỉ cần một bản quên một bước 
 
 ---
 
+## Danh sách mua sắm (nhánh 7)
+
+Biến một thực đơn đã lưu thành danh sách đi chợ được. **Đều cần JWT**; chủ sở hữu suy từ
+`jwt.getSubject()` và nằm trong chính câu truy vấn, nên thực đơn hay dòng của người khác trả 404.
+
+| Endpoint | Việc |
+|---|---|
+| `GET /api/v1/meal-plans/{planId}/shopping-list` | tổng hợp nguyên liệu theo phạm vi ngày |
+| `POST /api/v1/meal-plans/{planId}/shopping-list/items` | thêm một dòng tự nhập |
+| `PATCH /api/v1/shopping-list-items/{itemId}` | đánh dấu đã có / đã mua, sửa dòng tự nhập |
+| `DELETE /api/v1/shopping-list-items/{itemId}` | xóa một dòng **tự nhập** |
+
+Tài liệu nhánh liệt kê hai endpoint; hai cái còn lại là hệ quả trực tiếp của yêu cầu "thêm dòng tự
+nhập" trong cùng tài liệu — `PATCH` không tạo được dòng, và một dòng gõ nhầm mà không xóa được thì
+tính năng đó chỉ dùng được một nửa.
+
+Tham số truy vấn viết **snake_case** như các trường trong body: `start_date` ở query và
+`start_date` trong phản hồi là cùng một thứ.
+
+### Lượng cần là dẫn xuất, trạng thái là dữ liệu
+
+Đây là quyết định chi phối cả nhánh:
+
+| Phần | Nguồn | Khi thực đơn đổi |
+|---|---|---|
+| lượng cần, đơn vị, nhóm hàng, món sử dụng | hàm thuần của các mục kế hoạch | **tính lại** |
+| đã có / đã mua / dòng tự nhập | người dùng khai | **giữ nguyên** |
+
+Vì vậy đổi món **không reset danh sách**: dòng cũ ở nguyên chỗ cũ với dấu đã mua của nó, chỉ lượng
+cần được viết lại (TC22). Và vì lượng cần dựng lại được từ kế hoạch, `shopping_list_version` chính
+là `plan_version` — không có phiên bản thứ hai để lệch.
+
+`GET` **có ghi dữ liệu**: mở màn hình mua sắm là lúc danh sách được đồng bộ với thực đơn. Phép đồng
+bộ idempotent — chạy lại trên cùng một kế hoạch cho ra đúng cùng một trạng thái, không sinh dòng
+thứ hai — nên với người dùng nó vẫn là "mở ra xem".
+
+### Quy tắc gộp — phần dễ sai nhất
+
+Khóa gộp là cặp **(mã nguyên liệu, trạng thái chế biến)**, không rộng hơn. Ba điều cấm của tài liệu
+nhánh đều là hệ quả của đúng một câu đó:
+
+1. **Không cộng 100 g gạo sống với 100 g cơm chín** — khác `food_state` là khác dòng, kể cả khi
+   trùng mã nguyên liệu (TC10). "200 g" ở đây là con số không mua được ở quầy nào.
+2. **Không tự đổi thìa sang gram** — mọi lượng nguyên liệu là gram vì công thức ghi gram; đầu vào
+   của người dùng chỉ nhận đơn vị trong `MassUnits` (`g`, `gram`, `kg`).
+3. **Không coi mọi loại cá là giống nhau** — khóa là *mã* nguyên liệu, không phải tên, không phải
+   nhóm thực phẩm, không phải thẻ nguyên liệu chính.
+
+Ràng buộc `uq_shopping_list_items_identity (list_id, ingredient_id, food_state)` ép điều này ở mức
+database, để một lỗi lập trình ở lớp trên không đi qua được trong im lặng.
+
+Lượng cần lấy từ `NutritionCalculator.ingredientsFor` chứ không nhân chia lại: nguyên liệu và dinh
+dưỡng của cùng một mục phải cùng một tỉ lệ (bất biến 4, TC08).
+
+### `GET …/shopping-list`
+
+```
+GET /api/v1/meal-plans/{planId}/shopping-list
+    ?start_date=2026-10-14&end_date=2026-10-14&exclude_item_ids=7f4a…&exclude_item_ids=9c12…
+```
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `start_date` / `end_date` | phạm vi ngày; bỏ trống = cả thực đơn. Ngoài phạm vi thực đơn → `VALIDATION_ERROR` |
+| `exclude_item_ids` | mục kế hoạch **bỏ chọn** ở lần xem này ("món này tôi không cần mua") |
+
+**Bỏ chọn là lựa chọn của lần xem, không phải thay đổi của thực đơn**: nó lọc các lần dùng rồi cộng
+lại phần còn lại, và không xóa dòng nào. Mở lại không kèm tham số thì dòng cũ còn nguyên cùng dấu
+đã mua của nó.
+
+```json
+{
+  "data": {
+    "list_id": "…", "plan_id": "…", "shopping_list_version": 5,
+    "start_date": "2026-10-14", "end_date": "2026-10-14",
+    "groups": [
+      { "food_group": "GRAIN", "items": [
+        { "item_id": "…", "ingredient_id": "ing.gao-te", "name": "Gạo tẻ",
+          "food_state": "RAW", "food_group": "GRAIN", "state": "PURCHASED",
+          "quantity": 150.00, "unit": "g", "purchased_quantity": 75.00,
+          "remaining_quantity": 75.00, "estimated_cost_vnd": 3300.00,
+          "used_by": [ { "plan_item_id": "…", "recipe_id": "rec.com-trang",
+                         "name": "Cơm trắng", "quantity": 150.00 } ],
+          "notes": [ { "code": "SHOPPING_NEED_MORE", "message": "Thực đơn đã đổi nên cần thêm 75 g…" } ] }
+      ] },
+      { "items": [ { "item_id": "…", "name": "Giấy ăn", "state": "NEEDED",
+                     "custom_text": "Giấy ăn",
+                     "notes": [ { "code": "SHOPPING_CUSTOM_LINE", "message": "…" } ] } ] }
+    ],
+    "estimated_cost_vnd": 48500.00, "estimated_remaining_cost_vnd": 21000.00,
+    "cost_coverage": "PARTIAL",
+    "notes": [ { "code": "SHOPPING_COST_INCOMPLETE", "message": "…" } ]
+  }
+}
+```
+
+Nhóm xếp theo thứ tự đi chợ — rau quả, thịt cá trứng, ngũ cốc, rồi các nhóm còn lại — chứ không
+theo chữ cái. Nhóm **không có `food_group`** là các dòng tự nhập, luôn xếp cuối.
+
+### `PATCH /api/v1/shopping-list-items/{itemId}`
+
+```json
+{ "state": "HAVE", "have_quantity": 0.5, "unit": "kg" }
+```
+
+| Trường | Ý nghĩa |
+|---|---|
+| `state` | `NEEDED` · `HAVE` (đã có ở nhà) · `PURCHASED` (đã mua) |
+| `have_quantity` / `purchased_quantity` | người dùng khai; bỏ trống thì giữ nguyên |
+| `unit` | đơn vị của hai con số trên **trong yêu cầu này**; bỏ trống = đơn vị của dòng |
+| `custom_text` | chỉ dòng tự nhập; gửi lên dòng nguyên liệu → `VALIDATION_ERROR` |
+
+- Tick `PURCHASED` **không kèm số** nghĩa là đã mua đủ phần còn cần — đó là điều vừa xảy ra ở chợ.
+- Bỏ tick về `NEEDED` **xóa cả hai con số**: một dòng vừa nói "chưa mua gì" vừa mang "đã mua 200 g"
+  là hai câu mâu thuẫn nằm cạnh nhau, và lần đọc sau không ai biết câu nào đúng.
+- **Chỉ hỗ trợ đơn vị đã quy đổi được.** `"unit": "kg"` được nhận; `"unit": "thìa"` trả
+  `VALIDATION_ERROR` kèm tên trường, **không** bị đoán thành một số gram. Một con số đoán trong
+  danh sách đi chợ trông hệt như một con số đã biết.
+- Không đòi `expected_plan_version`: đánh dấu đã mua không tranh chấp với một thao tác sửa thực
+  đơn — hai người cùng nhà tick cùng một dòng thì kết quả là dòng đó đã mua, đúng ý cả hai.
+
+Trả về **cả danh sách đã tính lại**, không riêng dòng vừa chạm: tick một dòng làm đổi tổng còn phải
+mua, và để giao diện tự cộng lại tổng là tạo nguồn sự thật thứ hai cho con số tiền.
+
+### Dòng tự nhập
+
+```json
+POST /api/v1/meal-plans/{planId}/shopping-list/items
+{ "text": "Giấy ăn", "quantity": 2, "unit": "gói" }
+```
+
+Dòng tự nhập **không trỏ tới nguyên liệu nào**, nên nó không ảnh hưởng dinh dưỡng, không có giá,
+không làm tổng chi phí thành "chưa đầy đủ" (nó vốn chưa bao giờ hứa có giá), và **không lượt đồng
+bộ nào xóa nó** — nó không đến từ kế hoạch nên không kế hoạch nào lấy lại được.
+
+Đơn vị của dòng tự nhập là chữ tự do ("gói", "bó", "chai"): nó không cộng với dòng nào nên không
+cần quy đổi. Đổi lại, `PATCH` trên dòng đó chỉ nhận đúng đơn vị của chính nó.
+
+`DELETE` chỉ xóa được dòng tự nhập. Dòng nguyên liệu là hệ quả của thực đơn và sẽ bị lượt đồng bộ
+kế tiếp tạo lại — một nút xóa không xóa được gì là một lời hứa sai; cách bỏ nó khỏi danh sách là
+`exclude_item_ids` hoặc đổi món.
+
+### Giá — ước tính từ dữ liệu mẫu
+
+Giá lấy từ `app.price_estimates` và **chỉ quy đổi được khi `base_unit` là đơn vị khối lượng thật**.
+Nguyên liệu chưa có dòng giá, hoặc có giá theo "lít" / "quả", thì dòng đó:
+
+- **không** mang `estimated_cost_vnd` (không phải 0 đồng — "chưa có giá" khác với "rẻ");
+- mang ghi chú `SHOPPING_PRICE_UNAVAILABLE`;
+- và cả danh sách mang `cost_coverage: "PARTIAL"` kèm `SHOPPING_COST_INCOMPLETE`.
+
+`estimated_cost_vnd` của danh sách là tổng những dòng đã có giá; `estimated_remaining_cost_vnd` là
+phần còn phải mua sau khi trừ lượng đã có và đã mua. Đây là **ước tính từ dữ liệu mẫu, không phải
+báo giá cửa hàng** — MVP không kết nối cửa hàng, không thanh toán, không giao hàng.
+
+### Nhắc đọc nhãn ở mức nguyên liệu
+
+Lọc công thức theo dị ứng **không thay thế** việc đọc nhãn khi mua gia vị hoặc thực phẩm đóng gói
+(bài học từ Mealime). Dòng nào là gia vị hoặc đồ chế biến sẵn **và** chưa được rà thành phần
+(`allergen_status = UNKNOWN`) hoặc là nguyên liệu hỗn hợp (có nguyên liệu con) thì mang ghi chú
+`SHOPPING_READ_PRODUCT_LABEL` — ví dụ nước mắm nấu từ cá cơm, hay gói gia vị nêm sẵn.
+
+Chỉ **nhắc**, không chặn: món đã qua bước lọc rồi, đây là lời dặn lúc đứng ở quầy. Và chỉ nhắc ở
+đúng hai nhóm đó — nhắc tràn lan sẽ làm người ta thôi đọc lời nhắc.
+
+### Mã lý do (HTTP 200, không phải lỗi)
+
+| Mã | Mức | Khi nào |
+|---|---|---|
+| `SHOPPING_NEED_MORE` | dòng | thực đơn đổi làm lượng cần vượt phần đã có / đã mua (TC22) |
+| `SHOPPING_PRICE_UNAVAILABLE` | dòng | nguyên liệu chưa có giá quy đổi được |
+| `SHOPPING_READ_PRODUCT_LABEL` | dòng | gia vị / đồ đóng gói: hãy đọc nhãn thành phần |
+| `SHOPPING_ITEM_NO_LONGER_NEEDED` | dòng | dòng đã mua nhưng nguyên liệu không còn trong thực đơn |
+| `SHOPPING_CUSTOM_LINE` | dòng | dòng tự nhập, nằm ngoài dinh dưỡng của thực đơn |
+| `SHOPPING_COST_INCOMPLETE` | danh sách | tổng chi phí chỉ gồm những dòng đã có giá |
+
+Nhánh này **không thêm mã lỗi nào**: mọi đường bị từ chối dùng lại `VALIDATION_ERROR` và
+`RESOURCE_NOT_FOUND`.
+
+### Bảng (V63)
+
+| Bảng | Giữ gì |
+|---|---|
+| `app.shopping_lists` | một danh sách cho mỗi `(plan_id, start_date, end_date)`, kèm `plan_version` của lần đồng bộ gần nhất |
+| `app.shopping_list_items` | dòng đi chợ: `ingredient_id` **nullable** (null = dòng tự nhập), `food_state`, `state`, `quantity`, `unit`, `have_quantity`, `purchased_quantity`, `custom_text` |
+
+Tài liệu nhánh ghi một cột `date_range`; ở đây tách thành `start_date` / `end_date` vì `daterange`
+chỉ có ở PostgreSQL còn bài kiểm migration chạy trên H2 chế độ PostgreSQL — và V60 đã tách đúng
+cách này cho `meal_plans`, nên hai bảng so khớp phạm vi mà không phải đổi kiểu dữ liệu giữa đường.
+
+Ba cột `food_state`, `food_group`, `display_name` là ảnh chụp lúc đồng bộ: `food_state` vì nó là
+một nửa khóa gộp, hai cột kia để một dòng **đã mua** vẫn đọc được sau khi món dùng nguyên liệu đó
+biến khỏi thực đơn — lúc ấy không còn snapshot nào trong kế hoạch để tra tên.
+
+Xóa kế hoạch thì danh sách đi theo (`ON DELETE CASCADE`): một danh sách không còn thực đơn ở sau
+lưng thì không tính lại được lượng cần, và một danh sách không tính lại được là một danh sách sai
+ngay lần đổi món kế tiếp.
+
+---
+
 ## Seed
 
 Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutrientSources.json`,
@@ -1059,4 +1261,5 @@ Mọi tình huống khác dùng lại mã sẵn có: `VALIDATION_ERROR`, `VERSIO
 `IDEMPOTENCY_CONFLICT`, `RESOURCE_NOT_FOUND`, `PLAN_UPGRADE_REQUIRED`.
 
 `NO_MATCH` và `SEARCH_LIMIT` **không phải** mã lỗi — chúng là `reason_codes` trong body trả
-**HTTP 200**, vì không tìm được thực đơn là kết quả nghiệp vụ hợp lệ.
+**HTTP 200**, vì không tìm được thực đơn là kết quả nghiệp vụ hợp lệ. Sáu mã `SHOPPING_*` của
+nhánh 7 cũng vậy: chúng nói về một dòng hoặc một danh sách, không phải về một yêu cầu thất bại.
