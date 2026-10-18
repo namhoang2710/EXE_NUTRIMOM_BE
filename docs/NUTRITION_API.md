@@ -687,7 +687,8 @@ nhánh 9.
             "filled": true,
             "items": [
               { "recipe_id": "rec.com-trang", "name": "Cơm trắng", "role": "STAPLE",
-                "recipe_version": 1, "servings": 1.0, "minutes": 25, "locked": false,
+                "recipe_version": 1, "servings": 1.0, "serving_gram": 180.00,
+                "minutes": 25, "locked": false,
                 "estimated_cost_vnd": 1240.00, "reason_codes": [] }
             ],
             "reason_codes": []
@@ -704,6 +705,10 @@ nhánh 9.
 
 Khối `nutrition` đúng hình dạng đã công bố ở nhánh 2: `known_value` **null vẫn xuất hiện**, và
 `estimated_cost_vnd` null nghĩa là **chưa quy đổi được giá** cho ít nhất một món — không phải 0 đồng.
+
+Hai trường của mục, thêm ở nhánh 6: `item_id` là địa chỉ để sửa đúng mục đó, chỉ có ở **kế hoạch đã
+lưu** (bản xem trước chưa có dòng nào trong database để trỏ tới); `serving_gram` là khối lượng một
+phần, null nghĩa là **món chưa cân được**, và giao diện chỉ mở ô nhập theo gram khi nó có số.
 
 **Phản hồi cố ý không mang điểm số.** `J` và năm phần phạt giữ ở backend, đúng như điểm món ở nhánh 4.
 
@@ -812,6 +817,211 @@ các mục — kể cả sau khi seed sửa công thức (BR17).
 
 Bản xem trước hết hạn được **xóa lười lúc đọc**: gửi lại cùng `request_id` sau 30 phút thì bản chết
 bị xóa và một lượt tìm mới chạy, thay vì khóa `request_id` vĩnh viễn.
+
+---
+
+## Sửa thực đơn đã lưu (nhánh 6)
+
+Bốn endpoint, **đều cần JWT**, đều trên một kế hoạch đã lưu. Mục tiêu: sửa được **một** lựa chọn mà
+không phải tạo lại toàn bộ kế hoạch.
+
+| Endpoint | Việc |
+|---|---|
+| `GET /api/v1/meal-plans/{planId}/items/{itemId}/alternatives` | lựa chọn cùng bữa, cùng vai trò |
+| `PATCH /api/v1/meal-plans/{planId}/items/{itemId}` | đổi món / số phần / trạng thái giữ |
+| `POST /api/v1/meal-plans/{planId}/regenerate` | tạo lại các mục **chưa giữ** |
+| `POST /api/v1/meal-plans/{planId}/undo` | khôi phục bản ngay trước thao tác gần nhất |
+
+**Không có migration.** Nhánh này chạy trên đúng bốn bảng V60 của nhánh 5.
+
+### Hai con số phiên bản, bắt buộc cả hai
+
+Ba endpoint ghi đều đòi `expected_plan_version` **và** `expected_profile_version`.
+
+| Trường | Lệch thì | Vì sao |
+|---|---|---|
+| `expected_plan_version` | `VERSION_CONFLICT` (409) | thiết bị khác đã sửa; tải lại rồi chọn lại, **không ghi đè** |
+| `expected_profile_version` | `VERSION_CONFLICT` (409) | danh sách lựa chọn người dùng vừa nhìn thấy dựng trên hồ sơ cũ |
+
+Yêu cầu bị từ chối **không thay dữ liệu và không tăng phiên bản** (TC14). Kế hoạch được đọc bằng
+`SELECT … FOR UPDATE`, nên hai yêu cầu song song không cùng thấy một phiên bản rồi cùng ghi đè.
+
+Hoàn tác **vẫn tăng** `plan_version`. Khôi phục nội dung cũ không phải quay ngược đồng hồ: hạ số
+phiên bản sẽ cho một thiết bị đang cầm số cũ ghi đè thành công lên chính thao tác hoàn tác.
+
+### `PATCH` — đổi món, số phần, hoặc giữ món
+
+```json
+{
+  "expected_plan_version": 4,
+  "expected_profile_version": 3,
+  "recipe_id": "rec.ca-hoi-ap-chao",
+  "recipe_version": 1,
+  "servings": 1.5,
+  "locked": false
+}
+```
+
+| Trường | Ý nghĩa |
+|---|---|
+| `recipe_id` | món thay thế; bỏ trống = giữ món cũ. Gửi lại đúng mã đang có **không** tính là đổi món |
+| `recipe_version` | phiên bản giao diện đang hiển thị; lệch → `VERSION_CONFLICT` |
+| `servings` | số phần, > 0 và trong miền khẩu phần của cấu trúc bữa (BR07) |
+| `grams` | thay cho `servings` khi nhập theo gram; quy đổi bằng `serving_gram` của chính món đó |
+| `locked` | giữ / bỏ giữ mục này cho lượt tạo lại |
+
+Trường nào bỏ trống thì giữ nguyên. Yêu cầu **không nêu thay đổi nào** bị từ chối: tăng
+`plan_version` suông sẽ làm thiết bị kia nhận 409 cho một thao tác chưa từng xảy ra.
+
+**Miền khẩu phần là một khoảng, không phải bốn nấc.** Giao diện cho chọn 0,5 · 1 · 1,5 · 2 theo
+`serving_options` của cấu trúc bữa, nhưng ô nhập gram quy ra số phần lẻ, nên điều kiện kiểm là
+`min ≤ servings ≤ max` của tập đó. Ngoài khoảng → `VALIDATION_ERROR` kèm tên trường.
+
+**Chi phí đi theo nguồn của nó.** Đổi riêng khẩu phần thì `cost_snapshot` được nhân lại từ đơn giá
+đã chụp lúc chọn món — đọc bảng giá hôm nay ở đây sẽ làm con số nhảy vì một lý do người dùng không
+hề thao tác. Đổi món thì giá lấy mới, vì đó là một món khác.
+
+### `GET …/alternatives`
+
+```json
+{
+  "data": {
+    "item_id": "7f4a…", "meal_type": "LUNCH", "sequence": 1, "role": "VEGETABLE",
+    "current_recipe_id": "rec.rau-muong-luoc", "current_servings": 1.0,
+    "serving_options": [0.5, 1, 1.5, 2],
+    "alternatives": [
+      { "recipe_id": "rec.canh-bi-do-tom", "name": "Canh bí đỏ nấu tôm", "recipe_version": 1,
+        "minutes": 25, "serving_gram": 200.00, "estimated_cost_vnd": 9800.00,
+        "delta_cost_vnd": 4200.00, "delta_minutes": 15 }
+    ],
+    "notes": []
+  }
+}
+```
+
+Danh sách dựng lại **từ hồ sơ hiện tại**, không tin kết quả lọc của lúc lập thực đơn: một món lọt
+vào kế hoạch từ trước khi mẹ bầu khai thêm dị ứng sẽ không xuất hiện ở đây (bất biến 2 và 5). Món
+đang nằm trong bữa bị loại khỏi danh sách.
+
+Chênh lệch tính ở **đúng số phần hiện tại** của mục. `delta_cost_vnd` null khi **một trong hai bên**
+chưa có giá — trừ một con số cho một khoảng trống rồi gọi kết quả là "không chênh lệch" là nói dối
+về dữ liệu chưa có.
+
+Danh sách rỗng vẫn là **HTTP 200** kèm `NO_MATCH` và `ROLE_NO_CANDIDATE` nêu rõ bộ lọc nào đã chặn.
+
+### `POST …/regenerate`
+
+```json
+{ "expected_plan_version": 4, "expected_profile_version": 3,
+  "constraints": { "daily_budget_vnd": 120000 }, "seed": 17 }
+```
+
+Giữ nguyên **cấu trúc ngày** đã lưu — vẫn đúng template trong `template_code`. Tạo lại là tìm lựa
+chọn khác trong cùng cấu trúc, không phải dựng một bữa khác hình dạng (BR06). Muốn đổi tập bữa thì
+đường đi là `POST /meal-plans/preview`.
+
+- Mục đã giữ **không bị xóa rồi tạo lại**: dòng cũ ở nguyên đó, nên `item_id`, `recipe_version` và
+  số phần của nó không có cơ hội bị viết lại (TC11).
+- Mục đã giữ **không còn hợp lệ** sau khi hồ sơ đổi → `RECIPE_NOT_ELIGIBLE` (422) kèm `item_id`,
+  **không âm thầm mở khóa**. Người dùng đã nói họ muốn giữ món đó.
+- Không có cách hoàn thành quanh các mục đã giữ → **HTTP 200**, `changed: false`, kế hoạch nguyên
+  vẹn, và `notes` liệt kê chính các mục đó để người dùng chọn mục muốn bỏ giữ.
+
+`constraints` bỏ trống thì lấy ngân sách và thời gian từ hồ sơ ăn uống; `strict_*` vẫn mặc định tắt
+(BR13).
+
+### `POST …/undo`
+
+Một **bước lùi**, không phải một ngăn xếp lịch sử: bản chụp bị xóa sau khi dùng, nên hoàn tác hai
+lần liên tiếp nhận `RESOURCE_NOT_FOUND` (404).
+
+Hoàn tác **kiểm tra lại điều kiện hiện tại trước khi khôi phục**. Món từng hợp lệ mà nay vi phạm dị
+ứng thì không được quay lại kế hoạch chỉ vì nó đã từng ở đó → `RECIPE_NOT_ELIGIBLE` (422), và kế
+hoạch giữ nguyên trạng thái an toàn hiện tại.
+
+#### Bản hoàn tác nằm ở đâu, khi nhánh không có migration
+
+`PlanRevision` được ghi vào chính `app.meal_plan_previews` với `request_id = "undo:" + plan_id` —
+bảng đó sẵn là "một thực đơn dạng JSON, có hạn dùng, thuộc về một người, trỏ được tới một kế
+hoạch". Unique `(user_id, request_id)` cho mỗi kế hoạch đúng một hàng, và đó chính là một bước lùi.
+TTL **24 giờ**: hoàn tác là thao tác ngay sau khi lỡ tay, không phải một kho lịch sử.
+
+Bản chụp mang theo cả `nutrient_snapshot` của từng mục, nên khôi phục trả lại **đúng con số đã hiển
+thị**, kể cả khi seed đã đổi công thức trong lúc đó (BR17).
+
+Hệ quả cho client: `request_id` của `POST /meal-plans/preview` **không được bắt đầu bằng `undo:`** →
+`VALIDATION_ERROR` kèm trường `request_id`.
+
+### Phản hồi của ba endpoint ghi
+
+```json
+{
+  "data": {
+    "plan": { "plan_id": "…", "plan_version": 5, "generation_status": "READY_WITH_NOTES",
+              "nutrition_coverage": "PARTIAL", "notes": [], "days": [ … ] },
+    "changed": true,
+    "shopping_list_version": 5,
+    "undo_available": true,
+    "notes": []
+  }
+}
+```
+
+**Trả về cả kế hoạch, không riêng mục vừa đổi.** BR12 — đổi một món tính lại tổng của ngày; trả về
+riêng mục sẽ buộc giao diện tự cộng lại tổng, tức là tạo nguồn sự thật thứ hai cho con số dinh dưỡng
+(bất biến 4). Một yêu cầu, một transaction, một bức tranh đã tính lại.
+
+| Trường | Ý nghĩa |
+|---|---|
+| `plan.notes` | trạng thái của **kế hoạch** sau thao tác: vượt ngân sách ngày, bữa quá giờ, dữ liệu thiếu |
+| `notes` | kết quả của **thao tác này**: vì sao không đổi được gì |
+| `changed` | false = kế hoạch giữ nguyên, `plan` là bản cũ |
+| `shopping_list_version` | bằng `plan_version`: danh sách mua sắm là hàm thuần của các mục kế hoạch, nên nó đổi đúng khi và chỉ khi kế hoạch đổi. Nhánh 7 dựng trên chính con số này thay vì đếm một phiên bản thứ hai có thể lệch |
+
+`generation_status` được tính lại sau mỗi thao tác bằng đúng hàm của nhánh 5: hết ghi chú thì kế
+hoạch quay về `READY`.
+
+### Kiểm toàn kế hoạch sau mỗi thao tác (BR12)
+
+Ngân sách là giới hạn của **ngày** và thời gian là giới hạn của **một bữa**, nên không mục nào tự nó
+vi phạm được — đổi sang một món rẻ hơn vẫn có thể đẩy cả ngày vượt ngân sách nếu nó kéo theo khẩu
+phần lớn hơn. Vì vậy mọi thao tác sửa đều tính lại `DAY_OVER_BUDGET` và `MEAL_OVER_TIME` trên toàn
+kế hoạch, không chỉ trên mục vừa chạm. Đây là **ưu tiên mềm chưa trọn**, không phải lỗi: kế hoạch
+vẫn lưu được và vẫn dùng được (BR13).
+
+Kế hoạch của nhánh này dài một ngày, nên "các điều kiện liên quan của tuần" chỉ có một ngày để xét;
+nhánh 9 mở rộng chính hàm đó sang nhiều ngày.
+
+### Sửa kế hoạch không chạm vào nhật ký
+
+Mục kế hoạch là phần **dự kiến**; bữa **đã ghi** sống ở bảng của nhánh 8. Đổi một món đã ăn chỉ đổi
+kế hoạch, con số "đã ăn" giữ nguyên món thực tế (bất biến 3). `MealPlanEditService` không có đường
+nào ghi ra ngoài bốn bảng kế hoạch, và `MealPlanEditIntegrationTest` canh đúng điều đó bằng cách
+đếm số dòng của **mọi** bảng trong schema `app` trước và sau một lượt đổi món — ngày
+`app.diary_entries` ra đời, bài kiểm tự động canh luôn nó.
+
+BR11 ("tạo lại không sửa mục đã ăn") có sẵn chỗ cắm: `MealPlanEditService.pinned()` là nơi duy nhất
+quyết định mục nào lượt tạo lại không được chạm, hôm nay chỉ xét cờ khóa.
+
+### Mã lỗi
+
+| Tình huống | Mã | HTTP |
+|---|---|---|
+| Món vi phạm thành phần hoặc giới hạn bắt buộc | `RECIPE_NOT_ELIGIBLE` | 422 |
+| `expected_plan_version` hoặc `expected_profile_version` cũ | `VERSION_CONFLICT` | 409 |
+| Công thức đã đổi phiên bản | `VERSION_CONFLICT` | 409 |
+| Số phần ≤ 0 hoặc ngoài miền, món khác vai trò, yêu cầu rỗng | `VALIDATION_ERROR` | 422 |
+| Kế hoạch / mục không thuộc người gọi hoặc không tồn tại | `RESOURCE_NOT_FOUND` | 404 |
+| Không còn gì để hoàn tác | `RESOURCE_NOT_FOUND` | 404 |
+
+Món không hợp hồ sơ vẫn **xem được thông tin** ở `GET /api/v1/recipes`; chỉ nút Thêm bị chặn, và
+thông điệp lỗi nói thẳng **thành phần nào** đang xung đột thay vì "không hợp lệ".
+
+### Một chỗ duy nhất biến công thức thành ứng viên
+
+`MealPlanCandidates` được tách ra khỏi `MealPlanService` ở nhánh này. Nếu đường "đổi món" chép lại
+chuỗi *lọc → chấm điểm*, chỉ cần một bản quên một bước là món chứa thành phần dị ứng vào được thực
+đơn qua nút Đổi món dù đường lập mới vẫn chặn nó. Bất biến 2 chỉ giữ được khi có **một** cửa.
 
 ---
 
