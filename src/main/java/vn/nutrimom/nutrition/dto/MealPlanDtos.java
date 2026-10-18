@@ -217,11 +217,19 @@ public final class MealPlanDtos {
      *
      * <p><strong>Cố ý không có điểm số.</strong> Điểm thuật toán giữ ở backend, đúng như ở nhánh 4:
      * đưa ra giao diện thì sớm muộn nó bị đọc thành "điểm sức khỏe" của món.</p>
+     *
+     * @param itemId      khóa của mục trong kế hoạch <strong>đã lưu</strong> — địa chỉ mà nhánh 6
+     *                    dùng để đổi món, đổi khẩu phần hoặc khóa. Null ở bản xem trước, vì lúc đó
+     *                    chưa có dòng nào trong database để trỏ tới
+     * @param servingGram một phần tương đương bao nhiêu gram; null = <strong>món chưa cân
+     *                    được</strong>, không phải 0 gram. Giao diện chỉ mở ô nhập theo gram khi
+     *                    trường này có số
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record ItemView(String recipeId, String name, RecipeRole role, int recipeVersion,
-                           BigDecimal servings, Integer minutes, boolean locked,
-                           BigDecimal estimatedCostVnd, List<ReasonView> reasonCodes) {
+    public record ItemView(String itemId, String recipeId, String name, RecipeRole role,
+                           int recipeVersion, BigDecimal servings, BigDecimal servingGram,
+                           Integer minutes, boolean locked, BigDecimal estimatedCostVnd,
+                           List<ReasonView> reasonCodes) {
     }
 
     /**

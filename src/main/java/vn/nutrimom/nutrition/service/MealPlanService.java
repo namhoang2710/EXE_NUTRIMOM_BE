@@ -1,8 +1,6 @@
 package vn.nutrimom.nutrition.service;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -15,12 +13,11 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -36,7 +33,6 @@ import vn.nutrimom.nutrition.domain.MealSlotEntity;
 import vn.nutrimom.nutrition.domain.MealTemplateEntity;
 import vn.nutrimom.nutrition.domain.MealType;
 import vn.nutrimom.nutrition.domain.PlanLifecycleState;
-import vn.nutrimom.nutrition.domain.PriceEstimateEntity;
 import vn.nutrimom.nutrition.domain.RecipeEntity;
 import vn.nutrimom.nutrition.domain.RecipeRole;
 import vn.nutrimom.nutrition.domain.RecommendationReason;
@@ -49,12 +45,12 @@ import vn.nutrimom.nutrition.dto.MealPlanDtos.PreviewResponse;
 import vn.nutrimom.nutrition.dto.MealPlanDtos.SavePlanRequest;
 import vn.nutrimom.nutrition.dto.MealPlanDtos.SlotView;
 import vn.nutrimom.nutrition.dto.RecommendationDtos.ReasonView;
-import vn.nutrimom.nutrition.repository.IngredientRepository;
 import vn.nutrimom.nutrition.repository.MealPlanPreviewRepository;
 import vn.nutrimom.nutrition.repository.MealPlanRepository;
-import vn.nutrimom.nutrition.repository.MealTemplateRepository;
-import vn.nutrimom.nutrition.repository.PriceEstimateRepository;
 import vn.nutrimom.nutrition.repository.RecipeRepository;
+import vn.nutrimom.nutrition.service.MealPlanCandidates.CandidateSearch;
+import vn.nutrimom.nutrition.service.MealPlanCandidates.CatalogContext;
+import vn.nutrimom.nutrition.service.MealPlanCandidates.PlanLimits;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Candidate;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Choice;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Outcome;
@@ -63,13 +59,13 @@ import vn.nutrimom.nutrition.service.MealPlanSearch.Slot;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Targets;
 import vn.nutrimom.nutrition.service.NutritionSnapshots.RecipeSnapshot;
 import vn.nutrimom.nutrition.service.NutritionTotals.NutrientTotal;
-import vn.nutrimom.nutrition.service.RecipeCandidate.IngredientFacts;
 
 /**
  * Lập thực đơn một ngày: hồ sơ → cấu trúc bữa → lọc → xếp hạng → ghép → bản xem trước lưu được.
  *
  * <p>Lớp này làm bước 1, 2, 3 và 8 của tám bước; bước 4–7 (mở rộng, loại, chấm điểm, giữ beam) nằm
- * ở {@link MealPlanGenerator}.</p>
+ * ở {@link MealPlanGenerator}, còn việc biến công thức thành ứng viên thuộc
+ * {@link MealPlanCandidates} — dùng chung với nhánh 6 để chỉ có một đường qua bước lọc.</p>
  *
  * <h2>Vì sao không gọi lại {@link RecommendationService}</h2>
  *
@@ -92,51 +88,25 @@ public class MealPlanService {
     /** TTL của bản xem trước (QĐ-01). */
     public static final Duration PREVIEW_TTL = Duration.ofMinutes(30);
 
-    /** Trần số món duyệt cho MỘT vị trí. Chạm trần thì nói ra bằng {@code SEARCH_LIMIT}. */
-    private static final int MAX_CANDIDATE_SCAN = 200;
-
-    private static final MathContext MATH = new MathContext(16, RoundingMode.HALF_UP);
-
-    /**
-     * Khẩu phần dự phòng khi template chưa khai {@code default_serving_options}.
-     *
-     * <p>Một phần, đúng một lựa chọn: thà bộ sinh không có gì để xoay còn hơn tự bịa ra một dải
-     * khẩu phần rồi nhân lên cho đủ vi chất.</p>
-     */
-    private static final List<BigDecimal> FALLBACK_SERVINGS = List.of(BigDecimal.ONE);
-
     private final NutritionProfileService profiles;
     private final RecipeRepository recipes;
-    private final IngredientRepository ingredients;
-    private final PriceEstimateRepository prices;
-    private final MealTemplateRepository templates;
     private final MealPlanRepository plans;
     private final MealPlanPreviewRepository previews;
-    private final EligibilityFilter filter;
-    private final RecipeRanker ranker;
-    private final RecipeCostEstimator costs;
+    private final MealPlanCandidates candidates;
     private final NutritionCalculator calculator;
     private final MealPlanGenerator generator;
     private final ObjectMapper json;
     private final Clock clock;
 
     public MealPlanService(NutritionProfileService profiles, RecipeRepository recipes,
-                           IngredientRepository ingredients, PriceEstimateRepository prices,
-                           MealTemplateRepository templates, MealPlanRepository plans,
-                           MealPlanPreviewRepository previews, EligibilityFilter filter,
-                           RecipeRanker ranker, RecipeCostEstimator costs,
-                           NutritionCalculator calculator, MealPlanGenerator generator,
-                           ObjectMapper json, Clock clock) {
+                           MealPlanRepository plans, MealPlanPreviewRepository previews,
+                           MealPlanCandidates candidates, NutritionCalculator calculator,
+                           MealPlanGenerator generator, ObjectMapper json, Clock clock) {
         this.profiles = profiles;
         this.recipes = recipes;
-        this.ingredients = ingredients;
-        this.prices = prices;
-        this.templates = templates;
         this.plans = plans;
         this.previews = previews;
-        this.filter = filter;
-        this.ranker = ranker;
-        this.costs = costs;
+        this.candidates = candidates;
         this.calculator = calculator;
         this.generator = generator;
         this.json = json;
@@ -149,6 +119,7 @@ public class MealPlanService {
 
     @Transactional
     public PreviewResponse preview(String userId, PreviewRequest request) {
+        requireUsableRequestId(request.requestId());
         ProfileSnapshot profile = profiles.snapshot(userId);
         requireMatchingProfileVersion(request.profileVersion(), profile.profileVersion());
 
@@ -210,6 +181,24 @@ public class MealPlanService {
         return stored;
     }
 
+    /**
+     * Một tiền tố của {@code request_id} dành riêng cho bản hoàn tác của nhánh 6.
+     *
+     * <p>Hoàn tác lưu ảnh chụp kế hoạch vào chính bảng bản xem trước (xem {@link PlanRevision}),
+     * nên một {@code request_id} do người dùng gửi lên mà trùng tiền tố đó sẽ đọc trúng một payload
+     * không phải bản xem trước. Chặn ngay ở cửa vào rẻ hơn nhiều so với việc mọi chỗ đọc payload
+     * phải tự đoán mình đang cầm loại nào.</p>
+     */
+    private void requireUsableRequestId(String requestId) {
+        if (requestId != null && requestId.startsWith(PlanRevision.REQUEST_ID_PREFIX)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "request_id không được bắt đầu bằng \"" + PlanRevision.REQUEST_ID_PREFIX
+                            + "\" — tiền tố này dành cho bản hoàn tác kế hoạch.",
+                    Map.of("request_id", "tiền tố \"" + PlanRevision.REQUEST_ID_PREFIX
+                            + "\" đã được hệ thống dùng"));
+        }
+    }
+
     // =========================================================================================
     // Sinh thực đơn
     // =========================================================================================
@@ -217,10 +206,11 @@ public class MealPlanService {
     private PreviewResponse generate(ProfileSnapshot profile, PreviewRequest request) {
         String rulesVersion = calculator.rules().rulesVersion();
         LocalDate date = request.startDate();
-        CatalogContext catalog = loadCatalog();
+        CatalogContext catalog = candidates.loadCatalog();
+        PlanLimits limits = limitsOf(request);
 
         List<ReasonNote> notes = new ArrayList<>();
-        PlanStructure structure = buildStructure(profile, request, catalog, notes);
+        PlanStructure structure = buildStructure(profile, request, limits, catalog, notes);
 
         if (!structure.feasible()) {
             // Không hoàn thành được vị trí theo điều kiện cứng. HTTP 200 kèm lý do — và lý do nêu
@@ -229,9 +219,10 @@ public class MealPlanService {
             return noMatch(profile, rulesVersion, request, date, structure, notes);
         }
 
-        Targets targets = targetsOf(profile, request, structure);
+        Targets targets = candidates.targetsOf(profile, limits, structure.shareSum());
         Outcome outcome = generator.generate(structure.slots(), targets,
-                preferenceInputs(profile, request), SearchDeadline.of(SearchDeadline.ONE_DAY_BUDGET));
+                candidates.preferenceInputs(profile, limits),
+                SearchDeadline.of(SearchDeadline.ONE_DAY_BUDGET));
 
         if (!outcome.complete()) {
             notes.add(ReasonNote.of(outcome.searchLimit()
@@ -245,6 +236,16 @@ public class MealPlanService {
         return render(profile, rulesVersion, request, date, structure, outcome, targets, notes);
     }
 
+    /** Giới hạn của lượt xem trước này, dạng chung mà {@link MealPlanCandidates} hiểu. */
+    private PlanLimits limitsOf(PreviewRequest request) {
+        var constraints = request.constraintsOrEmpty();
+        return new PlanLimits(
+                constraints.dailyBudgetVnd() == null
+                        ? null : new BigDecimal(constraints.dailyBudgetVnd()),
+                constraints.maxMinutesPerMeal(), constraints.strictBudgetEnabled(),
+                constraints.strictTimeEnabled(), request.seedOrDefault());
+    }
+
     /**
      * Bước 2: tạo vị trí trước, chọn món sau.
      *
@@ -254,7 +255,8 @@ public class MealPlanService {
      * trò của hai cấu trúc để lấp đầy (BR06).</p>
      */
     private PlanStructure buildStructure(ProfileSnapshot profile, PreviewRequest request,
-                                         CatalogContext catalog, List<ReasonNote> notes) {
+                                         PlanLimits limits, CatalogContext catalog,
+                                         List<ReasonNote> notes) {
         List<Slot> slots = new ArrayList<>();
         List<SlotFailure> failures = new ArrayList<>();
         BigDecimal shareSum = BigDecimal.ZERO;
@@ -264,8 +266,9 @@ public class MealPlanService {
         for (MealType mealType : EnumSet.copyOf(request.mealTypes())) {
             short count = mealType == MealType.SNACK ? request.snackCountOrDefault() : 1;
             for (short sequence = 1; sequence <= count; sequence++) {
-                BigDecimal share = shareOf(mealType, count);
-                SlotBuild build = buildSlot(profile, request, catalog, mealType, sequence, share);
+                BigDecimal share = candidates.shareOf(mealType, count);
+                SlotBuild build =
+                        buildSlot(profile, request, limits, catalog, mealType, sequence, share);
                 searchLimitHit |= build.searchLimitHit();
                 droppedForMissingPrice += build.droppedForMissingPrice();
                 if (build.slot() == null) {
@@ -292,15 +295,14 @@ public class MealPlanService {
                 shareSum.signum() == 0 ? null : shareSum);
     }
 
-    private SlotBuild buildSlot(ProfileSnapshot profile, PreviewRequest request,
+    private SlotBuild buildSlot(ProfileSnapshot profile, PreviewRequest request, PlanLimits limits,
                                 CatalogContext catalog, MealType mealType, short sequence,
                                 BigDecimal share) {
         List<ReasonNote> failures = new ArrayList<>();
-        // Giới hạn cứng của hồ sơ, dựng MỘT lần cho cả bữa: món khóa và món tự chọn đi qua đúng
-        // cùng một bộ điều kiện, nên không có đường nào để món khóa đi tắt (bất biến 2).
-        ProfileConstraints constraints = hardConstraints(profile, request);
+        // Món khóa và món tự chọn đi qua đúng cùng một bộ điều kiện của MealPlanCandidates, nên
+        // không có đường nào để món khóa đi tắt (bất biến 2).
         LockedItems requested =
-                lockedItemsFor(request, catalog, constraints, mealType, sequence);
+                lockedItemsFor(request, profile, limits, catalog, mealType, sequence);
         failures.addAll(requested.rejections());
         if (requested.anyRejected()) {
             // Người dùng yêu cầu giữ đúng món này. Lặng lẽ lấp chỗ đó bằng món khác là trả lời một
@@ -316,7 +318,7 @@ public class MealPlanService {
         boolean searchLimitHit = false;
         int dropped = 0;
 
-        for (MealTemplateEntity template : templatesFor(mealType)) {
+        for (MealTemplateEntity template : candidates.templatesFor(mealType)) {
             Set<RecipeRole> roles = EnumSet.copyOf(template.getRequiredRoles());
             if (!roles.containsAll(lockedRoles)) {
                 // Món khóa không thuộc cấu trúc này — thử cấu trúc khác trước khi kết luận.
@@ -333,16 +335,18 @@ public class MealPlanService {
                             List.of(pinned.candidate())));
                     continue;
                 }
-                CandidateSearch search = candidatesFor(profile, request, catalog, mealType, role,
-                        share);
+                CandidateSearch search = candidates.candidatesFor(profile, limits, catalog,
+                        mealType, role, share,
+                        MealPlanGenerator.EXPANDED_CANDIDATES_PER_POSITION, null);
                 searchLimitHit |= search.hitScanLimit();
                 dropped += search.droppedForMissingPrice();
                 if (search.candidates().isEmpty()) {
-                    failures.add(roleNoCandidate(mealType, sequence, role, search));
+                    failures.add(candidates.roleNoCandidate(mealType, sequence, role, search));
                     complete = false;
                     break;
                 }
-                positions.add(new Position(role, servingOptions(template), search.candidates()));
+                positions.add(new Position(role, candidates.servingOptions(template),
+                        search.candidates()));
             }
 
             if (complete) {
@@ -352,109 +356,17 @@ public class MealPlanService {
         }
 
         if (failures.isEmpty()) {
-            failures.add(templatesFor(mealType).isEmpty()
+            failures.add(candidates.templatesFor(mealType).isEmpty()
                     // Danh mục chưa khai cấu trúc nào cho bữa này — lỗi seed, nhưng người dùng vẫn
                     // phải nhận được một câu nói rõ chuyện gì đang xảy ra.
                     ? ReasonNote.of(RecommendationReason.ROLE_NO_CANDIDATE,
                             "cấu trúc của %s (danh mục chưa khai template cho bữa này)"
-                                    .formatted(describeSlot(mealType, sequence)))
+                                    .formatted(MealPlanCandidates.describeSlot(mealType, sequence)))
                     // Có template, nhưng không cái nào chứa vai trò của món đã khóa.
                     : ReasonNote.of(RecommendationReason.LOCKED_ITEM_UNPLACEABLE,
-                            describeSlot(mealType, sequence)));
+                            MealPlanCandidates.describeSlot(mealType, sequence)));
         }
         return new SlotBuild(null, List.copyOf(failures), searchLimitHit, dropped);
-    }
-
-    /**
-     * TC18: nói rõ <strong>vai trò nào, bữa nào</strong> và <strong>bộ lọc nào</strong> đã chặn.
-     *
-     * <p>Danh sách mã chặn lấy thẳng từ kết luận của {@link EligibilityFilter} cho đúng các món đã
-     * bị loại ở vị trí đó, nên nó luôn đối chiếu được với dữ liệu thật, không phải một câu đoán.</p>
-     */
-    private ReasonNote roleNoCandidate(MealType mealType, short sequence, RecipeRole role,
-                                       CandidateSearch search) {
-        String filters = search.blockingCodes().isEmpty()
-                ? "danh mục chưa có món nào cho vai trò này"
-                : "bộ lọc: " + String.join(", ", search.blockingCodes());
-        return ReasonNote.of(RecommendationReason.ROLE_NO_CANDIDATE,
-                "vai trò %s của %s (%s)".formatted(role, describeSlot(mealType, sequence), filters));
-    }
-
-    private String describeSlot(MealType mealType, short sequence) {
-        return mealType == MealType.SNACK ? "bữa SNACK #" + sequence : "bữa " + mealType;
-    }
-
-    /**
-     * Bước 3: lọc rồi chấm điểm, <strong>nối tiếp</strong>, lấy ứng viên đúng loại bữa và vai trò.
-     *
-     * <p>Thứ hạng ở đây là thứ hạng <em>trong một vị trí</em> theo công thức điểm món của nhánh 4.
-     * Việc chọn tổ hợp nào cho cả ngày thuộc {@link MealPlanGenerator} và dùng hàm mục tiêu J ở cấp
-     * ngày — hai phép chấm điểm khác nhau cho hai câu hỏi khác nhau.</p>
-     */
-    private CandidateSearch candidatesFor(ProfileSnapshot profile, PreviewRequest request,
-                                          CatalogContext catalog, MealType mealType,
-                                          RecipeRole role, BigDecimal share) {
-        List<RecipeEntity> rows = recipes.search(mealType, role, null, null,
-                Limit.of(MAX_CANDIDATE_SCAN + 1));
-        boolean hitScanLimit = rows.size() > MAX_CANDIDATE_SCAN;
-        if (hitScanLimit) {
-            rows = rows.subList(0, MAX_CANDIDATE_SCAN);
-        }
-
-        ProfileConstraints constraints = hardConstraints(profile, request);
-
-        List<Candidate> eligible = new ArrayList<>();
-        List<RecipeRanker.Scorable> scorables = new ArrayList<>();
-        Map<String, Candidate> byId = new HashMap<>();
-        Set<String> blockingCodes = new LinkedHashSet<>();
-        int droppedForMissingPrice = 0;
-
-        for (RecipeEntity recipe : rows) {
-            RecipeCandidate candidate = RecipeCandidate.of(recipe, catalog.ingredientsById());
-            Optional<BigDecimal> cost = costs.perServing(recipe, catalog.pricesByIngredient());
-            EligibilityVerdict verdict = filter.judge(candidate, constraints, catalog.facts(), cost);
-            if (!verdict.eligible()) {
-                verdict.reasons().forEach(reason -> blockingCodes.add(reason.code()));
-                continue;
-            }
-            if (request.constraintsOrEmpty().strictBudgetEnabled() && cost.isEmpty()) {
-                // Bật giới hạn ngân sách cứng mà món chưa có giá: KHÔNG coi dữ liệu thiếu là đã
-                // đạt giới hạn. Món không vào kế hoạch, và người dùng được mời bổ sung giá hoặc
-                // tắt giới hạn — họ chọn, hệ thống không tự nới.
-                droppedForMissingPrice++;
-                blockingCodes.add(RecommendationReason.STRICT_BUDGET_WITHOUT_PRICE.name());
-                continue;
-            }
-            RecipeSnapshot snapshot = NutritionSnapshots.snapshotOf(recipe,
-                    catalog.ingredientsById());
-            Candidate planCandidate = new Candidate(candidate, snapshot, cost.orElse(null), null);
-            byId.put(recipe.getId(), planCandidate);
-            scorables.add(new RecipeRanker.Scorable(candidate,
-                    calculator.forPortion(snapshot, BigDecimal.ONE), cost.orElse(null), null));
-        }
-
-        for (RecipeScore score : ranker.rank(scorables, slotInputs(profile, request, share))) {
-            eligible.add(byId.get(score.recipeId()));
-            if (eligible.size() >= MealPlanGenerator.EXPANDED_CANDIDATES_PER_POSITION) {
-                break;
-            }
-        }
-        return new CandidateSearch(List.copyOf(eligible), List.copyOf(blockingCodes), hitScanLimit,
-                droppedForMissingPrice);
-    }
-
-    /**
-     * Điều kiện cứng của hồ sơ cho bước lọc.
-     *
-     * <p>Giới hạn thời gian cứng kiểm được ngay ở mức món: một món đã dài hơn giới hạn của cả bữa
-     * thì mọi bữa chứa nó cũng dài hơn, nên loại sớm là đúng và rẻ. <strong>Ngân sách thì
-     * không</strong> — nó là giới hạn của cả ngày, và chỉ có nghĩa trên một tổ hợp, nên bộ sinh
-     * kiểm nó ở đó.</p>
-     */
-    private ProfileConstraints hardConstraints(ProfileSnapshot profile, PreviewRequest request) {
-        var constraints = request.constraintsOrEmpty();
-        return profile.constraints(
-                constraints.strictTimeEnabled() ? constraints.maxMinutesPerMeal() : null, null);
     }
 
     /**
@@ -463,9 +375,9 @@ public class MealPlanService {
      * <p>Khóa một món không mở được đường tắt: món chứa thành phần dị ứng vẫn bị chặn, và kết quả
      * là {@code NO_MATCH} kèm đúng lý do của bước lọc (bất biến 2, BR05).</p>
      */
-    private LockedItems lockedItemsFor(PreviewRequest request, CatalogContext catalog,
-                                       ProfileConstraints constraints, MealType mealType,
-                                       short sequence) {
+    private LockedItems lockedItemsFor(PreviewRequest request, ProfileSnapshot profile,
+                                       PlanLimits limits, CatalogContext catalog,
+                                       MealType mealType, short sequence) {
         List<LockedItem> locked = new ArrayList<>();
         List<ReasonNote> rejections = new ArrayList<>();
         for (var requested : request.lockedItemsOrEmpty()) {
@@ -475,150 +387,18 @@ public class MealPlanService {
             RecipeEntity recipe = recipes.findById(requested.recipeId()).orElse(null);
             if (recipe == null || !recipe.getMealTypes().contains(mealType)) {
                 rejections.add(ReasonNote.of(RecommendationReason.LOCKED_ITEM_UNPLACEABLE,
-                        describeSlot(mealType, sequence)));
+                        MealPlanCandidates.describeSlot(mealType, sequence)));
                 continue;
             }
-            RecipeCandidate candidate = RecipeCandidate.of(recipe, catalog.ingredientsById());
-            Optional<BigDecimal> cost = costs.perServing(recipe, catalog.pricesByIngredient());
-            EligibilityVerdict verdict = filter.judge(candidate, constraints, catalog.facts(), cost);
+            EligibilityVerdict verdict = candidates.judge(recipe, profile, limits, catalog);
             if (!verdict.eligible()) {
                 rejections.addAll(verdict.reasons());
                 continue;
             }
-            RecipeSnapshot snapshot = NutritionSnapshots.snapshotOf(recipe,
-                    catalog.ingredientsById());
             locked.add(new LockedItem(recipe.getRole(), requested.servings(),
-                    new Candidate(candidate, snapshot, cost.orElse(null), requested.servings())));
+                    candidates.candidateOf(recipe, catalog, requested.servings())));
         }
         return new LockedItems(List.copyOf(locked), List.copyOf(rejections));
-    }
-
-    // =========================================================================================
-    // Mục tiêu của ngày
-    // =========================================================================================
-
-    /**
-     * Mục tiêu năng lượng và vi chất của <strong>đúng những bữa được lập</strong> (TC23).
-     *
-     * <p>Chỉ lập trưa và tối thì mục tiêu là 60% mức ngày, <strong>không</strong> chuẩn hóa hai bữa
-     * đó lên thành toàn bộ năng lượng ngày: mẹ bầu vẫn ăn sáng và ăn vặt ngoài kế hoạch, và ép hai
-     * bữa gánh cả ngày sẽ đẩy khẩu phần của chúng lên quá mức.</p>
-     *
-     * <p>Ngân sách thì ngược lại, giữ nguyên mức ngày người dùng khai: đó là số tiền họ định tiêu
-     * trong ngày, không phải một mức chia theo bữa.</p>
-     */
-    private Targets targetsOf(ProfileSnapshot profile, PreviewRequest request,
-                              PlanStructure structure) {
-        BigDecimal share = structure.shareSum();
-        BigDecimal energyPerDay = profile.energyEstimate().kcalPerDay();
-        BigDecimal energy = (energyPerDay == null || share == null)
-                ? null : energyPerDay.multiply(share);
-
-        Map<String, BigDecimal> micronutrients = new LinkedHashMap<>();
-        if (share != null) {
-            for (var target : calculator.rules().micronutrientTargets()) {
-                if (target.amountPerDay() == null) {
-                    continue;
-                }
-                micronutrients.put(target.code(), target.amountPerDay().multiply(share));
-            }
-        }
-
-        var constraints = request.constraintsOrEmpty();
-        return new Targets(energy, micronutrients,
-                constraints.dailyBudgetVnd() == null
-                        ? null : new BigDecimal(constraints.dailyBudgetVnd()),
-                constraints.maxMinutesPerMeal(),
-                constraints.strictBudgetEnabled(), constraints.strictTimeEnabled());
-    }
-
-    /**
-     * Ngữ cảnh chấm điểm khẩu vị và đa dạng cho bộ sinh.
-     *
-     * <p>Bốn trường mục tiêu để rỗng là <strong>cố ý</strong>: trong bộ sinh, dinh dưỡng, chi phí và
-     * thời gian được đánh giá ở cấp ngày bằng hàm J, nên chấm lại chúng ở cấp món sẽ đếm hai lần
-     * cùng một thứ.</p>
-     */
-    private RankingInputs preferenceInputs(ProfileSnapshot profile, PreviewRequest request) {
-        return new RankingInputs(null, Map.of(), null, null,
-                profile.favoriteRecipeIds(), profile.dislikedIngredientIds(),
-                Set.of(), Set.of(), Set.of(), Set.of(), Map.of(), request.seedOrDefault());
-    }
-
-    /** Ngữ cảnh xếp hạng ứng viên <em>trong một vị trí</em> — công thức điểm món của nhánh 4. */
-    private RankingInputs slotInputs(ProfileSnapshot profile, PreviewRequest request,
-                                     BigDecimal share) {
-        var constraints = request.constraintsOrEmpty();
-        BigDecimal budgetPerSlot = (constraints.dailyBudgetVnd() == null || share == null)
-                ? null : new BigDecimal(constraints.dailyBudgetVnd()).multiply(share);
-        BigDecimal energyPerSlot = (profile.energyEstimate().kcalPerDay() == null || share == null)
-                ? null : profile.energyEstimate().kcalPerDay().multiply(share);
-
-        Map<String, BigDecimal> micronutrients = new LinkedHashMap<>();
-        if (share != null) {
-            for (var target : calculator.rules().micronutrientTargets()) {
-                if (target.amountPerDay() != null) {
-                    micronutrients.put(target.code(), target.amountPerDay().multiply(share));
-                }
-            }
-        }
-        return new RankingInputs(energyPerSlot, micronutrients, budgetPerSlot,
-                constraints.maxMinutesPerMeal(), profile.favoriteRecipeIds(),
-                profile.dislikedIngredientIds(), Set.of(), Set.of(), Set.of(), Set.of(), Map.of(),
-                request.seedOrDefault());
-    }
-
-    /**
-     * Tỉ lệ năng lượng tham khảo của một bữa.
-     *
-     * <p>Bữa phụ chia đều cho {@code snack_count} (QĐ-02): ba bữa phụ không được mỗi bữa mang trọn
-     * 15% của ngày. Không có template thì trả null, và khi đó nhánh năng lượng bị bỏ hẳn chứ không
-     * mượn một tỉ lệ mặc định.</p>
-     */
-    private BigDecimal shareOf(MealType mealType, short slotCount) {
-        Optional<BigDecimal> share = templates.findAll().stream()
-                .filter(template -> template.getMealType() == mealType)
-                .map(MealTemplateEntity::getRoleTargetShare)
-                .filter(java.util.Objects::nonNull)
-                .max(Comparator.naturalOrder());
-        if (share.isEmpty()) {
-            return null;
-        }
-        return slotCount > 1 ? share.get().divide(new BigDecimal(slotCount), MATH) : share.get();
-    }
-
-    private List<MealTemplateEntity> templatesFor(MealType mealType) {
-        // Ít vai trò hơn đứng trước: "ưu tiên ít bước" của template bữa sáng, và cũng là cấu trúc
-        // dễ hoàn thành hơn khi danh mục còn mỏng.
-        return templates.findAll().stream()
-                .filter(template -> template.getMealType() == mealType)
-                .sorted(Comparator.comparingInt((MealTemplateEntity t) -> t.getRequiredRoles().size())
-                        .thenComparing(t -> t.getMode().name()))
-                .toList();
-    }
-
-    /** Tập khẩu phần cho phép của template, dạng {@code "0.5,1,1.5,2"}. */
-    private List<BigDecimal> servingOptions(MealTemplateEntity template) {
-        String raw = template.getDefaultServingOptions();
-        if (raw == null || raw.isBlank()) {
-            return FALLBACK_SERVINGS;
-        }
-        List<BigDecimal> options = new ArrayList<>();
-        for (String piece : raw.split(",")) {
-            String trimmed = piece.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            try {
-                BigDecimal value = new BigDecimal(trimmed);
-                if (value.signum() > 0) {
-                    options.add(value);
-                }
-            } catch (NumberFormatException malformedSeed) {
-                // Một ô hỏng trong seed không được làm hỏng cả lượt lập thực đơn; bỏ qua ô đó.
-            }
-        }
-        return options.isEmpty() ? FALLBACK_SERVINGS : List.copyOf(options);
     }
 
     // =========================================================================================
@@ -695,11 +475,18 @@ public class MealPlanService {
         return needsReview ? GenerationStatus.READY_WITH_NOTES : GenerationStatus.READY;
     }
 
+    /**
+     * Một món của bản xem trước.
+     *
+     * <p>{@code item_id} còn trống ở đây là đúng: bản xem trước chưa có dòng nào trong database,
+     * nên chưa có mục nào để nhánh 6 trỏ tới. Nó chỉ có giá trị sau khi kế hoạch được lưu.</p>
+     */
     private ItemView itemView(Choice choice) {
         RecipeCandidate recipe = choice.candidate().recipe();
-        return new ItemView(recipe.recipeId(), recipe.name(), recipe.role(), recipe.recipeVersion(),
-                choice.servings(), recipe.minutes(), choice.candidate().locked(),
-                choice.costVnd(), List.of());
+        return new ItemView(null, recipe.recipeId(), recipe.name(), recipe.role(),
+                recipe.recipeVersion(), choice.servings(),
+                choice.candidate().snapshot().servingGram(), recipe.minutes(),
+                choice.candidate().locked(), choice.costVnd(), List.of());
     }
 
     /**
@@ -726,7 +513,8 @@ public class MealPlanService {
                 total.missingIngredientIds());
     }
 
-    private List<ReasonView> views(List<ReasonNote> notes) {
+    /** Lý do ở dạng hiển thị, bỏ trùng theo cặp (mã, dữ liệu sinh ra nó). */
+    public static List<ReasonView> views(List<ReasonNote> notes) {
         List<ReasonView> views = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         for (ReasonNote note : notes) {
@@ -790,7 +578,7 @@ public class MealPlanService {
 
     private MealPlanEntity toEntity(String userId, PreviewResponse payload, String rulesVersion) {
         DayView day = payload.days().get(0);
-        Map<String, IngredientEntity> ingredientsById = loadIngredients();
+        Map<String, IngredientEntity> ingredientsById = candidates.loadIngredients();
 
         MealPlanEntity plan = new MealPlanEntity();
         plan.setUserId(userId);
@@ -846,6 +634,10 @@ public class MealPlanService {
         return view(plan);
     }
 
+    public PlanView view(MealPlanEntity plan) {
+        return view(plan, List.of());
+    }
+
     /**
      * Dựng lại kế hoạch đã lưu, <strong>từ snapshot</strong>.
      *
@@ -853,15 +645,14 @@ public class MealPlanService {
      * nó bằng đúng con số của bản xem trước kể cả sau khi seed đổi công thức (bất biến 4 và BR17).
      * Vai trò và thời gian nấu thì đọc từ danh mục hiện tại: chúng là thông tin hiển thị, không
      * tham gia phép tính nào.</p>
+     *
+     * @param extraNotes ghi chú mà <em>nơi gọi</em> vừa phát hiện — nhánh 6 kiểm lại toàn kế hoạch
+     *                   sau mỗi thao tác sửa và đưa kết quả vào đây, thay vì tự dựng một response
+     *                   thứ hai có hình dạng hơi khác
      */
-    private PlanView view(MealPlanEntity plan) {
-        List<Choice> choices = new ArrayList<>();
+    public PlanView view(MealPlanEntity plan, List<ReasonNote> extraNotes) {
         List<SlotView> slots = new ArrayList<>();
-        List<MealSlotEntity> ordered = plan.getSlots().stream()
-                .sorted(Comparator.comparing(MealSlotEntity::getLocalDate)
-                        .thenComparing(slot -> slot.getMealType().ordinal())
-                        .thenComparing(MealSlotEntity::getSequence))
-                .toList();
+        List<MealSlotEntity> ordered = orderedSlots(plan);
 
         Map<String, RecipeEntity> recipesById = new HashMap<>();
         for (MealSlotEntity slot : ordered) {
@@ -879,20 +670,21 @@ public class MealPlanService {
                         RecipeSnapshot.class);
                 portions.add(new NutritionSnapshots.Portion(snapshot, item.getServings()));
                 RecipeEntity recipe = recipesById.get(item.getRecipeId());
-                items.add(new ItemView(item.getRecipeId(), snapshot.name(),
+                items.add(new ItemView(item.getId(), item.getRecipeId(), snapshot.name(),
                         recipe == null ? null : recipe.getRole(), item.getRecipeVersion(),
-                        item.getServings(), recipe == null ? null : recipe.getMinutes(),
+                        item.getServings(), snapshot.servingGram(),
+                        recipe == null ? null : recipe.getMinutes(),
                         item.isLocked(), item.getCostSnapshot(), List.of()));
             }
             slots.add(new SlotView(slot.getMealType(), slot.getSequence(), slot.getTemplateCode(),
                     slot.mode(), items.stream()
-                            .map(ItemView::role).filter(java.util.Objects::nonNull).toList(),
+                            .map(ItemView::role).filter(Objects::nonNull).toList(),
                     true, List.copyOf(items), List.of()));
         }
 
         NutritionTotals totals = calculator.forPortions(portions);
-        BigDecimal cost = totalCostOf(ordered);
-        List<ReasonNote> notes = new ArrayList<>();
+        BigDecimal cost = totalCostOf(plan);
+        List<ReasonNote> notes = new ArrayList<>(extraNotes);
         if (totals.coverage() != CoverageStatus.COMPLETE) {
             notes.add(ReasonNote.of(RecommendationReason.NUTRITION_DATA_INCOMPLETE));
         }
@@ -906,10 +698,19 @@ public class MealPlanService {
                 List.of(day));
     }
 
+    /** Các bữa theo thứ tự hiển thị: ngày, rồi buổi trong ngày, rồi số thứ tự bữa phụ. */
+    public static List<MealSlotEntity> orderedSlots(MealPlanEntity plan) {
+        return plan.getSlots().stream()
+                .sorted(Comparator.comparing(MealSlotEntity::getLocalDate)
+                        .thenComparing(slot -> slot.getMealType().ordinal())
+                        .thenComparing(MealSlotEntity::getSequence))
+                .toList();
+    }
+
     /** Tổng chi phí của kế hoạch; null ngay khi <strong>một</strong> mục chưa có giá. */
-    private BigDecimal totalCostOf(List<MealSlotEntity> slots) {
+    public static BigDecimal totalCostOf(MealPlanEntity plan) {
         BigDecimal total = BigDecimal.ZERO;
-        for (MealSlotEntity slot : slots) {
+        for (MealSlotEntity slot : plan.getSlots()) {
             for (MealPlanItemEntity item : slot.getItems()) {
                 if (item.getCostSnapshot() == null) {
                     return null;
@@ -949,36 +750,9 @@ public class MealPlanService {
         return OffsetDateTime.now(clock);
     }
 
-    /**
-     * Danh mục nguyên liệu và giá, nạp <strong>một lượt</strong> cho cả lượt lập thực đơn.
-     *
-     * <p>Bước lọc phải đi xuống nguyên liệu con của từng dòng công thức; truy vấn từng mã trong
-     * vòng lặp sẽ sinh ra hàng trăm câu SELECT cho một lần bấm nút.</p>
-     */
-    private CatalogContext loadCatalog() {
-        Map<String, IngredientEntity> ingredientsById = loadIngredients();
-        Map<String, IngredientFacts> facts = ingredientsById.values().stream()
-                .collect(Collectors.toMap(IngredientEntity::getId, IngredientFacts::of));
-        Map<String, PriceEstimateEntity> pricesByIngredient = prices.findAll().stream()
-                .collect(Collectors.toMap(PriceEstimateEntity::getIngredientId,
-                        Function.identity()));
-        return new CatalogContext(ingredientsById, facts, pricesByIngredient);
-    }
-
-    private Map<String, IngredientEntity> loadIngredients() {
-        return ingredients.findAll().stream()
-                .collect(Collectors.toMap(IngredientEntity::getId, Function.identity()));
-    }
-
     // =========================================================================================
     // Kiểu dữ liệu nội bộ
     // =========================================================================================
-
-    /** Danh mục nguyên liệu và giá, nạp một lượt cho cả lượt lập thực đơn. */
-    private record CatalogContext(Map<String, IngredientEntity> ingredientsById,
-                                  Map<String, IngredientFacts> facts,
-                                  Map<String, PriceEstimateEntity> pricesByIngredient) {
-    }
 
     /** Cấu trúc ngày đã dựng: các bữa lấp được, các bữa không, và tổng tỉ lệ năng lượng của chúng. */
     private record PlanStructure(List<Slot> slots, List<SlotFailure> failures,
@@ -1001,11 +775,6 @@ public class MealPlanService {
     /** Kết quả dựng một bữa. {@code slot} null nghĩa là không cấu trúc nào khả thi. */
     private record SlotBuild(Slot slot, List<ReasonNote> failures, boolean searchLimitHit,
                              int droppedForMissingPrice) {
-    }
-
-    /** Ứng viên của một vị trí, kèm những gì cần để giải thích khi danh sách rỗng. */
-    private record CandidateSearch(List<Candidate> candidates, List<String> blockingCodes,
-                                   boolean hitScanLimit, int droppedForMissingPrice) {
     }
 
     /** Một món người dùng khóa, đã qua bước lọc. */
