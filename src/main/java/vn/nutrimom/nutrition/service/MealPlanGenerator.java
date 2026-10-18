@@ -458,15 +458,17 @@ public class MealPlanGenerator {
             RankingInputs withHistory = new RankingInputs(
                     preferences.energyTargetPerSlot(), preferences.micronutrientTargetsPerSlot(),
                     preferences.budgetPerSlotVnd(), preferences.maxMinutes(),
-                    preferences.favoriteRecipeIds(), preferences.dislikedIngredientIds(),
+                    preferences.favoriteRecipeIds(), preferences.feedbackByRecipe(),
+                    preferences.dislikedIngredientIds(),
                     preferences.preferredCuisineTags(), preferences.toleranceTags(),
                     preferences.recentRecipeIds(), preferences.yesterdayMainIngredientTags(),
                     recipeCounts, preferences.seed());
 
             // perServing và costVnd để null: lớp này chỉ lấy P và V, còn dinh dưỡng, chi phí và
-            // thời gian đều được đánh giá ở cấp ngày.
+            // thời gian đều được đánh giá ở cấp ngày. Phản hồi sau bữa thì KHÔNG bỏ qua được —
+            // nó nằm trong điểm P, và P là một nửa việc lớp này đang làm.
             RecipeScore score = ranker.score(
-                    new RecipeRanker.Scorable(candidate.recipe(), null, null, null), withHistory);
+                    new RecipeRanker.Scorable(candidate.recipe(), null, null), withHistory);
 
             List<Choice> nextChoices = new ArrayList<>(choices);
             nextChoices.add(choice);

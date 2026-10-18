@@ -95,13 +95,15 @@ public class MealPlanService {
     private final MealPlanCandidates candidates;
     private final NutritionCalculator calculator;
     private final MealPlanGenerator generator;
+    private final MealFeedbackService feedbacks;
     private final ObjectMapper json;
     private final Clock clock;
 
     public MealPlanService(NutritionProfileService profiles, RecipeRepository recipes,
                            MealPlanRepository plans, MealPlanPreviewRepository previews,
                            MealPlanCandidates candidates, NutritionCalculator calculator,
-                           MealPlanGenerator generator, ObjectMapper json, Clock clock) {
+                           MealPlanGenerator generator, MealFeedbackService feedbacks,
+                           ObjectMapper json, Clock clock) {
         this.profiles = profiles;
         this.recipes = recipes;
         this.plans = plans;
@@ -109,6 +111,7 @@ public class MealPlanService {
         this.candidates = candidates;
         this.calculator = calculator;
         this.generator = generator;
+        this.feedbacks = feedbacks;
         this.json = json;
         this.clock = clock;
     }
@@ -207,7 +210,7 @@ public class MealPlanService {
         String rulesVersion = calculator.rules().rulesVersion();
         LocalDate date = request.startDate();
         CatalogContext catalog = candidates.loadCatalog();
-        PlanLimits limits = limitsOf(request);
+        PlanLimits limits = limitsOf(profile, request);
 
         List<ReasonNote> notes = new ArrayList<>();
         PlanStructure structure = buildStructure(profile, request, limits, catalog, notes);
@@ -237,13 +240,22 @@ public class MealPlanService {
     }
 
     /** Giới hạn của lượt xem trước này, dạng chung mà {@link MealPlanCandidates} hiểu. */
-    private PlanLimits limitsOf(PreviewRequest request) {
+    /**
+     * Bối cảnh của lượt lập này.
+     *
+     * <p>Phản hồi sau bữa nạp <strong>một lượt ở đây</strong> rồi đi cùng {@code limits} xuống cả
+     * hai đường chấm điểm — chọn ứng viên cho từng vị trí và chấm lại điểm P trong bộ sinh. Nạp ở
+     * một chỗ duy nhất là cách duy nhất để hai đường đó không bao giờ cầm hai bộ dữ liệu khác
+     * nhau, và cũng tránh một câu truy vấn giống hệt nhau cho mỗi vai trò của mỗi bữa.</p>
+     */
+    private PlanLimits limitsOf(ProfileSnapshot profile, PreviewRequest request) {
         var constraints = request.constraintsOrEmpty();
         return new PlanLimits(
                 constraints.dailyBudgetVnd() == null
                         ? null : new BigDecimal(constraints.dailyBudgetVnd()),
                 constraints.maxMinutesPerMeal(), constraints.strictBudgetEnabled(),
-                constraints.strictTimeEnabled(), request.seedOrDefault());
+                constraints.strictTimeEnabled(), request.seedOrDefault(),
+                feedbacks.latestSignals(profile.userId()));
     }
 
     /**

@@ -13,7 +13,8 @@ từng nhánh merge.
 | 5 — thực đơn một ngày (V60) | **đã làm** |
 | 6 — sửa thực đơn đã lưu (không có migration) | **đã làm** |
 | 7 — danh sách mua sắm (V63) | **đã làm** |
-| 8–10 | chưa |
+| 8 — nhật ký và phản hồi (V64) | **đã làm** |
+| 9–10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -1227,6 +1228,246 @@ ngay lần đổi món kế tiếp.
 
 ---
 
+## Nhật ký và phản hồi (nhánh 8)
+
+Ghi món **thực tế đã ăn**, tách hẳn khỏi thực đơn, và khép vòng lặp phản hồi về bước chấm điểm của
+nhánh 4. **Đều cần JWT**; chủ sở hữu suy từ `jwt.getSubject()` và nằm trong chính câu truy vấn, nên
+dòng của người khác trả 404.
+
+| Endpoint | Việc |
+|---|---|
+| `GET /api/v1/diary?date=YYYY-MM-DD` | món đã ghi và **hai tổng tách biệt** của một ngày |
+| `POST /api/v1/diary-entries` | ghi một món đã ăn, chống ghi trùng bằng `request_id` |
+| `PATCH /api/v1/diary-entries/{entryId}` | sửa món hoặc số phần thực tế; trả tổng mới |
+| `DELETE /api/v1/diary-entries/{entryId}` | xóa một dòng; tính lại tổng |
+| `POST /api/v1/meal-feedback` | hợp khẩu vị, không thích, hoặc khó ăn tạm thời |
+
+`date` **bắt buộc**: máy chủ không biết người dùng đang ở múi giờ nào, và đoán sai ngày sẽ hiện
+nhầm cả một nhật ký. Ba endpoint ghi đều trả **cả ngày đã tính lại**, không riêng dòng vừa chạm —
+để giao diện không phải tự cộng lại tổng.
+
+### Hai tổng, không bao giờ một
+
+```
+meal_plan_items                  diary_entries
+khẩu phần DỰ KIẾN      ──ghi──▶  khẩu phần ĐÃ XÁC NHẬN
+không tự thành đã ăn             được phép khác kế hoạch
+```
+
+`planned_nutrition` và `logged_nutrition` là hai khối riêng trong cùng một response, mỗi chất kèm
+`coverage` của chính nó. **Không có trường nào là tổng của hai khối đó**: cộng chúng lại sẽ đếm hai
+lần đúng những bữa người dùng đã ăn theo kế hoạch.
+
+Hệ quả, kiểm bằng test: ghi nửa phần của một mục kế hoạch một phần thì nhật ký tính một nửa còn kế
+hoạch vẫn một phần (TC15); xóa một dòng làm tổng **đã ghi** đổi và để tổng **dự kiến** y nguyên
+(TC17); hết ngày mà không ghi gì thì không dòng nhật ký nào được sinh ra, và các bữa chưa ghi không
+tự thành đã ăn.
+
+Chiều ngược lại cũng đóng: `DiaryService` không bao giờ ghi vào `meal_plan_items`, và
+`MealPlanEditService` của nhánh 6 không bao giờ ghi vào `diary_entries`.
+
+### `POST /api/v1/diary-entries`
+
+**BR16: nhật ký được tạo sau xác nhận ngày, bữa và số phần.** Không trường nào có giá trị mặc định
+phía máy chủ — giao diện điền sẵn từ kế hoạch, nhưng thứ tới được API phải là thứ người dùng đã bấm
+xác nhận. Thiếu `servings` ở một món trong danh mục trả `VALIDATION_ERROR` kèm tên trường, chứ
+không được hiểu thành một phần.
+
+```json
+{ "request_id": "4f1c…", "local_date": "2026-10-14", "meal_type": "LUNCH",
+  "source_plan_item_id": "7f4a…", "servings": 0.5 }
+```
+
+"Ăn một nửa" chính là `"servings": 0.5`. `request_id` nằm **trong body**, unique cùng `user_id`:
+gửi lại cùng giá trị trả về đúng bản ghi cũ, không tạo bữa thứ hai (TC16). Ghi trùng ở đây không
+chỉ thừa một dòng — nó làm tổng đã ăn của ngày gấp đôi.
+
+Hai dạng dòng, chọn đúng một:
+
+| Dạng | Trường | Số liệu dinh dưỡng |
+|---|---|---|
+| Món trong danh mục | `recipe_id` và/hoặc `source_plan_item_id`, kèm `servings` | từ snapshot chụp lúc ghi |
+| Món ngoài bộ dữ liệu | `custom_text`, kèm `amount_text` tùy chọn | **không có** |
+
+`source_plan_item_id` là **nguồn tùy chọn** — nhật ký ghi được món ngoài thực đơn. Gửi kèm một
+`recipe_id` **khác** món của mục kế hoạch là hợp lệ và có chủ đích: đó là lối "nguyên liệu đổi đáng
+kể → chọn biến thể có sẵn", và lúc đó số liệu lấy theo biến thể thật sự đã ăn, không giữ số của món
+gốc.
+
+`estimate_incomplete: true` là người dùng tự đánh dấu "nguyên liệu đã đổi đáng kể, đây chỉ là ước
+tính". Số vẫn tính theo công thức gốc vì không có nguồn nào khác, nhưng tổng của ngày hạ xuống
+`PARTIAL` và nói ra lý do.
+
+**Món ngoài bộ dữ liệu không sinh ra vi chất từ tên món.** Dòng đó không có snapshot nên không đóng
+góp con số nào vào tổng — điều này được ép bằng `ck_diary_entries_shape` ở mức database, không phải
+bằng một câu `if` ai đó có thể quên.
+
+`PATCH` sửa trong **đúng dạng của dòng**: một dòng món danh mục đổi được món và số phần, một dòng
+tự ghi đổi được chữ. Đổi hẳn dạng thì xóa rồi ghi lại — một thao tác lặng lẽ biến một dòng không có
+số liệu thành một dòng có số liệu là thứ khó nhìn ra nhất khi tổng của ngày đổi.
+
+### `GET /api/v1/diary`
+
+```json
+{
+  "data": {
+    "local_date": "2026-10-14",
+    "entries": [
+      { "entry_id": "…", "local_date": "2026-10-14", "meal_type": "LUNCH",
+        "recipe_id": "rec.com-trang", "name": "Cơm trắng", "recipe_version": 1,
+        "servings": 0.50, "estimate_incomplete": false, "source_plan_item_id": "7f4a…",
+        "nutrition": { "ENERGY": { "known_value": 135.0, "unit": "kcal",
+                                   "coverage": "COMPLETE", "missing_ingredient_ids": [] } },
+        "coverage": "PARTIAL", "created_at": "2026-10-14T12:30:00+07:00", "notes": [] },
+      { "entry_id": "…", "meal_type": "SNACK", "custom_text": "Bánh mì cô Ba",
+        "amount_text": "một ổ", "estimate_incomplete": false, "coverage": "PARTIAL",
+        "notes": [ { "code": "DIARY_OFF_CATALOG_ENTRY", "message": "…" } ] }
+    ],
+    "planned_nutrition": { "ENERGY": { "known_value": 820.0, "unit": "kcal",
+                                       "coverage": "PARTIAL", "missing_ingredient_ids": [] } },
+    "planned_coverage": "PARTIAL",
+    "logged_nutrition":  { "ENERGY": { "known_value": 135.0, "unit": "kcal",
+                                       "coverage": "COMPLETE", "missing_ingredient_ids": [] } },
+    "logged_coverage": "PARTIAL",
+    "remaining": {
+      "energy_target_kcal": 2180.0,
+      "by_nutrient": { "ENERGY": { "known_value": null, "unit": "kcal",
+                                   "coverage": "PARTIAL", "missing_ingredient_ids": [] } },
+      "notes": [ { "code": "DIARY_REMAINING_ESTIMATE", "message": "…" } ]
+    },
+    "method_notes": [],
+    "notes": [ { "code": "DIARY_LOGGED_TOTAL_ONLY", "message": "Tổng của các món bạn đã ghi…" } ]
+  }
+}
+```
+
+Khối dinh dưỡng dùng lại **đúng hình dạng đã công bố ở nhánh 2**, nên giao diện đọc tổng kế hoạch
+và tổng nhật ký bằng một đoạn mã, và `known_value` null vẫn **xuất hiện** ở cả hai.
+
+`DIARY_LOGGED_TOTAL_ONLY` có mặt ở **mọi** lượt đọc, kể cả khi đã ghi đủ ba bữa: con số đó là "tổng
+của các món đã ghi", không phải "tổng lượng ăn cả ngày". Hệ thống chỉ biết những gì người dùng bấm
+vào — gắn nhãn kia lên nó là một lời khẳng định không có dữ liệu nào đỡ, và nó rất dễ tin vì con số
+trông đầy đủ.
+
+`logged_coverage` xuống `PARTIAL` **ngay khi** có một món ngoài bộ dữ liệu hoặc một dòng đánh dấu
+ước tính, kể cả lúc mọi chất đều có số: lúc đó cái thiếu không phải một ô trong bảng mà là cả một
+bữa.
+
+### Phần còn lại của ngày (UC08)
+
+`remaining` là **dữ liệu cho khu vực gợi ý sau khi đã ăn**, không phải một đơn thuốc. Ba giới hạn
+được ép trong chính phép tính:
+
+1. **Chất chưa đủ dữ liệu thì không có con số** — `known_value` null kèm `PARTIAL`. Tổng đã ghi của
+   chất đó còn thiếu nghĩa là phần đã ăn đang bị tính hụt, nên khoảng cách sẽ lớn hơn thực tế, và
+   một con số lớn hơn thực tế ở đây mời người ta ăn bù thứ họ đã ăn rồi. Xét **từng chất một**:
+   danh mục chưa có số iốt không phải lý do để giấu đi khoảng cách năng lượng đã tính được đủ.
+2. **Có món ngoài bộ dữ liệu hoặc dòng ước tính thì không chất nào có số** — thiếu ở mức cả tập đã
+   ghi thổi phồng khoảng cách của mọi chất cùng lúc.
+3. **Nhật ký quá thiếu dữ liệu thì không nói gì về khẩu phần cả ngày** — chỉ còn
+   `DIARY_TOO_SPARSE`, và khu vực gợi ý quay về gợi ý đa dạng thông thường.
+
+Khối này **không gọi bộ gợi ý và không đề xuất món nào**: nó trả về khoảng cách, còn việc chọn món
+vẫn đi qua `POST /api/v1/recommendations` của nhánh 4 — đường duy nhất có bước lọc dị ứng. Và không
+có nhánh nào sinh ra lời khuyên tăng liều bổ sung.
+
+### `POST /api/v1/meal-feedback`
+
+```json
+{ "recipe_id": "rec.com-trang", "type": "HARD_NOW" }
+```
+
+| `type` | `expires_at` | Điểm P |
+|---|---|---|
+| `TASTY` | `null` | +10 |
+| `DISLIKE` | `null` | −25 |
+| `HARD_NOW` | `created_at + 7 ngày` | −20 |
+
+Chỉ cái **tạm thời** mới hết hạn (QĐ-03): "khó ăn lúc này" là một trạng thái của thai kỳ, còn "ngon"
+và "không thích" là ý kiến. Lựa chọn chủ động vĩnh viễn (`FAVORITE`, `BLOCKED`) nằm ở
+`app.user_recipe_preferences` của nhánh 3 và **không có** `expires_at`.
+
+**Không lựa chọn nào ở đây trở thành dị ứng.** Chúng cộng trừ điểm khẩu vị; món vẫn qua đúng bộ lọc
+an toàn như mọi món khác và vẫn xuất hiện trong gợi ý nếu nó thật sự hợp. Muốn chặn hẳn một món thì
+đó là `BLOCKED` — một lựa chọn chủ động, không hạn, và nó loại món khỏi ứng viên chứ không trừ điểm.
+
+Bảng ghi theo kiểu **nhật ký**: mỗi lần chạm là một dòng mới, không đè lên dòng cũ. Lúc chấm điểm
+chỉ lấy **một** phản hồi gần nhất còn hiệu lực, và hạn được lọc ngay trong câu truy vấn — một
+`HARD_NOW` hết hạn thôi ảnh hưởng xếp hạng **mà không cần** job dọn dẹp nào chạy đúng giờ. Dòng cũ
+vẫn nằm trong bảng: nó là lịch sử đã xảy ra.
+
+### Phản hồi vào điểm P ở đâu
+
+**Cả ba đường chấm điểm**: gợi ý món (nhánh 4), lập thực đơn (nhánh 5) và đổi món / tạo lại
+(nhánh 6). Công thức đã có sẵn ở `RecipeRanker` từ trước; việc của nhánh 8 là cắm nguồn dữ liệu và
+bảo đảm không đường nào bị bỏ sót.
+
+`MealFeedbackSignal` chuyển từ gói `service` sang `domain` để vừa là giá trị cột `type` vừa là tín
+hiệu chấm điểm, tránh hai danh sách cùng nghĩa khác tên với hai bộ số sẽ lệch nhau ngay lần chỉnh
+đầu tiên.
+
+Tín hiệu sống ở **`RankingInputs.feedbackByRecipe`**, cạnh `favoriteRecipeIds`, chứ không đi kèm
+từng `RecipeRanker.Scorable`. Đó là điều kiện để lời hứa trên đứng vững: `RankingInputs` là vật thể
+**duy nhất đi qua cả hai đường chấm điểm của một lượt lập** — chọn ứng viên cho từng vị trí
+(`MealPlanCandidates`) và chấm lại điểm P trên từng phương án đang dựng (`MealPlanGenerator`). Nếu
+tín hiệu đi kèm từng món, một trong hai đường sẽ quên truyền nó và cùng một món nhận hai thứ hạng
+khác nhau trong cùng một lượt.
+
+Nạp **một lượt cho mỗi request**, ở `limitsOf(...)` của hai service thực đơn, rồi đi cùng
+`PlanLimits` xuống mọi bước. Tra lại trong vòng lặp chọn ứng viên sẽ là một câu truy vấn cho mỗi
+vai trò của mỗi bữa — với thực đơn bảy ngày của nhánh 9 thì là hàng chục câu giống hệt nhau. Để lấy
+được `userId` ở đó, `ProfileSnapshot` nay mang thêm trường ấy: `profileId` là mã thai kỳ, còn phản
+hồi sau bữa thuộc về **người dùng**.
+
+Hành vi, kiểm bằng test: bấm "không thích" rồi lập lại thực đơn cùng seed thì món đó **bị thay**, và
+nó cũng **không còn đứng đầu** danh sách Đổi món — nhưng vẫn nằm trong danh sách, và vẫn vào được
+thực đơn khi nó là lựa chọn duy nhất của vai trò đó. Phản hồi khẩu vị hạ điểm; nó không bao giờ là
+một bộ lọc (bất biến 5).
+
+### Mã lý do (HTTP 200, không phải lỗi)
+
+| Mã | Mức | Khi nào |
+|---|---|---|
+| `DIARY_LOGGED_TOTAL_ONLY` | ngày | **luôn luôn**: con số đã ghi là tổng của các món đã ghi |
+| `DIARY_PLANNED_MEAL_NOT_LOGGED` | ngày | kế hoạch còn bữa chưa ghi; chúng không nằm trong tổng đã ghi |
+| `DIARY_OFF_CATALOG_ENTRY` | ngày · dòng | món ngoài bộ dữ liệu: chỉ có tên và lượng |
+| `DIARY_ESTIMATE_INCOMPLETE` | ngày · dòng | người dùng đánh dấu nguyên liệu đã đổi đáng kể |
+| `DIARY_REMAINING_ESTIMATE` | phần còn lại | khoảng cách là ước tính để gợi ý, không phải lượng cần bù |
+| `DIARY_TOO_SPARSE` | phần còn lại | chưa đủ dữ liệu để nói về khẩu phần cả ngày |
+
+Nhánh này **không thêm mã lỗi nào**: mọi đường bị từ chối dùng lại `VALIDATION_ERROR` và
+`RESOURCE_NOT_FOUND`.
+
+### Bảng (V64)
+
+| Bảng | Giữ gì |
+|---|---|
+| `app.diary_entries` | `local_date`, `meal_type`, `recipe_id` **nullable**, `recipe_version`, `recipe_snapshot`, `actual_servings`, `custom_text`, `amount_text`, `estimate_incomplete`, `source_plan_item_id` **nullable**, `request_id` |
+| `app.meal_feedbacks` | `recipe_id`, `type`, `created_at`, `expires_at` **nullable** |
+
+Index đúng hai cột nhánh yêu cầu: `(user_id, local_date)` — "nhật ký hôm nay của tôi" là lối vào
+duy nhất của màn hình, và cũng là đường kiểm tra chủ sở hữu.
+
+Ba ràng buộc là chỗ database chặn một lỗi của lớp trên:
+
+| Ràng buộc | Chặn gì |
+|---|---|
+| `uq_diary_entries_request` | ghi trùng — không chỉ thừa một dòng, nó làm tổng đã ăn gấp đôi (TC16) |
+| `ck_diary_entries_shape` | một dòng vừa trỏ tới công thức vừa mang tên tự do, mập mờ đúng ở chỗ nó có số liệu hay không |
+| `ck_meal_feedbacks_expiry` | một `DISLIKE` mang hạn: nó sẽ tự biến mất sau bảy ngày mà không ai hiểu vì sao món đó quay lại |
+
+`source_plan_item_id` dùng `ON DELETE SET NULL`, **không** CASCADE: xóa kế hoạch là bỏ phần dự
+kiến, không phải phủ nhận bữa đã ăn. CASCADE ở đây sẽ là bất biến 3 bị phá ngay ở tầng dữ liệu —
+sửa thực đơn sẽ lặng lẽ viết lại nhật ký, và tổng đã ăn của một ngày trong quá khứ đổi mà không ai
+chạm vào nó.
+
+Số **V64** lấy theo `_CONTRACT.md` mục 2: database dùng chung ở V62 lúc bắt đầu nhánh, còn repo đã
+có V63 (nhánh 7) chưa chạy lên đó, nên số kế tiếp phải trống ở cả hai phía. **Chạy V63 trước V64**:
+`out-of-order` đang tắt, nên áp V64 lên database trước sẽ làm Flyway im lặng bỏ qua V63 và các bảng
+mua sắm không bao giờ được tạo.
+
+---
+
 ## Seed
 
 Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutrientSources.json`,
@@ -1262,4 +1503,5 @@ Mọi tình huống khác dùng lại mã sẵn có: `VALIDATION_ERROR`, `VERSIO
 
 `NO_MATCH` và `SEARCH_LIMIT` **không phải** mã lỗi — chúng là `reason_codes` trong body trả
 **HTTP 200**, vì không tìm được thực đơn là kết quả nghiệp vụ hợp lệ. Sáu mã `SHOPPING_*` của
-nhánh 7 cũng vậy: chúng nói về một dòng hoặc một danh sách, không phải về một yêu cầu thất bại.
+nhánh 7 và sáu mã `DIARY_*` của nhánh 8 cũng vậy: chúng nói về một dòng, một danh sách hay một
+ngày, không phải về một yêu cầu thất bại.

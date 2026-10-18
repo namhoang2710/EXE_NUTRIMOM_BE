@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.nutrition.domain.GenerationStatus;
+import vn.nutrimom.nutrition.domain.MealFeedbackSignal;
 import vn.nutrimom.nutrition.domain.MealPlanEntity;
 import vn.nutrimom.nutrition.domain.MealPlanItemEntity;
 import vn.nutrimom.nutrition.domain.MealPlanPreviewEntity;
@@ -109,6 +110,7 @@ public class MealPlanEditService {
     private final MealPlanService planViews;
     private final MealPlanGenerator generator;
     private final NutritionCalculator calculator;
+    private final MealFeedbackService feedbacks;
     private final ObjectMapper json;
     private final Clock clock;
 
@@ -116,7 +118,7 @@ public class MealPlanEditService {
                                MealPlanRepository plans, MealPlanPreviewRepository previews,
                                MealPlanCandidates candidates, MealPlanService planViews,
                                MealPlanGenerator generator, NutritionCalculator calculator,
-                               ObjectMapper json, Clock clock) {
+                               MealFeedbackService feedbacks, ObjectMapper json, Clock clock) {
         this.profiles = profiles;
         this.recipes = recipes;
         this.plans = plans;
@@ -125,6 +127,7 @@ public class MealPlanEditService {
         this.planViews = planViews;
         this.generator = generator;
         this.calculator = calculator;
+        this.feedbacks = feedbacks;
         this.json = json;
         this.clock = clock;
     }
@@ -883,17 +886,21 @@ public class MealPlanEditService {
      * được gửi kèm {@code constraints} riêng thì bản gửi kèm thắng.</p>
      */
     private PlanLimits limitsOf(ProfileSnapshot profile, PlanConstraints constraints, long seed) {
+        // Phản hồi sau bữa nạp một lượt ở đây, đi cùng limits xuống cả danh sách món thay thế lẫn
+        // bộ sinh của lượt tạo lại. Món người dùng vừa bấm "không thích" không nên đứng đầu danh
+        // sách "Đổi món" — đó đúng là lúc họ đang tìm cách thoát khỏi nó.
+        Map<String, MealFeedbackSignal> feedback = feedbacks.latestSignals(profile.userId());
         if (constraints == null) {
             return new PlanLimits(
                     profile.dailyBudgetVnd() == null
                             ? null : new BigDecimal(profile.dailyBudgetVnd()),
-                    profile.maxMinutesPerMeal(), false, false, seed);
+                    profile.maxMinutesPerMeal(), false, false, seed, feedback);
         }
         Long budget = constraints.dailyBudgetVnd() != null
                 ? constraints.dailyBudgetVnd() : profile.dailyBudgetVnd();
         Integer minutes = constraints.maxMinutesPerMeal() != null
                 ? constraints.maxMinutesPerMeal() : profile.maxMinutesPerMeal();
         return new PlanLimits(budget == null ? null : new BigDecimal(budget), minutes,
-                constraints.strictBudgetEnabled(), constraints.strictTimeEnabled(), seed);
+                constraints.strictBudgetEnabled(), constraints.strictTimeEnabled(), seed, feedback);
     }
 }

@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import vn.nutrimom.nutrition.domain.CoverageStatus;
+import vn.nutrimom.nutrition.domain.MealFeedbackSignal;
 import vn.nutrimom.nutrition.domain.RankingCriterion;
 import vn.nutrimom.nutrition.domain.RecommendationReason;
 import vn.nutrimom.nutrition.service.NutritionTotals.NutrientTotal;
@@ -82,11 +83,9 @@ public class RecipeRanker {
      *                   {@link NutritionCalculator} của nhánh 2 tính. Nhánh này
      *                   <strong>không tự cộng tổng dinh dưỡng</strong> (bất biến 4)
      * @param costVnd    chi phí ước tính một khẩu phần; null khi chưa quy đổi được giá → bỏ điểm B
-     * @param feedback   phản hồi gần nhất còn hiệu lực; null ở nhánh này (xem
-     *                   {@link MealFeedbackSignal})
      */
     public record Scorable(RecipeCandidate candidate, NutritionTotals perServing,
-                           BigDecimal costVnd, MealFeedbackSignal feedback) {
+                           BigDecimal costVnd) {
     }
 
     /** Chấm điểm rồi xếp hạng. Danh sách trả về đã theo đúng thứ tự hiển thị. */
@@ -291,8 +290,11 @@ public class RecipeRanker {
             score = score.add(TOLERANCE_BONUS);
             highlights.add(ReasonNote.of(RecommendationReason.MATCHES_TOLERANCE));
         }
-        if (scorable.feedback() != null) {
-            score = score.add(new BigDecimal(scorable.feedback().delta()));
+        // Đúng MỘT phản hồi gần nhất còn hiệu lực, đọc từ cùng chỗ với yêu thích ở trên. Hạn bảy
+        // ngày của HARD_NOW đã lọc trước khi tới đây (QĐ-03) — lớp này không biết ngày tháng.
+        MealFeedbackSignal feedback = inputs.feedbackByRecipe().get(candidate.recipeId());
+        if (feedback != null) {
+            score = score.add(new BigDecimal(feedback.delta()));
         }
         if (hasDislikedIngredient(candidate, inputs)) {
             score = score.subtract(DISLIKED_INGREDIENT_PENALTY);

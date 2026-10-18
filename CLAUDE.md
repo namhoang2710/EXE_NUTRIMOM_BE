@@ -29,4 +29,8 @@ V42–V56 thuộc Admin/consultation; V57 catalog, V58 hồ sơ dinh dưỡng.
 DB dùng chung đã ghi V59 recommendation và V60 `meal_plans` (thực đơn); V61 = index hết hạn hội thoại trợ lý
 (V32 trả về bản đã chạy); V62 = `reconcile_admin_migration_history` (trước đây đặt V60, đổi số vì trùng với meal_plans).
 V63 = `shopping_lists` (danh sách mua sắm, nhánh 7) — số lấy từ `flyway_schema_history` lúc DB đang ở V62.
+V64 = `diary_entries` + `meal_feedbacks` (nhật ký, nhánh 8) — DB vẫn ở V62 lúc đánh số, nhưng V63 đã
+nằm trong repo nên số kế tiếp trống ở cả hai phía là 64.
+**V63 và V64 chưa chạy lên DB dùng chung** (tính tới 18/10/2026, DB đang ở V62). Phải áp đúng thứ tự
+V63 rồi V64: `out-of-order` đang tắt nên áp V64 trước sẽ làm Flyway **im lặng bỏ qua** V63.
 Không tái sử dụng các số này. Những thay đổi tiếp theo phải dùng số còn trống sau khi đối chiếu.

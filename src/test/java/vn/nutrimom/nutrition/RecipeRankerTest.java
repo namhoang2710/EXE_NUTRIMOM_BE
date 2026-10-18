@@ -9,11 +9,11 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import vn.nutrimom.nutrition.domain.CoverageStatus;
+import vn.nutrimom.nutrition.domain.MealFeedbackSignal;
 import vn.nutrimom.nutrition.domain.MealType;
 import vn.nutrimom.nutrition.domain.RankingCriterion;
 import vn.nutrimom.nutrition.domain.RecipeRole;
 import vn.nutrimom.nutrition.domain.RecommendationReason;
-import vn.nutrimom.nutrition.service.MealFeedbackSignal;
 import vn.nutrimom.nutrition.service.NutritionTotals;
 import vn.nutrimom.nutrition.service.NutritionTotals.NutrientTotal;
 import vn.nutrimom.nutrition.service.RankingInputs;
@@ -204,15 +204,12 @@ class RecipeRankerTest {
 
     @Test
     void onlyTheLatestFeedbackApplies() {
-        RecipeScore tasty = ranker.score(
-                scorableWithFeedback(candidate("rec.x", 20), MealFeedbackSignal.TASTY),
-                inputs().build());
-        RecipeScore dislike = ranker.score(
-                scorableWithFeedback(candidate("rec.x", 20), MealFeedbackSignal.DISLIKE),
-                inputs().build());
-        RecipeScore hardNow = ranker.score(
-                scorableWithFeedback(candidate("rec.x", 20), MealFeedbackSignal.HARD_NOW),
-                inputs().build());
+        RecipeScore tasty = ranker.score(plainScorable(candidate("rec.x", 20)),
+                withFeedback(MealFeedbackSignal.TASTY));
+        RecipeScore dislike = ranker.score(plainScorable(candidate("rec.x", 20)),
+                withFeedback(MealFeedbackSignal.DISLIKE));
+        RecipeScore hardNow = ranker.score(plainScorable(candidate("rec.x", 20)),
+                withFeedback(MealFeedbackSignal.HARD_NOW));
 
         assertThat(tasty.preference()).isEqualByComparingTo("60");
         assertThat(dislike.preference()).isEqualByComparingTo("25");
@@ -221,9 +218,9 @@ class RecipeRankerTest {
 
     @Test
     void preferenceIsClampedIntoZeroHundred() {
-        RecipeScore floored = ranker.score(
-                scorableWithFeedback(candidate("rec.x", 20), MealFeedbackSignal.DISLIKE),
-                inputs().disliked(Set.of("ing.a")).build());
+        RecipeScore floored = ranker.score(plainScorable(candidate("rec.x", 20)),
+                inputs().feedback(Map.of("rec.x", MealFeedbackSignal.DISLIKE))
+                        .disliked(Set.of("ing.a")).build());
 
         // 50 − 25 − 35 = −10 → kẹp về 0.
         assertThat(floored.preference()).isEqualByComparingTo("0");
@@ -393,16 +390,20 @@ class RecipeRankerTest {
     }
 
     private RecipeRanker.Scorable scorable(RecipeCandidate candidate, NutritionTotals totals) {
-        return new RecipeRanker.Scorable(candidate, totals, null, null);
+        return new RecipeRanker.Scorable(candidate, totals, null);
     }
 
     private RecipeRanker.Scorable scorableWithCost(RecipeCandidate candidate, BigDecimal cost) {
-        return new RecipeRanker.Scorable(candidate, totalsWithout(), cost, null);
+        return new RecipeRanker.Scorable(candidate, totalsWithout(), cost);
     }
 
-    private RecipeRanker.Scorable scorableWithFeedback(RecipeCandidate candidate,
-                                                       MealFeedbackSignal feedback) {
-        return new RecipeRanker.Scorable(candidate, totalsWithout(), null, feedback);
+    /** Phản hồi nằm ở {@link RankingInputs}, nên nó đi vào qua ngữ cảnh chấm điểm, không qua món. */
+    private RankingInputs withFeedback(MealFeedbackSignal feedback) {
+        return inputs().feedback(Map.of("rec.x", feedback)).build();
+    }
+
+    private RecipeRanker.Scorable plainScorable(RecipeCandidate candidate) {
+        return new RecipeRanker.Scorable(candidate, totalsWithout(), null);
     }
 
     /** Món chưa có số liệu vi chất nào — null, không phải 0. */
@@ -435,6 +436,7 @@ class RecipeRankerTest {
         private BigDecimal budget;
         private Integer maxMinutes;
         private Set<String> favorites = Set.of();
+        private Map<String, MealFeedbackSignal> feedback = Map.of();
         private Set<String> disliked = Set.of();
         private Set<String> recent = Set.of();
         private Set<String> yesterdayMain = Set.of();
@@ -448,6 +450,9 @@ class RecipeRankerTest {
         InputsBuilder budget(BigDecimal value) { budget = value; return this; }
         InputsBuilder maxMinutes(Integer value) { maxMinutes = value; return this; }
         InputsBuilder favorites(Set<String> value) { favorites = value; return this; }
+        InputsBuilder feedback(Map<String, MealFeedbackSignal> value) {
+            feedback = value; return this;
+        }
         InputsBuilder disliked(Set<String> value) { disliked = value; return this; }
         InputsBuilder recent(Set<String> value) { recent = value; return this; }
         InputsBuilder yesterdayMain(Set<String> value) { yesterdayMain = value; return this; }
@@ -456,7 +461,8 @@ class RecipeRankerTest {
 
         RankingInputs build() {
             return new RankingInputs(energy, micronutrients, budget, maxMinutes, favorites,
-                    disliked, Set.of(), Set.of(), recent, yesterdayMain, weekCounts, seed);
+                    feedback, disliked, Set.of(), Set.of(), recent, yesterdayMain, weekCounts,
+                    seed);
         }
     }
 }

@@ -106,6 +106,7 @@ public class NutritionProfileService {
         List<UserRecipePreferenceEntity> recipePrefs = loadRecipePreferences(userId);
 
         return new ProfileSnapshot(
+                userId,
                 pregnancy.getId(),
                 preference == null ? 0 : preference.getProfileVersion(),
                 age,

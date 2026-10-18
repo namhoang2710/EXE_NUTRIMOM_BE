@@ -17,10 +17,15 @@ import vn.nutrimom.nutrition.domain.MealType;
  * từ JWT ở đúng một chỗ ({@link NutritionProfileService}), nên không nhánh nào vô tình mở ra lối
  * đọc hồ sơ của người khác (BR19).</p>
  *
+ * @param userId         chủ hồ sơ. Khác {@code profileId} (vốn là mã thai kỳ) và cần thiết vì vài
+ *                       thứ dùng khi chấm điểm không thuộc về hồ sơ ăn uống mà thuộc về
+ *                       <em>người dùng</em> — phản hồi sau bữa ở {@code app.meal_feedbacks} là một
+ *                       (QĐ-03). Thiếu trường này thì nơi gọi phải truyền userId song song với
+ *                       snapshot, và hai thứ đi cạnh nhau sớm muộn sẽ lệch nhau
  * @param energyEstimate ước tính năng lượng cả ngày; {@code kcalPerDay} null nghĩa là chưa ước
  *                       tính được, và nhánh năng lượng của điểm N phải bị bỏ hẳn (BR20)
  */
-public record ProfileSnapshot(String profileId, int profileVersion, GestationalAge age,
+public record ProfileSnapshot(String userId, String profileId, int profileVersion, GestationalAge age,
                               AllergyDeclarationStatus allergyStatus, Set<String> allergenIds,
                               DietPattern dietPattern, Set<String> hardExclusionIds,
                               Set<String> dislikedIngredientIds, Set<String> toleranceTags,

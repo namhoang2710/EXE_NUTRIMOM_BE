@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.nutrition.domain.CoverageStatus;
 import vn.nutrimom.nutrition.domain.EligibilityStatus;
 import vn.nutrimom.nutrition.domain.IngredientEntity;
+import vn.nutrimom.nutrition.domain.MealFeedbackSignal;
 import vn.nutrimom.nutrition.domain.MealTemplateEntity;
 import vn.nutrimom.nutrition.domain.MealType;
 import vn.nutrimom.nutrition.domain.PriceEstimateEntity;
@@ -85,12 +86,14 @@ public class RecommendationService {
     private final RecipeRanker ranker;
     private final RecipeCostEstimator costs;
     private final NutritionCalculator calculator;
+    private final MealFeedbackService feedbacks;
 
     public RecommendationService(NutritionProfileService profiles, RecipeRepository recipes,
                                  IngredientRepository ingredients, PriceEstimateRepository prices,
                                  MealTemplateRepository templates, RecommendationLogRepository logs,
                                  EligibilityFilter filter, RecipeRanker ranker,
-                                 RecipeCostEstimator costs, NutritionCalculator calculator) {
+                                 RecipeCostEstimator costs, NutritionCalculator calculator,
+                                 MealFeedbackService feedbacks) {
         this.profiles = profiles;
         this.recipes = recipes;
         this.ingredients = ingredients;
@@ -101,6 +104,7 @@ public class RecommendationService {
         this.ranker = ranker;
         this.costs = costs;
         this.calculator = calculator;
+        this.feedbacks = feedbacks;
     }
 
     @Transactional
@@ -125,10 +129,15 @@ public class RecommendationService {
             notes.add(view(ReasonNote.of(RecommendationReason.DIET_FILTER_COARSE)));
         }
 
+        // Phản hồi sau bữa của nhánh 8, nạp MỘT LƯỢT cho cả lượt gợi ý và đã lọc hạn sẵn. Tra từng
+        // món trong vòng lặp sẽ sinh ra hàng trăm câu SELECT cho một lần bấm nút, trong khi một
+        // người dùng chỉ có vài chục phản hồi.
+        Map<String, MealFeedbackSignal> feedback = feedbacks.latestSignals(userId);
+
         List<MealRecommendation> meals = new ArrayList<>();
         for (MealType mealType : new TreeSet<>(request.mealTypes())) {
             meals.add(recommendOneMeal(userId, profile, request, mealType, seed, rulesVersion,
-                    catalog, ingredientsById));
+                    catalog, ingredientsById, feedback));
         }
 
         return new RecommendationResponse(profile.profileVersion(), rulesVersion, seed,
@@ -141,7 +150,8 @@ public class RecommendationService {
                                                 RecommendationRequest request, MealType mealType,
                                                 long seed, String rulesVersion,
                                                 Map<String, IngredientFacts> catalog,
-                                                Map<String, IngredientEntity> ingredientsById) {
+                                                Map<String, IngredientEntity> ingredientsById,
+                                                Map<String, MealFeedbackSignal> feedback) {
         BigDecimal share = targetShare(mealType, profile);
         BigDecimal budgetPerSlot = perSlot(profile.dailyBudgetVnd(), share);
         BigDecimal energyPerSlot = perSlot(profile.energyEstimate().kcalPerDay(), share);
@@ -177,6 +187,10 @@ public class RecommendationService {
         RankingInputs inputs = new RankingInputs(
                 energyPerSlot, micronutrientTargets(share), budgetPerSlot,
                 profile.maxMinutesPerMeal(), profile.favoriteRecipeIds(),
+                // Đúng MỘT phản hồi gần nhất còn hiệu lực cho mỗi món (QĐ-03). Hạn bảy ngày của
+                // HARD_NOW đã lọc ở MealFeedbackService, nên lớp chấm điểm không phải biết ngày
+                // tháng. Món vắng mặt ở đây = chưa phản hồi bao giờ, hoặc phản hồi cũ đã hết hạn.
+                feedback,
                 profile.dislikedIngredientIds(),
                 // Hai tập này luôn rỗng ở nhánh này: danh mục chưa có nhãn nhóm ẩm thực và nhãn
                 // mùi/kết cấu cho công thức. Xem ghi chú ở RecipeRanker — cố ý không suy bừa.
@@ -193,9 +207,7 @@ public class RecommendationService {
                     candidateById.get(verdict.recipeId()),
                     calculator.forPortion(NutritionSnapshots.snapshotOf(recipe, ingredientsById),
                             BigDecimal.ONE),
-                    costById.get(recipe.getId()).orElse(null),
-                    // Phản hồi sau bữa ăn thuộc nhánh 8; chưa có bảng nên chưa có tín hiệu nào.
-                    null));
+                    costById.get(recipe.getId()).orElse(null)));
         }
         List<RecipeScore> ranked = ranker.rank(scorables, inputs);
 
