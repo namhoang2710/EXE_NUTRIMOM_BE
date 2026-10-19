@@ -19,6 +19,7 @@ import vn.nutrimom.nutrition.service.MealPlanSearch.Penalties;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Position;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Slot;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Targets;
+import vn.nutrimom.nutrition.service.MealPlanSearch.WeeklyAllowance;
 import vn.nutrimom.nutrition.service.NutritionSnapshots.Portion;
 import vn.nutrimom.nutrition.service.NutritionTotals.NutrientTotal;
 
@@ -90,7 +91,7 @@ public class MealPlanGenerator {
     }
 
     /**
-     * Tìm thực đơn tốt nhất cho một ngày.
+     * Tìm thực đơn tốt nhất cho một ngày, không có giới hạn theo tuần nào.
      *
      * @param preferences ngữ cảnh chấm điểm khẩu vị và đa dạng. Lớp này <strong>chỉ lấy P và
      *                    V</strong> từ {@link RecipeRanker}; năng lượng, ngân sách và thời gian
@@ -99,6 +100,28 @@ public class MealPlanGenerator {
      */
     public Outcome generate(List<Slot> slots, Targets targets, RankingInputs preferences,
                             SearchDeadline deadline) {
+        return generate(slots, targets, preferences, deadline, WeeklyAllowance.unlimited());
+    }
+
+    /**
+     * Tìm thực đơn tốt nhất cho <strong>một ngày trong một kế hoạch nhiều ngày</strong>.
+     *
+     * <p>Hai thứ của nhánh 9 đi vào qua tham số chứ không qua trạng thái của lớp — lớp này không
+     * có trạng thái:</p>
+     *
+     * <ul>
+     *   <li>{@code allowance} mang mức đã dùng của <em>các ngày trước</em>, nên điều kiện cứng
+     *       theo tuần được kiểm trên tổng của cả kế hoạch chứ không riêng ngày đang dựng;</li>
+     *   <li>{@code preferences.weekRecipeCounts()} và {@code recentRecipeIds()} mang lịch sử các
+     *       ngày trước, nên điểm đa dạng của ngày này biết những ngày kia đã ăn gì.</li>
+     * </ul>
+     *
+     * <p>{@code deadline} là hạn của <strong>cả kế hoạch</strong>, không phải của riêng ngày này:
+     * nơi gọi dựng một {@link SearchDeadline} rồi truyền qua từng ngày, nên bảy ngày chia nhau
+     * đúng một ngân sách thời gian.</p>
+     */
+    public Outcome generate(List<Slot> slots, Targets targets, RankingInputs preferences,
+                            SearchDeadline deadline, WeeklyAllowance allowance) {
         List<Step> steps = steps(slots);
         if (steps.isEmpty()) {
             return new Outcome(List.of(), null, null, false, deadline.elapsed().toMillis());
@@ -111,13 +134,13 @@ public class MealPlanGenerator {
                 return new Outcome(List.of(), null, null, true, deadline.elapsed().toMillis());
             }
 
-            List<State> next = expand(beam, step, targets, preferences,
+            List<State> next = expand(beam, step, targets, preferences, allowance,
                     CANDIDATES_PER_POSITION);
             boolean scarce = next.size() < BEAM_WIDTH
                     && step.position().candidates().size() > CANDIDATES_PER_POSITION;
             if (scarce && !deadline.exceeded()) {
                 // "Mở rộng khi thiếu phương án": duyệt thêm ứng viên, không nới điều kiện nào.
-                next = expand(beam, step, targets, preferences,
+                next = expand(beam, step, targets, preferences, allowance,
                         EXPANDED_CANDIDATES_PER_POSITION);
             }
             if (next.isEmpty()) {
@@ -344,7 +367,8 @@ public class MealPlanGenerator {
     }
 
     private List<State> expand(List<State> beam, Step step, Targets targets,
-                               RankingInputs preferences, int candidateLimit) {
+                               RankingInputs preferences, WeeklyAllowance allowance,
+                               int candidateLimit) {
         List<Candidate> candidates = step.position().candidates();
         if (candidates.size() > candidateLimit) {
             candidates = candidates.subList(0, candidateLimit);
@@ -358,7 +382,7 @@ public class MealPlanGenerator {
                             servings);
                     // Cắt nhánh TRƯỚC khi chấm điểm: một phương án vi phạm điều kiện cứng không
                     // bao giờ được chấm điểm, và chấm nó cũng chỉ tốn công vô ích.
-                    if (!satisfiesHardLimits(state, choice, targets)) {
+                    if (!satisfiesHardLimits(state, choice, targets, allowance)) {
                         continue;
                     }
                     expanded.add(state.with(choice, preferences, ranker).scored(this, targets));
@@ -385,8 +409,16 @@ public class MealPlanGenerator {
      *
      * <p>Chi phí và thời gian chỉ tăng khi thêm món, nên vượt ngưỡng ở trạng thái từng phần là đủ để
      * cắt nhánh ngay — không phải chờ tới khi phương án hoàn chỉnh.</p>
+     *
+     * <p>Giới hạn thực phẩm theo tuần cũng chỉ tăng, nhưng nó đo trên <strong>cả kế hoạch</strong>:
+     * {@code allowance} đã mang sẵn phần các ngày trước dùng, nên phép kiểm ở đây là tổng của tuần
+     * chứ không phải tổng của ngày (nhánh 9).</p>
      */
-    private boolean satisfiesHardLimits(State state, Choice added, Targets targets) {
+    private boolean satisfiesHardLimits(State state, Choice added, Targets targets,
+                                        WeeklyAllowance allowance) {
+        if (!allowance.allows(state.choices(), added)) {
+            return false;
+        }
         if (targets.strictBudget() && targets.dayBudgetVnd() != null) {
             BigDecimal before = totalCost(state.choices());
             BigDecimal addedCost = added.costVnd();
@@ -455,6 +487,12 @@ public class MealPlanGenerator {
             Candidate candidate = choice.candidate();
             // Đa dạng nhìn vào CHÍNH phương án đang dựng: số lần món đã xuất hiện ở các vị trí
             // trước, chưa tính vị trí đang xét — đúng ngữ nghĩa weekRecipeCounts của RecipeRanker.
+            //
+            // Cộng với số lần của CÁC NGÀY TRƯỚC trong cùng kế hoạch (nhánh 9): n_week là "số lần
+            // món đã có trong tuần đang tạo", nên thay số của ngày này vào chỗ số của cả tuần sẽ
+            // làm một món ăn ba ngày liền chỉ bị phạt như lần đầu.
+            Map<String, Integer> weekCounts = mergedCounts(preferences.weekRecipeCounts(),
+                    recipeCounts);
             RankingInputs withHistory = new RankingInputs(
                     preferences.energyTargetPerSlot(), preferences.micronutrientTargetsPerSlot(),
                     preferences.budgetPerSlotVnd(), preferences.maxMinutes(),
@@ -462,7 +500,7 @@ public class MealPlanGenerator {
                     preferences.dislikedIngredientIds(),
                     preferences.preferredCuisineTags(), preferences.toleranceTags(),
                     preferences.recentRecipeIds(), preferences.yesterdayMainIngredientTags(),
-                    recipeCounts, preferences.seed());
+                    weekCounts, preferences.seed());
 
             // perServing và costVnd để null: lớp này chỉ lấy P và V, còn dinh dưỡng, chi phí và
             // thời gian đều được đánh giá ở cấp ngày. Phản hồi sau bữa thì KHÔNG bỏ qua được —
@@ -479,6 +517,16 @@ public class MealPlanGenerator {
             return new State(List.copyOf(nextChoices), Map.copyOf(nextCounts),
                     preferenceSum.add(score.preference()), varietySum.add(score.variety()),
                     null, null);
+        }
+
+        private static Map<String, Integer> mergedCounts(Map<String, Integer> earlierDays,
+                                                         Map<String, Integer> today) {
+            if (earlierDays.isEmpty()) {
+                return today;
+            }
+            Map<String, Integer> merged = new HashMap<>(earlierDays);
+            today.forEach((recipeId, count) -> merged.merge(recipeId, count, Integer::sum));
+            return merged;
         }
 
         State scored(MealPlanGenerator generator, Targets targets) {

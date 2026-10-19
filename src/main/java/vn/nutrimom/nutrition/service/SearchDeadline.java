@@ -16,8 +16,24 @@ import java.util.function.LongSupplier;
  */
 public final class SearchDeadline {
 
-    /** Hạn cho thực đơn một ngày. Bảy ngày là 5 giây và thuộc nhánh 9. */
+    /** Hạn cho thực đơn một ngày. */
     public static final Duration ONE_DAY_BUDGET = Duration.ofSeconds(2);
+
+    /**
+     * Hạn cho thực đơn ba và bảy ngày (nhánh 9) — của <strong>cả kế hoạch</strong>, không phải
+     * mỗi ngày một lần.
+     *
+     * <p>Bảy ngày không được tốn bảy lần hai giây: cấu trúc bữa và danh sách ứng viên dựng đúng
+     * một lượt rồi dùng lại cho mọi ngày, nên phần thật sự lặp lại chỉ là vòng beam. Một ngân sách
+     * chung cũng là cách duy nhất để người dùng chờ một khoảng đoán được, thay vì chờ theo số ngày
+     * họ chọn.</p>
+     */
+    public static final Duration MULTI_DAY_BUDGET = Duration.ofSeconds(5);
+
+    /** Hạn của một lượt lập {@code dayCount} ngày. */
+    public static Duration budgetFor(int dayCount) {
+        return dayCount <= 1 ? ONE_DAY_BUDGET : MULTI_DAY_BUDGET;
+    }
 
     private final LongSupplier nanoTime;
     private final long startedAtNanos;
