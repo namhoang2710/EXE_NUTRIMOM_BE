@@ -25,7 +25,46 @@ public record NutritionRules(String rulesVersion,
                              Map<String, String> nutrientUnits,
                              List<MicronutrientTarget> micronutrientTargets,
                              List<RetentionFactor> retentionFactors,
+                             List<WeeklyFoodLimit> weeklyFoodLimits,
                              EnergyEstimateRules energyEstimate) {
+
+    public NutritionRules {
+        weeklyFoodLimits = weeklyFoodLimits == null ? List.of() : List.copyOf(weeklyFoodLimits);
+    }
+
+    /**
+     * Một nhóm thực phẩm có <strong>giới hạn theo tuần</strong> (nhánh 9).
+     *
+     * <p>FDA/EPA xếp cá theo nhóm và cho tần suất <em>theo tuần</em>, nên điều kiện này chỉ có
+     * nghĩa trên cả kế hoạch chứ không trên từng ngày. Ba điều lớp dùng nó phải giữ:</p>
+     *
+     * <ol>
+     *   <li><strong>Theo nhóm, không theo tên món.</strong> {@code ingredientIds} là nhóm dữ liệu
+     *       thật; bộ sinh cộng gram nguyên liệu của cả kế hoạch, nên một món đổi tên vẫn bị tính.
+     *       </li>
+     *   <li><strong>Mỗi nhóm một dòng.</strong> Cá ít thuỷ ngân và cá nhiều thuỷ ngân là hai mức
+     *       khác nhau; gộp chúng lại là coi mọi loại cá như nhau, đúng thứ nhánh 9 cấm.</li>
+     *   <li><strong>Chỉ nguyên liệu khai thẳng trong công thức.</strong> Danh mục không khai gram
+     *       cho nguyên liệu con, nên không có cách nào biết một muỗng nước mắm mang bao nhiêu gram
+     *       cá cơm. Đoán ra một con số ở đây sẽ làm giới hạn an toàn dựa trên số bịa; muốn tính thì
+     *       khai chính nguyên liệu dẫn xuất đó thành một dòng.</li>
+     * </ol>
+     *
+     * @param maxGramPerWeek mức của <strong>một tuần</strong>, áp cho cả kế hoạch kể cả khi kế
+     *                       hoạch ngắn hơn bảy ngày
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WeeklyFoodLimit(String code, String label, List<String> ingredientIds,
+                                  BigDecimal maxGramPerWeek, String sourceId) {
+
+        public WeeklyFoodLimit {
+            ingredientIds = ingredientIds == null ? List.of() : List.copyOf(ingredientIds);
+        }
+
+        public boolean covers(String ingredientId) {
+            return ingredientIds.contains(ingredientId);
+        }
+    }
 
     /**
      * Hệ số giữ lại {@code r} khi bản ghi dinh dưỡng mô tả một trạng thái, còn công thức dùng

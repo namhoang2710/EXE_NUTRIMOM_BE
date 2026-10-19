@@ -27,6 +27,7 @@ import vn.nutrimom.nutrition.service.NutritionSeedData.RecipesFile;
 import vn.nutrimom.nutrition.service.NutritionSeedData.RulesFile;
 import vn.nutrimom.nutrition.service.NutritionSeedData.Source;
 import vn.nutrimom.nutrition.service.NutritionSeedData.SourcesFile;
+import vn.nutrimom.nutrition.service.NutritionSeedData.WeeklyFoodLimit;
 import vn.nutrimom.nutrition.service.NutritionSeedValidator;
 
 /**
@@ -45,7 +46,8 @@ class NutritionSeedValidatorTest {
     private static final RulesFile RULES = new RulesFile("v1",
             List.of(new MicronutrientTarget("FOLATE", new BigDecimal("600"), "mcg_dfe", "RDA")),
             List.of(new MealTemplate(MealType.LUNCH, TemplateMode.ROLE_SET,
-                    List.of(RecipeRole.STAPLE, RecipeRole.PROTEIN), new BigDecimal("0.3"), "1")));
+                    List.of(RecipeRole.STAPLE, RecipeRole.PROTEIN), new BigDecimal("0.3"), "1")),
+            List.of());
 
     @Test
     void acceptsAWellFormedSeed() {
@@ -207,6 +209,57 @@ class NutritionSeedValidatorTest {
                 new IngredientsFile(List.of(), List.of(broken)), new RecipesFile(List.of()));
 
         assertThat(problems).hasSizeGreaterThanOrEqualTo(4);
+    }
+
+    /**
+     * Một mã gõ sai trong giới hạn theo tuần <strong>không có triệu chứng</strong>: nhóm vẫn tồn
+     * tại, chỉ là không khớp nguyên liệu nào, nên điều kiện an toàn im lặng không chạy. Đúng loại
+     * lỗi phải chặn ở bước kiểm seed thay vì chờ ai đó phát hiện trên một thực đơn thật.
+     */
+    @Test
+    void rejectsAWeeklyFoodLimitThatNamesAnIngredientTheCatalogDoesNotHave() {
+        var rules = weeklyLimitRules(new WeeklyFoodLimit("FISH", "cá", List.of("ing.ca-go-sai"),
+                new BigDecimal("340"), "src.a"));
+
+        var problems = NutritionSeedValidator.validate(SOURCES, rules,
+                ingredientsOf(rice()), recipesOf(riceDish()));
+
+        assertThat(problems).anyMatch(p -> p.contains("FISH") && p.contains("ing.ca-go-sai"));
+    }
+
+    @Test
+    void rejectsAWeeklyFoodLimitWithNoIngredientsOrNoLimit() {
+        var empty = weeklyLimitRules(new WeeklyFoodLimit("FISH", "cá", List.of(),
+                new BigDecimal("340"), null));
+        var zero = weeklyLimitRules(new WeeklyFoodLimit("FISH", "cá", List.of("ing.rice"),
+                BigDecimal.ZERO, null));
+
+        assertThat(NutritionSeedValidator.validate(SOURCES, empty, ingredientsOf(rice()),
+                recipesOf(riceDish())))
+                .anyMatch(p -> p.contains("không giới hạn gì cả"));
+        assertThat(NutritionSeedValidator.validate(SOURCES, zero, ingredientsOf(rice()),
+                recipesOf(riceDish())))
+                .anyMatch(p -> p.contains("maxGramPerWeek"));
+    }
+
+    /** Hai nhóm trùng mã thì nhóm sau che nhóm trước, và một mức giới hạn biến mất lặng lẽ. */
+    @Test
+    void rejectsTwoWeeklyFoodLimitsSharingACode() {
+        var rules = weeklyLimitRules(
+                new WeeklyFoodLimit("FISH", "cá ít thuỷ ngân", List.of("ing.rice"),
+                        new BigDecimal("340"), null),
+                new WeeklyFoodLimit("FISH", "cá nhiều thuỷ ngân", List.of("ing.rice"),
+                        new BigDecimal("170"), null));
+
+        var problems = NutritionSeedValidator.validate(SOURCES, rules, ingredientsOf(rice()),
+                recipesOf(riceDish()));
+
+        assertThat(problems).anyMatch(p -> p.contains("trùng code FISH"));
+    }
+
+    private static RulesFile weeklyLimitRules(WeeklyFoodLimit... limits) {
+        return new RulesFile(RULES.rulesVersion(), RULES.micronutrientTargets(),
+                RULES.mealTemplates(), List.of(limits));
     }
 
     private static Ingredient rice() {

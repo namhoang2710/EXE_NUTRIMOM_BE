@@ -110,7 +110,53 @@ public final class NutritionSeedValidator {
             }
         }
 
+        checkWeeklyFoodLimits(rules, ingredients.keySet(), sourceIds, problems);
+
         return problems;
+    }
+
+    /**
+     * Giới hạn thực phẩm theo tuần (nhánh 9).
+     *
+     * <p>Một mã nguyên liệu gõ sai ở đây <strong>không</strong> làm gì cả: nhóm vẫn tồn tại, chỉ là
+     * không khớp nguyên liệu nào, nên giới hạn an toàn im lặng không chạy và không có triệu chứng
+     * nào nhìn thấy được. Đó đúng là loại lỗi phải chặn ở bước kiểm seed.</p>
+     */
+    private static void checkWeeklyFoodLimits(RulesFile rules, Set<String> ingredientIds,
+                                              Set<String> sourceIds, List<String> problems) {
+        Set<String> codes = new HashSet<>();
+        for (var limit : safe(rules.weeklyFoodLimits())) {
+            String code = limit.code() == null ? "(thiếu code)" : limit.code();
+            if (limit.code() == null || limit.code().isBlank()) {
+                problems.add("nutritionRules.json: có giới hạn theo tuần thiếu code");
+            } else if (!codes.add(limit.code())) {
+                problems.add("nutritionRules.json: giới hạn theo tuần trùng code " + code);
+            }
+            if (limit.label() == null || limit.label().isBlank()) {
+                problems.add("nutritionRules.json: giới hạn theo tuần " + code
+                        + " thiếu label — label là câu người dùng đọc khi nhóm chạm mức");
+            }
+            if (isNotPositive(limit.maxGramPerWeek())) {
+                problems.add("nutritionRules.json: giới hạn theo tuần " + code
+                        + " có maxGramPerWeek không lớn hơn 0");
+            }
+            List<String> members = limit.ingredientIds() == null
+                    ? List.of() : limit.ingredientIds();
+            if (members.isEmpty()) {
+                problems.add("nutritionRules.json: giới hạn theo tuần " + code
+                        + " không khai nguyên liệu nào, nên nó không giới hạn gì cả");
+            }
+            for (String ingredientId : members) {
+                if (!ingredientIds.contains(ingredientId)) {
+                    problems.add("nutritionRules.json: giới hạn theo tuần " + code
+                            + " tham chiếu nguyên liệu lạ " + ingredientId);
+                }
+            }
+            if (limit.sourceId() != null && !sourceIds.contains(limit.sourceId())) {
+                problems.add("nutritionRules.json: giới hạn theo tuần " + code
+                        + " tham chiếu nguồn lạ " + limit.sourceId());
+            }
+        }
     }
 
     private static void collectCatalogs(SourcesFile sources, Map<String, String> nutrientUnits,

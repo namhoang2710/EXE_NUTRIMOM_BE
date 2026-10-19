@@ -195,6 +195,38 @@ public enum RecommendationReason {
     /** Món đã khóa không đặt được vào cấu trúc nào của bữa (vai trò không thuộc template nào). */
     LOCKED_ITEM_UNPLACEABLE(Kind.RESULT, "Món bạn khóa ở %s không hợp với cấu trúc nào của bữa đó"),
 
+    // --- Nói về cả một kế hoạch nhiều ngày (nhánh 9) ------------------------------------------
+
+    /**
+     * Giới hạn thực phẩm theo tuần đã được kiểm trên <strong>tổng của cả kế hoạch</strong>.
+     *
+     * <p>Phát ra cả khi còn thừa mức: con số "đã dùng / mức tuần" là thứ cho thấy điều kiện đã
+     * chạy trên toàn kế hoạch chứ không riêng một ngày. Im lặng thì người dùng không phân biệt
+     * được "trong mức" với "chưa ai kiểm" — và đây là một khuyến cáo an toàn, không phải một tuỳ
+     * chọn.</p>
+     */
+    WEEKLY_FOOD_LIMIT_CHECKED(Kind.RESULT, "Đã kiểm giới hạn theo tuần cho cả kế hoạch: %s"),
+
+    /**
+     * Một nhóm đã dùng hết mức của tuần, nên phần còn lại của kế hoạch không nhận thêm nhóm đó.
+     *
+     * <p>Đây là <strong>điều kiện cứng</strong>, cùng hạng với dị ứng: không nới ra để kế hoạch
+     * trông đa dạng hơn (bất biến 5).</p>
+     */
+    WEEKLY_FOOD_LIMIT_REACHED(Kind.RESULT,
+            "Đã dùng hết mức theo tuần của %s, các bữa còn lại không nhận thêm nhóm này"),
+
+    /**
+     * Cùng một món xuất hiện trong <strong>hai ngày gần nhau</strong> của kế hoạch.
+     *
+     * <p>Không tính những mục người dùng chủ động lập lịch lặp — họ đã nói rõ là muốn ăn lại món
+     * đó, và báo cho họ biết điều họ vừa yêu cầu là tiếng ồn. Món lặp vẫn hợp lệ: điểm đa dạng đã
+     * trừ 40 điểm cho nó, và ghi chú này chỉ nói ra chỗ bộ sinh đã phải chấp nhận lặp vì danh mục
+     * không còn lựa chọn nào khác.</p>
+     */
+    REPEATED_RECIPE_ACROSS_DAYS(Kind.RESULT,
+            "Thực đơn lặp lại %s trong hai ngày gần nhau — danh mục chưa đủ món cho vai trò đó"),
+
     // --- Nói về danh sách mua sắm (nhánh 7) ---------------------------------------------------
     //
     // Vẫn ở enum này, cùng lý do đã viết cho nhóm kế hoạch: mã lý do là thứ đi ra tới giao diện,

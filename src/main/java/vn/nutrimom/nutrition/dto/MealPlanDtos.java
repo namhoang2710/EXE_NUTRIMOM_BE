@@ -52,7 +52,9 @@ public final class MealPlanDtos {
      *                       đúng bản xem trước cũ
      * @param profileVersion phiên bản hồ sơ mà giao diện đang cầm; lệch với hiện tại thì yêu cầu bị
      *                       từ chối thay vì lập thực đơn theo dữ liệu đã cũ. Bỏ trống = không kiểm
-     * @param dayCount       nhánh này <strong>chỉ nhận 1</strong>; ba và bảy ngày thuộc nhánh 9
+     * @param dayCount       <strong>1, 3 hoặc 7</strong>, mặc định 1 (nhánh 9). Giá trị khác bị
+     *                       từ chối tại trường: tập này là lựa chọn sản phẩm — một ngày, ba ngày,
+     *                       một tuần — chứ không phải một khoảng
      * @param snackCount     1–3, mặc định 1 (QĐ-02). Tỉ lệ 15% của bữa phụ chia đều cho từng bữa
      * @param seed           seed để tái lập kết quả thử nghiệm. <strong>Không phải dữ liệu sức
      *                       khỏe</strong>, cũng như {@code requestId}
@@ -62,9 +64,7 @@ public final class MealPlanDtos {
             @Size(max = 64) String requestId,
             Integer profileVersion,
             @NotNull(message = "start_date không được rỗng") LocalDate startDate,
-            @Min(value = 1, message = "day_count của nhánh thực đơn một ngày chỉ nhận 1")
-            @Max(value = 1, message = "day_count của nhánh thực đơn một ngày chỉ nhận 1")
-            Integer dayCount,
+            @SupportedDayCount Integer dayCount,
             @NotEmpty(message = "meal_types không được rỗng")
             @Size(max = 4) Set<MealType> mealTypes,
             @Min(value = 1, message = "snack_count nằm trong 1–3")
@@ -75,6 +75,10 @@ public final class MealPlanDtos {
 
         public short snackCountOrDefault() {
             return snackCount == null ? (short) 1 : snackCount;
+        }
+
+        public int dayCountOrDefault() {
+            return dayCount == null ? 1 : dayCount;
         }
 
         public long seedOrDefault() {

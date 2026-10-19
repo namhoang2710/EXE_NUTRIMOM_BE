@@ -123,6 +123,138 @@ public final class MealPlanSearch {
     }
 
     /**
+     * Phần còn lại của các <strong>giới hạn thực phẩm theo tuần</strong>, tại thời điểm bắt đầu
+     * một ngày (nhánh 9).
+     *
+     * <p>Đây là điều kiện cứng duy nhất của module <strong>không</strong> đánh giá được trong
+     * phạm vi một ngày: FDA/EPA cho tần suất cá theo tuần, nên một ngày ăn cá không sai gì cả còn
+     * bảy ngày liền thì có. Vì vậy mức đã dùng của các ngày trước đi cùng đối tượng này sang ngày
+     * sau, và bộ sinh kiểm {@code đã dùng + đang dựng + món sắp thêm} chứ không kiểm riêng ngày
+     * đang làm.</p>
+     *
+     * <p>Lượng của một món tính <strong>trước</strong> khi vào vòng lặp và nằm sẵn trong
+     * {@link Entry#gramPerServingByRecipe()}: bộ sinh mở rộng hàng nghìn tổ hợp, và quy đổi lại
+     * gram nguyên liệu ở mỗi lần mở rộng là trả giá cho cùng một phép tính nhiều lần. Quy đổi đó
+     * đi qua {@code NutritionCalculator} như mọi lượng nguyên liệu khác (bất biến 4).</p>
+     *
+     * <p>Nhóm nào không có món nào trong kế hoạch thì vẫn ở đây với {@code consumedGram = 0} —
+     * nhờ vậy phản hồi nói được "đã kiểm nhóm này, dùng 0 g" thay vì im lặng.</p>
+     */
+    public record WeeklyAllowance(List<Entry> entries) {
+
+        public WeeklyAllowance {
+            entries = entries == null ? List.of() : List.copyOf(entries);
+        }
+
+        /** Không có giới hạn tuần nào — đường dùng cho các lượt sinh một ngày của nhánh 5 và 6. */
+        public static WeeklyAllowance unlimited() {
+            return new WeeklyAllowance(List.of());
+        }
+
+        public boolean isEmpty() {
+            return entries.isEmpty();
+        }
+
+        /**
+         * Một nhóm có giới hạn, kèm phần đã dùng của <strong>cả kế hoạch</strong>.
+         *
+         * @param gramPerServingByRecipe gram của nhóm này trong <em>một khẩu phần</em> từng món;
+         *                               món không có mặt ở đây nghĩa là không chứa nguyên liệu nào
+         *                               thuộc nhóm
+         */
+        public record Entry(String code, String label, BigDecimal maxGram, BigDecimal consumedGram,
+                            Map<String, BigDecimal> gramPerServingByRecipe) {
+
+            public Entry {
+                gramPerServingByRecipe = gramPerServingByRecipe == null
+                        ? Map.of() : Map.copyOf(gramPerServingByRecipe);
+            }
+
+            public BigDecimal remainingGram() {
+                return maxGram.subtract(consumedGram).max(BigDecimal.ZERO);
+            }
+
+            /** Nhóm đã dùng hết mức của tuần. */
+            public boolean reached() {
+                return consumedGram.compareTo(maxGram) >= 0;
+            }
+
+            /** Lượng của nhóm này trong một món ở số phần đã chọn; 0 khi món không thuộc nhóm. */
+            public BigDecimal gramOf(String recipeId, BigDecimal servings) {
+                BigDecimal perServing = gramPerServingByRecipe.get(recipeId);
+                return perServing == null ? BigDecimal.ZERO : perServing.multiply(servings);
+            }
+
+            public BigDecimal gramOf(Choice choice) {
+                return gramOf(choice.candidate().recipeId(), choice.servings());
+            }
+
+            Entry plus(BigDecimal gram) {
+                return new Entry(code, label, maxGram, consumedGram.add(gram),
+                        gramPerServingByRecipe);
+            }
+        }
+
+        /**
+         * Thêm {@code added} vào phương án đang dựng có vượt nhóm nào không.
+         *
+         * <p>{@code taken} là các món đã chọn <em>trong ngày đang dựng</em>; phần của các ngày
+         * trước đã nằm trong {@link Entry#consumedGram()}. Cộng cả hai mới ra "tổng của cả kế
+         * hoạch", và đó mới là thứ giới hạn theo tuần nói tới.</p>
+         */
+        public boolean allows(List<Choice> taken, Choice added) {
+            for (Entry entry : entries) {
+                BigDecimal gram = entry.gramOf(added);
+                if (gram.signum() == 0) {
+                    continue;
+                }
+                for (Choice choice : taken) {
+                    gram = gram.add(entry.gramOf(choice));
+                }
+                if (entry.consumedGram().add(gram).compareTo(entry.maxGram()) > 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /** Ghi nhận một ngày đã chốt. */
+        public WeeklyAllowance consume(List<Choice> choices) {
+            if (entries.isEmpty() || choices.isEmpty()) {
+                return this;
+            }
+            List<Entry> next = new ArrayList<>();
+            for (Entry entry : entries) {
+                BigDecimal gram = BigDecimal.ZERO;
+                for (Choice choice : choices) {
+                    gram = gram.add(entry.gramOf(choice));
+                }
+                next.add(entry.plus(gram));
+            }
+            return new WeeklyAllowance(List.copyOf(next));
+        }
+
+        /** Ghi nhận một mục đã nằm sẵn trong kế hoạch đã lưu (nhánh 6 sửa kế hoạch nhiều ngày). */
+        public WeeklyAllowance consume(String recipeId, BigDecimal servings) {
+            if (entries.isEmpty()) {
+                return this;
+            }
+            List<Entry> next = new ArrayList<>();
+            for (Entry entry : entries) {
+                next.add(entry.plus(entry.gramOf(recipeId, servings)));
+            }
+            return new WeeklyAllowance(List.copyOf(next));
+        }
+
+        /** Nhóm vượt mức sau khi đã ghi nhận hết; rỗng nghĩa là cả kế hoạch còn trong giới hạn. */
+        public List<Entry> exceeded() {
+            return entries.stream()
+                    .filter(entry -> entry.consumedGram().compareTo(entry.maxGram()) > 0)
+                    .toList();
+        }
+    }
+
+    /**
      * Phần phạt của một phương án, mỗi thành phần trong 0–1.
      *
      * <p>null = thành phần đó <strong>không đánh giá được</strong>. Dữ liệu thiếu không được dùng

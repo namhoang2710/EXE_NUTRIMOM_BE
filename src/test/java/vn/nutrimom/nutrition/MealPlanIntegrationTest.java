@@ -7,9 +7,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +43,9 @@ class MealPlanIntegrationTest extends ApiIntegrationTestSupport {
 
     private static final String PREVIEW_PATH = "/api/v1/meal-plans/preview";
     private static final String PLAN_PATH = "/api/v1/meal-plans";
+
+    /** Chia gram cho servingsYield cần đủ chữ số: 100/3 không có biểu diễn hữu hạn. */
+    private static final MathContext MATH = new MathContext(16);
 
     @Autowired MealPlanPreviewRepository previews;
     @Autowired MealPlanRepository plans;
@@ -403,6 +409,171 @@ class MealPlanIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     // =========================================================================================
+    // Nhánh 9 — ba và bảy ngày
+    // =========================================================================================
+
+    /**
+     * Bảy ngày, đủ bốn bữa, trên seed thật — <strong>trong 5 giây</strong>.
+     *
+     * <p>Đo trên cả đường HTTP chứ không riêng bộ sinh, vì 5 giây là thứ người dùng chờ chứ không
+     * phải thứ bộ sinh tiêu. Số đo thực tế của máy kiểm thử ghi ở
+     * {@code docs/NUTRITION_API.md}.</p>
+     */
+    @Test
+    void aSevenDayPlanIsGeneratedInsideTheFiveSecondBudget() throws Exception {
+        Session session = onboardedMom("0912380031");
+
+        long startedAt = System.nanoTime();
+        MvcResult result = preview(session, """
+                {"request_id":"req-seven-days","start_date":"2026-10-14","day_count":7,
+                 "meal_types":["BREAKFAST","LUNCH","DINNER","SNACK"],"snack_count":1,"seed":17}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("READY_WITH_NOTES"))
+                .andExpect(jsonPath("$.data.days.length()").value(7))
+                .andReturn();
+        long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
+
+        assertThat(elapsedMillis)
+                .describedAs("thời gian tạo bản xem trước bảy ngày đầy đủ (ms), mục tiêu 5000")
+                .isLessThan(5000L);
+
+        List<String> dates = new ArrayList<>();
+        for (JsonNode day : data(result).at("/days")) {
+            dates.add(day.at("/local_date").stringValue());
+            assertThat(day.at("/slots").size())
+                    .describedAs("ngày %s phải có đủ bốn bữa", day.at("/local_date"))
+                    .isEqualTo(4);
+            for (JsonNode slot : day.at("/slots")) {
+                assertThat(slot.at("/filled").asBoolean()).isTrue();
+                assertThat(slot.at("/items").size()).isPositive();
+            }
+            // Mỗi ngày có tổng của riêng nó, không phải một tổng tuần chia bảy.
+            assertThat(day.at("/nutrition/ENERGY/known_value").isNull()).isFalse();
+        }
+        assertThat(dates).containsExactly("2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17",
+                "2026-10-18", "2026-10-19", "2026-10-20");
+    }
+
+    /**
+     * Quy tắc cá theo tuần kiểm <strong>tổng lượng của cả kế hoạch</strong>, theo nhóm dữ liệu.
+     *
+     * <p>Seed khai nhóm "cá và hải sản nhóm nên ăn" ở mức 340 g một tuần. Bảy ngày trưa và tối là
+     * mười bốn vị trí đạm, thừa chỗ để cá hồi xuất hiện quá mức nếu không ai cộng tổng — nên con
+     * số tính lại từ chính các mục trả về là bằng chứng duy nhất đáng tin ở đây.</p>
+     */
+    @Test
+    void theWeeklyFishRuleIsCheckedOnTheWholeSevenDayPlan() throws Exception {
+        Session session = onboardedMom("0912380032");
+
+        MvcResult result = preview(session, """
+                {"request_id":"req-week-fish","start_date":"2026-10-14","day_count":7,
+                 "meal_types":["LUNCH","DINNER"],"seed":5}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.notes[?(@.code == 'WEEKLY_FOOD_LIMIT_CHECKED')]")
+                        .exists())
+                .andReturn();
+
+        // Gram của nhóm, cộng lại từ chính các mục đã trả về. Một khẩu phần mang lượng nguyên
+        // liệu chia cho servingsYield của món, đúng như seed khai: cá hồi áp chảo 240 g cá cho 2
+        // phần, canh bí đỏ nấu tôm 100 g tôm cho 3 phần.
+        Map<String, BigDecimal> gramPerServing = Map.of(
+                "rec.ca-hoi-ap-chao", new BigDecimal("240").divide(new BigDecimal("2"), MATH),
+                "rec.canh-bi-do-tom", new BigDecimal("100").divide(new BigDecimal("3"), MATH));
+
+        BigDecimal seafood = BigDecimal.ZERO;
+        for (JsonNode day : data(result).at("/days")) {
+            for (JsonNode slot : day.at("/slots")) {
+                for (JsonNode item : slot.at("/items")) {
+                    BigDecimal perServing = gramPerServing.getOrDefault(
+                            item.at("/recipe_id").stringValue(), BigDecimal.ZERO);
+                    seafood = seafood.add(perServing.multiply(item.at("/servings").decimalValue()));
+                }
+            }
+        }
+
+        assertThat(seafood)
+                .describedAs("tổng cá và hải sản của cả bảy ngày (g)")
+                .isLessThanOrEqualTo(new BigDecimal("340"));
+        assertThat(noteMessages(result)).contains("/340 g");
+    }
+
+    /**
+     * Danh mục chỉ có một món tinh bột cho bữa trưa, nên bảy ngày buộc phải lặp — và kế hoạch
+     * <strong>nói ra</strong> chỗ nó đã phải lặp thay vì để người dùng tự phát hiện.
+     */
+    @Test
+    void aDishThatHasToRepeatAcrossDaysIsReported() throws Exception {
+        Session session = onboardedMom("0912380033");
+
+        preview(session, """
+                {"request_id":"req-week-repeat","start_date":"2026-10-14","day_count":7,
+                 "meal_types":["LUNCH"],"seed":3}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.notes[?(@.code == 'REPEATED_RECIPE_ACROSS_DAYS')]")
+                        .exists());
+    }
+
+    /** TC23 với bảy ngày: <strong>từng ngày</strong> mang ghi chú kế hoạch một phần ngày. */
+    @Test
+    void everyDayOfAPartialSevenDayPlanIsLabelledAsAPartialDay() throws Exception {
+        Session session = onboardedMom("0912380034");
+
+        MvcResult result = preview(session, """
+                {"request_id":"req-week-partial","start_date":"2026-10-14","day_count":7,
+                 "meal_types":["LUNCH","DINNER"]}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.notes[?(@.code == 'PARTIAL_DAY_PLAN')]").exists())
+                .andReturn();
+
+        for (JsonNode day : data(result).at("/days")) {
+            List<String> codes = new ArrayList<>();
+            day.at("/notes").forEach(note -> codes.add(note.at("/code").stringValue()));
+            assertThat(codes)
+                    .describedAs("ghi chú của ngày %s", day.at("/local_date"))
+                    .contains("PARTIAL_DAY_PLAN");
+        }
+    }
+
+    /** Ba ngày lưu được thành một kế hoạch, và đọc lại ra đúng ba ngày tách bạch. */
+    @Test
+    void aThreeDayPlanIsSavedAndReadBackDayByDay() throws Exception {
+        Session session = onboardedMom("0912380035");
+
+        MvcResult preview = preview(session, """
+                {"request_id":"req-three-days","start_date":"2026-10-14","day_count":3,
+                 "meal_types":["LUNCH","DINNER"],"seed":9}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.days.length()").value(3))
+                .andReturn();
+
+        MvcResult saved = save(session, data(preview).at("/preview_id").stringValue())
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.start_date").value("2026-10-14"))
+                .andExpect(jsonPath("$.data.end_date").value("2026-10-16"))
+                .andExpect(jsonPath("$.data.days.length()").value(3))
+                .andReturn();
+        String planId = data(saved).at("/plan_id").stringValue();
+
+        MvcResult read = mockMvc.perform(get(PLAN_PATH + "/{id}", planId)
+                        .header("Authorization", "Bearer " + session.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.days.length()").value(3))
+                .andReturn();
+
+        List<String> dates = new ArrayList<>();
+        for (JsonNode day : data(read).at("/days")) {
+            dates.add(day.at("/local_date").stringValue());
+            assertThat(day.at("/slots").size()).isEqualTo(2);
+        }
+        assertThat(dates).containsExactly("2026-10-14", "2026-10-15", "2026-10-16");
+    }
+
+    // =========================================================================================
     // TC24 và các ràng buộc đầu vào
     // =========================================================================================
 
@@ -441,13 +612,14 @@ class MealPlanIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
-    /** Ba ngày thuộc nhánh 9; nhánh này nhận đúng một ngày và nói thẳng ra. */
+    /** {@code day_count} là một lựa chọn sản phẩm — một ngày, ba ngày, một tuần — không phải một
+     * khoảng: 5 nằm giữa 3 và 7 nhưng vẫn bị từ chối, và từ chối tại đúng trường. */
     @Test
-    void threeDaysIsRejectedInThisBranch() throws Exception {
+    void aDayCountOfFiveIsRejectedAtTheField() throws Exception {
         Session session = onboardedMom("0912380018");
 
         preview(session, """
-                {"request_id":"req-three-days","start_date":"2026-10-14","day_count":3,
+                {"request_id":"req-five-days","start_date":"2026-10-14","day_count":5,
                  "meal_types":["LUNCH"]}
                 """)
                 .andExpect(status().isUnprocessableContent())

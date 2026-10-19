@@ -18,6 +18,12 @@
       "name": "Viện Dinh dưỡng Quốc gia Việt Nam",
       "recordRef": null,
       "retrievedOn": null
+    },
+    {
+      "id": "src.fda-epa-fish-advice",
+      "name": "FDA/EPA — Advice about Eating Fish (khuyến cáo theo TUẦN cho người mang thai)",
+      "recordRef": "https://www.fda.gov/food/consumers/advice-about-eating-fish",
+      "retrievedOn": null
     }
   ],
   "nutrients": [

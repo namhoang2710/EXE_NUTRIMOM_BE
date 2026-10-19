@@ -14,7 +14,8 @@ từng nhánh merge.
 | 6 — sửa thực đơn đã lưu (không có migration) | **đã làm** |
 | 7 — danh sách mua sắm (V63) | **đã làm** |
 | 8 — nhật ký và phản hồi (V64) | **đã làm** |
-| 9–10 | chưa |
+| 9 — thực đơn ba và bảy ngày (không có migration) | **đã làm** |
+| 10 | chưa |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -282,7 +283,7 @@ ACTIVE_PREGNANCY_NOT_FOUND`.
     "meal_types": ["BREAKFAST", "LUNCH", "DINNER"],
     "snack_count": null,
     "energy_inputs": { "age_years": 29, "height_cm": 160.00, "activity_category": "LOW_ACTIVE" },
-    "energy_estimate": { "kcal_per_day": null, "rules_version": "nutrition-seed-v2",
+    "energy_estimate": { "kcal_per_day": null, "rules_version": "nutrition-seed-v3",
                          "unmet": [ { "field": "current_weight_kg", "kind": "MISSING" } ] }
   }
 }
@@ -457,7 +458,7 @@ database. Để người gọi truyền vào là cách duy nhất phục vụ c�
 {
   "data": {
     "profile_version": 3,
-    "rules_version": "nutrition-seed-v2",
+    "rules_version": "nutrition-seed-v3",
     "seed": 4242,
     "allergy_checked": false,
     "notes": [
@@ -630,8 +631,8 @@ Ba endpoint, **đều cần JWT**. Chủ sở hữu luôn suy từ `jwt.sub`, kh
 | `POST /api/v1/meal-plans` | lưu bản xem trước thành kế hoạch (201) |
 | `GET /api/v1/meal-plans/{planId}` | đọc kế hoạch đã lưu kèm tổng dự kiến |
 
-**Nhánh này chỉ lập một ngày.** `day_count` khác 1 bị từ chối tại trường; ba và bảy ngày thuộc
-nhánh 9.
+Phần này mô tả **một ngày**. `day_count` nhận 1, 3 hoặc 7 — ba và bảy ngày dùng đúng ba endpoint
+này và đúng hình dạng phản hồi này, phần riêng của chúng ở [nhánh 9](#thực-đơn-ba-và-bảy-ngày-nhánh-9).
 
 ### Yêu cầu tạo bản xem trước
 
@@ -672,7 +673,7 @@ nhánh 9.
     "preview_id": "0f0b…",
     "status": "READY_WITH_NOTES",
     "profile_version": 3,
-    "rules_version": "nutrition-seed-v2",
+    "rules_version": "nutrition-seed-v3",
     "seed": 17,
     "nutrition_coverage": "PARTIAL",
     "expires_at": "2026-10-14T04:30:00Z",
@@ -764,7 +765,7 @@ rồi chuẩn hóa trên phần còn lại — không bao giờ cho 0, cũng kh�
 |---|---|
 | Ứng viên mỗi vị trí sau lọc | 15, mở rộng lên 30 khi thiếu phương án |
 | Beam giữ sau mỗi bước | 20 |
-| Hạn thời gian một ngày | 2 giây |
+| Hạn thời gian một ngày | 2 giây (ba và bảy ngày: 5 giây cho cả kế hoạch — nhánh 9) |
 
 Vi chất chỉ tính trên chất mang `COMPLETE`: một chất mà vài nguyên liệu chưa khai số liệu thì tổng
 của nó thấp hơn thực tế, và phạt theo con số đó sẽ đẩy bộ sinh đi chọn thêm món để bù một thiếu hụt
@@ -784,7 +785,8 @@ nấu song song), còn ngân sách cứng kiểm trên **cả ngày**. Hiển th
 **Thời gian sinh thực tế** (Windows 11, JDK 21, H2 profile test, 16/10/2026): cấu trúc nặng nhất
 nhánh này sinh ra — 6 bữa, 11 vị trí, 30 ứng viên và 4 mức khẩu phần mỗi vị trí — mất **428 ms**
 trong bộ sinh; một lượt `POST /meal-plans/preview` đầu tiên cho ngày đầy đủ trên seed thật, tính cả
-HTTP và JPA, mất **648 ms**. Cả hai nằm trong mục tiêu 2 giây.
+HTTP và JPA, mất **648 ms**. Cả hai nằm trong mục tiêu 2 giây. Đo lại ngày 19/10/2026 sau khi
+nhánh 9 vào: **859 ms** cho cùng lượt một ngày — xem bảng ở [nhánh 9](#hiệu-năng).
 
 ### Lưu và đọc lại
 
@@ -1468,6 +1470,148 @@ mua sắm không bao giờ được tạo.
 
 ---
 
+## Thực đơn ba và bảy ngày (nhánh 9)
+
+Không có endpoint mới và **không có migration**: `app.meal_plans` đã tách `start_date` và
+`end_date` từ V60, còn `meal_slots.local_date` đã là một phần của khóa duy nhất. Nhánh này chỉ mở
+`day_count` và thêm hai thứ chỉ tồn tại khi kế hoạch dài hơn một ngày.
+
+| Trường | Giá trị |
+|---|---|
+| `day_count` | **1, 3 hoặc 7**, mặc định 1 |
+
+Giá trị khác bị từ chối tại trường (`VALIDATION_ERROR`, `error.fields.day_count`) — kể cả 5, dù nó
+nằm giữa 3 và 7: đây là một lựa chọn sản phẩm (một ngày, ba ngày, một tuần), không phải một khoảng.
+
+`days[]` trả về **đúng `day_count` phần tử**, ngày liên tiếp từ `start_date`, mỗi ngày có tổng dinh
+dưỡng, chi phí và ghi chú của riêng nó. Hình dạng mỗi ngày **không đổi** so với nhánh 5.
+
+### Một cấu trúc, nhiều lượt ghép
+
+Cấu trúc bữa và danh sách ứng viên không phụ thuộc ngày — cùng hồ sơ, cùng danh mục, cùng giới hạn —
+nên bước tạo cấu trúc và bước lọc chạy **một lượt** rồi dùng lại cho mọi ngày; chỉ bước ghép lặp
+theo ngày. Mỗi ngày vẫn được chấm theo **mục tiêu dinh dưỡng của riêng nó**: gộp bảy ngày vào một
+hàm mục tiêu sẽ cho phép một ngày thiếu được bù bằng một ngày thừa, mà người ta thì ăn theo ngày.
+
+Một ngày không ghép được là **cả kế hoạch** `NO_MATCH`: sáu ngày rưỡi không phải thứ người dùng yêu
+cầu, và lưu nó lại sẽ tạo ra một tuần thiếu ngày mà giao diện vẫn mở ra được.
+
+`locked_items` không mang ngày (hợp đồng nhánh 5 giữ nguyên), nên một món khóa áp cho bữa đó ở
+**mọi ngày** — đúng nghĩa "người dùng chủ động lập lịch lặp". Món đó không bị tính vào đa dạng và
+không sinh ghi chú lặp.
+
+### Đa dạng liên ngày
+
+Ba thành phần liên ngày của `V` có sẵn từ nhánh 4; nhánh này cho chúng dữ liệu:
+
+```
+V = max(0, 100 − 40·I_recipe − 20·I_mainIngredient − 10·n_week)
+```
+
+| Thành phần | Nguồn |
+|---|---|
+| `I_recipe` | món đã có trong **hai ngày gần đây** của chính kế hoạch |
+| `I_mainIngredient` | nguyên liệu chính của **ngày hôm trước** |
+| `n_week` | số lần món đã có trong **tuần đang tạo**, không tính lần đang xét |
+
+Cập nhật sau **từng ngày**, và trong một ngày thì sau **từng lựa chọn** — một bảng điểm tính sẵn
+dùng chung cho bảy ngày sẽ cho ra bảy bản sao của cùng một ngày tốt nhất.
+
+### Giới hạn thực phẩm theo tuần
+
+Điều kiện cứng duy nhất của module **không** đánh giá được trong phạm vi một ngày. Khai trong
+`nutritionRules.json`:
+
+```json
+"weeklyFoodLimits": [
+  { "code": "SEAFOOD_BEST_CHOICE", "label": "cá và hải sản nhóm nên ăn",
+    "ingredientIds": ["ing.ca-hoi", "ing.ca-com", "ing.tom-su", "ing.tom-kho"],
+    "maxGramPerWeek": 340, "sourceId": "src.fda-epa-fish-advice" }
+]
+```
+
+Bốn điều quyết định cách nó hoạt động:
+
+1. **Theo nhóm dữ liệu, không theo tên món.** Bộ sinh cộng **gram nguyên liệu** của cả kế hoạch,
+   nên đổi tên món, đổi khẩu phần hay chia một món thành hai bữa đều không đi vòng được. Tên món
+   không tham gia phép so sánh nào.
+2. **Mỗi nhóm một dòng, mỗi dòng một mức.** FDA/EPA phân loại cá theo mức thuỷ ngân và mỗi nhóm có
+   tần suất riêng; gộp lại là coi mọi loại cá như nhau. Thêm nhóm cá nhiều thuỷ ngân là thêm một
+   dòng, không phải nới mức của dòng đang có. Không dùng `FoodGroup` vì `MEAT_FISH_EGG` gộp cả
+   thịt — cùng lý do với `DIET_FILTER_COARSE`.
+3. **Kiểm trên tổng cả kế hoạch**, không trên từng ngày: mức đã dùng của các ngày trước đi cùng
+   sang ngày sau, và một món chỉ bị loại khi *tổng* vượt mức. Mức là mức của một tuần và áp cho cả
+   kế hoạch kể cả khi kế hoạch ngắn hơn bảy ngày.
+4. **Chỉ nguyên liệu khai thẳng trong công thức.** Danh mục không khai gram cho nguyên liệu con,
+   nên không có cách nào biết một muỗng nước mắm mang bao nhiêu gram cá cơm — đoán một con số ở đây
+   sẽ làm điều kiện an toàn chạy trên số bịa. Muốn tính thì khai chính nguyên liệu dẫn xuất thành
+   một dòng. (Khác với dị ứng: ở đó câu hỏi là *có hay không*, và bước lọc vẫn duyệt đệ quy.)
+
+Một mã nguyên liệu gõ sai trong `weeklyFoodLimits` **không có triệu chứng** — nhóm vẫn tồn tại, chỉ
+là không khớp gì — nên `NutritionSeedValidator` chặn nó ở bước kiểm seed và ứng dụng không khởi
+động.
+
+Ba đường vào kế hoạch đều kiểm giới hạn này: lập mới, `POST …/regenerate`, và `PATCH …/items/{id}`
+(vượt mức → `RECIPE_NOT_ELIGIBLE` 422 kèm con số). Một điều kiện cứng chỉ là điều kiện cứng khi
+không đường nào bỏ qua nó.
+
+### Mã lý do thêm ở nhánh này (HTTP 200)
+
+| Mã | Khi nào |
+|---|---|
+| `WEEKLY_FOOD_LIMIT_CHECKED` | nhóm có mặt trong kế hoạch, kèm `đã dùng/mức` — **không** hạ `status`, vì đây là kết quả tốt |
+| `WEEKLY_FOOD_LIMIT_REACHED` | nhóm đã dùng hết mức, phần còn lại của kế hoạch không nhận thêm |
+| `REPEATED_RECIPE_ACROSS_DAYS` | cùng món trong hai ngày gần nhau, **trừ** mục người dùng chủ động giữ |
+
+`PARTIAL_DAY_PLAN` xuất hiện ở `days[].notes` của **từng ngày** (TC23), và một lần ở mức kế hoạch.
+Ghi chú mức kế hoạch gom theo mã; con số của từng ngày nằm ở ngày đó.
+
+### Hiệu năng
+
+| Tham số | Giá trị |
+|---|---|
+| Hạn thời gian bảy ngày | **5 giây** cho cả kế hoạch, không phải mỗi ngày |
+| Ứng viên mỗi vị trí | 15, mở lên 30 khi thiếu phương án |
+| Beam | 20 |
+
+**Số đo thực tế** (Windows 11, JDK 21, H2 profile test, 19/10/2026) — `POST /meal-plans/preview`
+trên seed thật, đo cả HTTP và JPA, lượt gọi **đầu tiên** của JVM:
+
+| Lượt | Đo được | Mục tiêu |
+|---|---|---|
+| 1 ngày, 4 bữa | **859 ms** | 2 giây |
+| 7 ngày, 4 bữa | **1 520 ms** | 5 giây |
+| 7 ngày, 4 bữa (JVM đã ấm) | **350 ms** | 5 giây |
+
+Riêng vòng beam, trên cấu trúc nặng nhất API nhận (6 bữa, 11 vị trí, 30 ứng viên và 4 mức khẩu phần
+mỗi vị trí, 7 ngày): **1 411 ms**. Không phải chỉnh beam hay seed để đạt hạn.
+
+Hết thời gian mà chưa đủ số ngày → `NO_MATCH` kèm `SEARCH_LIMIT`; **không** kết luận không tồn tại
+thực đơn phù hợp (TC19).
+
+### Chặn theo gói — chỗ duy nhất của cả module (QĐ-04)
+
+MVP **không gate gì**. Khi quyết định bán, chỗ cắm là lượt lập có `day_count != 1`, trong
+`MealPlanService.preview`, theo đúng mẫu `CalendarReminderService`:
+
+```java
+entitlements.requireFeature(userId, PlanFeature.PERSONALISED_GUIDANCE);
+```
+
+Dùng lại key đã có, **không thêm giá trị mới vào `PlanFeature`** — enum đó khớp cứng thứ tự với
+`pricing-catalog.ts` bên FE. Lỗi trả `PLAN_UPGRADE_REQUIRED` (403), đã có sẵn. **Không bao giờ**
+gate lọc dị ứng, cảnh báo thành phần, điều kiện chế biến hay giới hạn theo tuần: đó là an toàn,
+không phải quyền lợi bán.
+
+### Hiển thị (phối hợp với FE)
+
+- Điện thoại: **thanh chọn ngày theo chiều ngang**. Máy tính: **bảng tuần**.
+- **Không ép một bảng bảy cột vào màn hình nhỏ.**
+- Ngày có ghi chú hoặc dữ liệu thiếu: đánh dấu bằng **văn bản**, không chỉ khác màu — `days[].notes`
+  và `days[].nutrition.*.coverage` có sẵn cho đúng việc này.
+
+---
+
 ## Seed
 
 Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutrientSources.json`,
@@ -1480,9 +1624,13 @@ Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutr
 - **Cập nhật chứ không xoá sạch**: dòng biến mất khỏi seed chỉ bị ghi log cảnh báo. Từ nhánh 5 trở
   đi kế hoạch và nhật ký tham chiếu tới `recipes`; xoá đi là viết lại lịch sử đã ăn (BR17).
 - Tắt bằng `app.nutrition.seed-enabled=false` (profile test đặt sẵn `false`).
-- Nhánh 2 thêm `retentionFactors` và `energyEstimate` vào `nutritionRules.json`, nên
-  `rules_version` đã tăng lên `nutrition-seed-v2`. Hai khối này **không vào database**:
+- Nhánh 2 thêm `retentionFactors` và `energyEstimate` vào `nutritionRules.json`
+  (`nutrition-seed-v2`); nhánh 9 thêm `weeklyFoodLimits` và nguồn `src.fda-epa-fish-advice`, nên
+  `rules_version` hiện là **`nutrition-seed-v3`**. Ba khối này **không vào database**:
   `NutritionRulesProvider` đọc thẳng từ classpath, và thiếu hệ số thì ứng dụng không khởi động.
+- Tăng `rules_version` làm **mọi bản xem trước đang mở hết hiệu lực** (`VERSION_CONFLICT` lúc lưu)
+  và đánh dấu kế hoạch cũ sinh bằng tập quy tắc khác — đúng như thiết kế: con số đã trình bày cho
+  người dùng phải tái lập được bằng chính tập quy tắc đã sinh ra nó.
 
 > Số liệu dinh dưỡng và giá trong seed hiện mang nguồn `src.demo-placeholder` — giá trị **tạm** để
 > chạy được luồng, **chưa đối chiếu nguồn chính thức**. Chuẩn hoá 40–60 món có dẫn nguồn là công

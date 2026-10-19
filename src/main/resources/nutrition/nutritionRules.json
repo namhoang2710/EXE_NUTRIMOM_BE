@@ -1,6 +1,6 @@
 {
   "_note": "rulesVersion là mã của TOÀN BỘ tập seed. Tăng nó mỗi lần sửa bất kỳ file nào trong thư mục này: loader so sánh để biết có phải nạp lại hay không, và các nhánh sau ghi nó vào snapshot kế hoạch để tái lập được kết quả.",
-  "rulesVersion": "nutrition-seed-v2",
+  "rulesVersion": "nutrition-seed-v3",
 
   "_micronutrientNote": "Mức tham chiếu NIH cho nhóm tuổi 19-50 khi mang thai. Choline là AI, các chất còn lại là RDA. Đây KHÔNG phải mức phân bổ cho một bữa, cũng không phải liều cần bổ sung. Nhánh 2 (NutritionCalculator) đọc bảng này; nhánh 1 chỉ nạp và kiểm tra tính hợp lệ.",
   "micronutrientTargets": [
@@ -14,6 +14,17 @@
 
   "_retentionNote": "Hệ số giữ lại r chỉ dùng khi bản ghi dinh dưỡng mô tả nguyên liệu SỐNG mà công thức dùng nó ở trạng thái khác. Bản ghi đã mô tả thực phẩm chín thì r = 1, KHÔNG áp hao hụt lần nữa. Danh sách dưới đây cố ý RỖNG: chưa có bộ hệ số nào đối chiếu được nguồn cho nhóm món Việt. Thiếu hệ số thì calculator vẫn dùng r = 1 nhưng ghi rõ đó là GIẢ ĐỊNH ƯỚC TÍNH trong phương pháp của món, chứ không trình bày như số đo sau nấu. Mỗi dòng khai: fromState, toState, nutrientCode (null = mọi chất), foodGroup (null = mọi nhóm), factor, sourceId.",
   "retentionFactors": [],
+
+  "_weeklyLimitNote": "Giới hạn thực phẩm theo TUẦN (nhánh 9). Mỗi dòng là MỘT nhóm dữ liệu có tên, liệt kê đúng những mã nguyên liệu thuộc nhóm đó, kèm mức gram tối đa cho CẢ kế hoạch. Bốn điều không được làm: (1) không gộp mọi loại cá vào một dòng — FDA/EPA phân loại theo mức thuỷ ngân và mỗi nhóm có tần suất riêng, nên thêm nhóm là thêm MỘT DÒNG chứ không phải nới mức của dòng đang có; (2) không kiểm theo tên món — bộ sinh cộng gram nguyên liệu, nên đổi tên món không qua mặt được giới hạn; (3) chỉ đếm nguyên liệu khai THẲNG trong công thức, vì danh mục không khai gram cho nguyên liệu con: muốn tính nước mắm nấu từ cá cơm thì khai ing.nuoc-mam thành một dòng riêng, không suy ra từ ing.ca-com; (4) mức là mức của một TUẦN và áp cho cả kế hoạch dù kế hoạch ngắn hơn bảy ngày — một ngày cũng không được ăn trọn phần của cả tuần.",
+  "weeklyFoodLimits": [
+    {
+      "code": "SEAFOOD_BEST_CHOICE",
+      "label": "cá và hải sản nhóm nên ăn",
+      "ingredientIds": ["ing.ca-hoi", "ing.ca-com", "ing.tom-su", "ing.tom-kho"],
+      "maxGramPerWeek": 340,
+      "sourceId": "src.fda-epa-fish-advice"
+    }
+  ],
 
   "_eerNote": "Hệ số của mô hình EER cho thai kỳ, nhóm tuổi 19-50. Công thức ĐÃ GỒM yếu tố thai kỳ: không cộng thêm 340 hay 450 kcal. D (bmiAdjustments) là thành phần toán học của mô hình, KHÔNG phải thiết lập giảm cân. EER là ước tính có sai số, không phải chỉ định khẩu phần.",
   "energyEstimate": {
