@@ -605,6 +605,58 @@ class MealPlanEditIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     // =========================================================================================
+    // Kế hoạch nhiều ngày (nhánh 9)
+    // =========================================================================================
+
+    /**
+     * Tạo lại một kế hoạch ba ngày giữ nguyên <strong>ba ngày</strong>.
+     *
+     * <p>Bữa trưa của ba ngày mang cùng loại bữa và cùng {@code sequence}; chỉ có ngày tách chúng
+     * ra. Thiếu ngày trong khóa định vị bữa thì lượt tạo lại ghi cả ba ngày bằng kết quả của một
+     * ngày — không lỗi nào nổ ra, chỉ là hai ngày lặng lẽ biến mất.</p>
+     */
+    @Test
+    void regeneratingAThreeDayPlanKeepsAllThreeDays() throws Exception {
+        Session session = onboardedMom("0912390021");
+        MvcResult preview = mockMvc.perform(post(PLANS + "/preview")
+                        .header("Authorization", "Bearer " + session.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"request_id":"req-edit-multiday","start_date":"2026-10-14",
+                                 "day_count":3,"meal_types":["LUNCH"],"seed":17}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        MvcResult saved = mockMvc.perform(post(PLANS)
+                        .header("Authorization", "Bearer " + session.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"preview_id\":\""
+                                + data(preview).at("/preview_id").stringValue() + "\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String planId = data(saved).at("/plan_id").stringValue();
+        int planVersion = data(saved).at("/plan_version").asInt();
+        int profileVersion = data(saved).at("/profile_version").asInt();
+
+        MvcResult regenerated = regenerate(session, planId, """
+                {"expected_plan_version":%d,"expected_profile_version":%d,"seed":42}
+                """.formatted(planVersion, profileVersion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.plan.days.length()").value(3))
+                .andReturn();
+
+        List<String> dates = new ArrayList<>();
+        for (JsonNode day : data(regenerated).at("/plan/days")) {
+            dates.add(day.at("/local_date").stringValue());
+            assertThat(day.at("/slots").size())
+                    .describedAs("ngày %s vẫn phải có bữa trưa của nó", day.at("/local_date"))
+                    .isEqualTo(1);
+            assertThat(day.at("/slots/0/items").size()).isPositive();
+        }
+        assertThat(dates).containsExactly("2026-10-14", "2026-10-15", "2026-10-16");
+    }
+
+    // =========================================================================================
     // Fixture
     // =========================================================================================
 

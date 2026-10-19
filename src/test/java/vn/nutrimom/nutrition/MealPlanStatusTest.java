@@ -37,6 +37,20 @@ class MealPlanStatusTest {
         assertThat(MealPlanService.statusOf(notes)).isEqualTo(GenerationStatus.READY);
     }
 
+    /**
+     * Giới hạn theo tuần <strong>đã kiểm và còn trong mức</strong> cũng không hạ trạng thái: đó là
+     * một kết quả tốt. Hạ vì nó thì mọi kế hoạch có cá đều mang nhãn "cần xem lại", và cái nhãn
+     * đó mất hết ý nghĩa.
+     */
+    @Test
+    void aWeeklyLimitThatWasCheckedAndNotReachedStaysReady() {
+        List<ReasonNote> notes = List.of(
+                ReasonNote.of(RecommendationReason.WEEKLY_FOOD_LIMIT_CHECKED,
+                        "cá và hải sản nhóm nên ăn 120/340 g"));
+
+        assertThat(MealPlanService.statusOf(notes)).isEqualTo(GenerationStatus.READY);
+    }
+
     @Test
     void anyOtherNoteMovesThePlanToReadyWithNotes() {
         for (RecommendationReason reason : List.of(
@@ -44,6 +58,8 @@ class MealPlanStatusTest {
                 RecommendationReason.DAY_OVER_BUDGET,
                 RecommendationReason.MEAL_OVER_TIME,
                 RecommendationReason.STRICT_BUDGET_WITHOUT_PRICE,
+                RecommendationReason.WEEKLY_FOOD_LIMIT_REACHED,
+                RecommendationReason.REPEATED_RECIPE_ACROSS_DAYS,
                 RecommendationReason.SEARCH_LIMIT)) {
             assertThat(MealPlanService.statusOf(List.of(ReasonNote.of(reason, "1"))))
                     .describedAs("ghi chú %s", reason)
@@ -61,7 +77,10 @@ class MealPlanStatusTest {
                 RecommendationReason.DAY_OVER_BUDGET,
                 RecommendationReason.MEAL_OVER_TIME,
                 RecommendationReason.STRICT_BUDGET_WITHOUT_PRICE,
-                RecommendationReason.LOCKED_ITEM_UNPLACEABLE)) {
+                RecommendationReason.LOCKED_ITEM_UNPLACEABLE,
+                RecommendationReason.WEEKLY_FOOD_LIMIT_CHECKED,
+                RecommendationReason.WEEKLY_FOOD_LIMIT_REACHED,
+                RecommendationReason.REPEATED_RECIPE_ACROSS_DAYS)) {
             assertThat(ReasonNote.of(reason, "chi tiết").message())
                     .describedAs("câu của mã %s", reason)
                     .isNotBlank()

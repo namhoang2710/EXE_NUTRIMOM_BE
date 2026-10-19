@@ -5,11 +5,14 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +30,7 @@ import vn.nutrimom.nutrition.domain.MealPlanItemEntity;
 import vn.nutrimom.nutrition.domain.MealPlanPreviewEntity;
 import vn.nutrimom.nutrition.domain.MealSlotEntity;
 import vn.nutrimom.nutrition.domain.MealTemplateEntity;
+import vn.nutrimom.nutrition.domain.MealType;
 import vn.nutrimom.nutrition.domain.RecipeEntity;
 import vn.nutrimom.nutrition.domain.RecipeRole;
 import vn.nutrimom.nutrition.domain.RecommendationReason;
@@ -51,6 +55,7 @@ import vn.nutrimom.nutrition.service.MealPlanSearch.Outcome;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Position;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Slot;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Targets;
+import vn.nutrimom.nutrition.service.MealPlanSearch.WeeklyAllowance;
 import vn.nutrimom.nutrition.service.NutritionSnapshots.RecipeSnapshot;
 import vn.nutrimom.nutrition.service.PlanRevision.RevisionItem;
 import vn.nutrimom.nutrition.service.PlanRevision.RevisionSlot;
@@ -109,6 +114,7 @@ public class MealPlanEditService {
     private final MealPlanCandidates candidates;
     private final MealPlanService planViews;
     private final MealPlanGenerator generator;
+    private final WeeklyFoodLimits weeklyLimits;
     private final NutritionCalculator calculator;
     private final MealFeedbackService feedbacks;
     private final ObjectMapper json;
@@ -117,7 +123,8 @@ public class MealPlanEditService {
     public MealPlanEditService(NutritionProfileService profiles, RecipeRepository recipes,
                                MealPlanRepository plans, MealPlanPreviewRepository previews,
                                MealPlanCandidates candidates, MealPlanService planViews,
-                               MealPlanGenerator generator, NutritionCalculator calculator,
+                               MealPlanGenerator generator, WeeklyFoodLimits weeklyLimits,
+                               NutritionCalculator calculator,
                                MealFeedbackService feedbacks, ObjectMapper json, Clock clock) {
         this.profiles = profiles;
         this.recipes = recipes;
@@ -126,6 +133,7 @@ public class MealPlanEditService {
         this.candidates = candidates;
         this.planViews = planViews;
         this.generator = generator;
+        this.weeklyLimits = weeklyLimits;
         this.calculator = calculator;
         this.feedbacks = feedbacks;
         this.json = json;
@@ -247,6 +255,8 @@ public class MealPlanEditService {
         List<BigDecimal> servingOptions = candidates.servingOptions(
                 candidates.template(slot.getMealType(), slot.mode()).orElse(null));
         BigDecimal servings = resolveServings(request, item, snapshot, servingOptions);
+        requireWeeklyLimits(plan, item, replacement == null ? item.getRecipeId()
+                : replacement.getId(), servings, snapshot);
 
         // Chụp bản lùi TRƯỚC khi chạm vào mục nào — sau khi mọi phép kiểm đã qua, nên một yêu cầu
         // bị từ chối không để lại một bản hoàn tác trỏ về trạng thái chưa hề thay đổi.
@@ -321,6 +331,49 @@ public class MealPlanEditService {
                     Map.of("recipe_id", why));
         }
         return recipe;
+    }
+
+    /**
+     * Đổi món hoặc tăng khẩu phần <strong>không được đi vòng qua giới hạn theo tuần</strong>.
+     *
+     * <p>Điều kiện cứng chỉ là điều kiện cứng khi mọi đường vào kế hoạch đều kiểm nó. Bộ sinh chặn
+     * đường lập mới và đường tạo lại; nút "Đổi món" là đường thứ ba, và nếu nó không kiểm thì bảy
+     * ngày cá hồi chỉ cách người dùng vài lần bấm — lại còn trông như hệ thống đã duyệt.</p>
+     *
+     * <p>Tính lại trên <strong>toàn kế hoạch</strong> với mục đã thay, chứ không cộng thêm phần
+     * chênh: cộng chênh lệch giả định tổng hiện tại đang hợp lệ, mà một kế hoạch lưu từ trước khi
+     * seed khai giới hạn này thì không.</p>
+     */
+    private void requireWeeklyLimits(MealPlanEntity plan, MealPlanItemEntity patched,
+                                     String recipeId, BigDecimal servings,
+                                     RecipeSnapshot snapshot) {
+        if (weeklyLimits.limits().isEmpty()) {
+            return;
+        }
+        List<RecipeSnapshot> snapshots = new ArrayList<>();
+        snapshots.add(snapshot);
+        for (MealSlotEntity slot : plan.getSlots()) {
+            slot.getItems().forEach(item -> snapshots.add(readSnapshot(item)));
+        }
+
+        WeeklyAllowance allowance = weeklyLimits.allowanceFor(snapshots);
+        for (MealSlotEntity slot : plan.getSlots()) {
+            for (MealPlanItemEntity item : slot.getItems()) {
+                allowance = item == patched
+                        ? allowance.consume(recipeId, servings)
+                        : allowance.consume(item.getRecipeId(), item.getServings());
+            }
+        }
+
+        List<WeeklyAllowance.Entry> exceeded = allowance.exceeded();
+        if (!exceeded.isEmpty()) {
+            WeeklyAllowance.Entry entry = exceeded.get(0);
+            String why = "Thay đổi này đưa %s lên %s g, vượt mức %s g cho cả kế hoạch tuần."
+                    .formatted(entry.label(), entry.consumedGram().stripTrailingZeros()
+                            .toPlainString(), entry.maxGram().stripTrailingZeros().toPlainString());
+            throw new BusinessException(ErrorCode.RECIPE_NOT_ELIGIBLE, why,
+                    Map.of("recipe_id", why));
+        }
     }
 
     private void requireMatchingRecipeVersion(Integer sent, int current) {
@@ -402,48 +455,127 @@ public class MealPlanEditService {
         PlanLimits limits = limitsOf(profile, request.constraints(), request.seedOrDefault());
         CatalogContext catalog = candidates.loadCatalog();
         List<MealSlotEntity> slots = MealPlanService.orderedSlots(plan);
+        // Kế hoạch nhiều ngày tạo lại theo NGÀY, đúng như lúc lập (nhánh 9): một hàm mục tiêu
+        // chung cho bảy ngày sẽ cho phép một ngày thiếu được bù bằng một ngày thừa.
+        Map<LocalDate, List<MealSlotEntity>> byDate = slots.stream()
+                .collect(Collectors.groupingBy(MealSlotEntity::getLocalDate, LinkedHashMap::new,
+                        Collectors.toList()));
 
-        List<Slot> structure = new ArrayList<>();
         List<ReasonNote> notes = new ArrayList<>();
-        BigDecimal shareSum = BigDecimal.ZERO;
+        Map<LocalDate, List<Slot>> structures = new LinkedHashMap<>();
+        Map<LocalDate, BigDecimal> shareSums = new LinkedHashMap<>();
         boolean feasible = true;
 
-        for (MealSlotEntity slot : slots) {
-            BigDecimal share = candidates.shareOf(slot.getMealType(), snackCount(plan, slot));
-            Optional<Slot> rebuilt =
-                    rebuildSlot(plan, slot, profile, limits, catalog, share, notes);
-            if (rebuilt.isEmpty()) {
-                feasible = false;
-                continue;
+        for (var day : byDate.entrySet()) {
+            List<Slot> structure = new ArrayList<>();
+            BigDecimal shareSum = BigDecimal.ZERO;
+            for (MealSlotEntity slot : day.getValue()) {
+                BigDecimal share = candidates.shareOf(slot.getMealType(), snackCount(plan, slot));
+                Optional<Slot> rebuilt =
+                        rebuildSlot(plan, slot, profile, limits, catalog, share, notes);
+                if (rebuilt.isEmpty()) {
+                    feasible = false;
+                    continue;
+                }
+                structure.add(rebuilt.get());
+                if (share != null) {
+                    shareSum = shareSum.add(share);
+                }
             }
-            structure.add(rebuilt.get());
-            if (share != null) {
-                shareSum = shareSum.add(share);
-            }
+            structures.put(day.getKey(), structure);
+            shareSums.put(day.getKey(), shareSum.signum() == 0 ? null : shareSum);
         }
 
-        Outcome outcome = null;
+        List<Outcome> outcomes = new ArrayList<>();
+        boolean searchLimit = false;
         if (feasible) {
-            Targets targets = candidates.targetsOf(profile, limits,
-                    shareSum.signum() == 0 ? null : shareSum);
-            outcome = generator.generate(structure, targets,
-                    candidates.preferenceInputs(profile, limits),
-                    SearchDeadline.of(SearchDeadline.ONE_DAY_BUDGET));
+            SearchDeadline deadline = SearchDeadline.of(SearchDeadline.budgetFor(byDate.size()));
+            RankingInputs preferences = candidates.preferenceInputs(profile, limits);
+            WeeklyAllowance consumed = weeklyLimits.allowanceFor(regenerationSnapshots(plan,
+                    structures.values()));
+            PlanVarietyHistory history = PlanVarietyHistory.empty();
+
+            for (var day : byDate.entrySet()) {
+                Targets targets = candidates.targetsOf(profile, limits, shareSums.get(day.getKey()));
+                Outcome outcome = generator.generate(structures.get(day.getKey()), targets,
+                        history.applyTo(preferences), deadline,
+                        // Mục đang giữ ở các ngày CHƯA tạo lại vẫn nằm trong kế hoạch sau lượt
+                        // này, nên chúng ăn vào mức tuần ngay từ bây giờ. Mục giữ của chính ngày
+                        // đang dựng thì không: nó đã là một lựa chọn của ngày đó và bộ sinh cộng
+                        // nó như mọi lựa chọn khác.
+                        withPinnedOfLaterDays(consumed, byDate, day.getKey()));
+                if (!outcome.complete()) {
+                    searchLimit = outcome.searchLimit();
+                    feasible = false;
+                    break;
+                }
+                consumed = consumed.consume(outcome.choices());
+                history = history.after(outcome.choices());
+                outcomes.add(outcome);
+            }
         }
 
-        if (outcome == null || !outcome.complete()) {
-            if (outcome != null) {
-                notes.add(ReasonNote.of(outcome.searchLimit()
+        if (!feasible) {
+            if (!outcomes.isEmpty() || searchLimit) {
+                notes.add(ReasonNote.of(searchLimit
                         ? RecommendationReason.SEARCH_LIMIT : RecommendationReason.NO_MATCH));
             }
+            // Một ngày hỏng là cả lượt hỏng: kế hoạch giữ nguyên, không có ngày nào bị thay một
+            // nửa.
             notes.addAll(unlockSuggestions(slots));
             return finish(userId, plan, List.of(), notes, false);
         }
 
         storeRevision(userId, plan);
-        applyOutcome(slots, structure, outcome);
+        int day = 0;
+        for (var entry : byDate.entrySet()) {
+            applyOutcome(entry.getValue(), structures.get(entry.getKey()), outcomes.get(day++));
+        }
         plan.setPlanVersion(plan.getPlanVersion() + 1);
         return finish(userId, plan, wholePlanNotes(plan, limits), notes, true);
+    }
+
+    /**
+     * Mọi công thức mà lượt tạo lại có thể để lại trong kế hoạch: ứng viên của từng vị trí và món
+     * đang nằm sẵn trong kế hoạch.
+     *
+     * <p>Thiếu một món ở đây thì giới hạn theo tuần tính nó là 0 g — một điều kiện an toàn bỏ qua
+     * trong im lặng, nên tập này cố ý rộng hơn cần.</p>
+     */
+    private List<RecipeSnapshot> regenerationSnapshots(MealPlanEntity plan,
+                                                       Collection<List<Slot>> structures) {
+        List<RecipeSnapshot> snapshots = new ArrayList<>();
+        for (List<Slot> structure : structures) {
+            for (Slot slot : structure) {
+                for (Position position : slot.positions()) {
+                    position.candidates().forEach(candidate -> snapshots.add(candidate.snapshot()));
+                }
+            }
+        }
+        for (MealSlotEntity slot : plan.getSlots()) {
+            slot.getItems().forEach(item -> snapshots.add(readSnapshot(item)));
+        }
+        return snapshots;
+    }
+
+    /** Mức tuần đã dùng, cộng thêm các mục đang giữ của những ngày sau ngày đang dựng. */
+    private WeeklyAllowance withPinnedOfLaterDays(WeeklyAllowance consumed,
+                                                  Map<LocalDate, List<MealSlotEntity>> byDate,
+                                                  LocalDate currentDay) {
+        WeeklyAllowance allowance = consumed;
+        for (var day : byDate.entrySet()) {
+            if (!day.getKey().isAfter(currentDay)) {
+                continue;
+            }
+            for (MealSlotEntity slot : day.getValue()) {
+                for (MealPlanItemEntity item : slot.getItems()) {
+                    if (pinned(item)) {
+                        allowance = allowance.consume(item.getRecipeId(), item.getServings());
+                    }
+                }
+            }
+        }
+        return allowance;
     }
 
     /**
@@ -561,14 +693,12 @@ public class MealPlanEditService {
      * đang cầm vẫn trỏ đúng sau một lượt tạo lại — và {@code recipe_version} cùng snapshot của nó
      * không có cơ hội bị viết lại (TC11).</p>
      */
-    private void applyOutcome(List<MealSlotEntity> slots, List<Slot> structure, Outcome outcome) {
-        Map<String, MealSlotEntity> bySlotKey = slots.stream()
-                .collect(Collectors.toMap(MealPlanEditService::slotKey, slot -> slot));
-
+    private void applyOutcome(List<MealSlotEntity> daySlots, List<Slot> structure,
+                              Outcome outcome) {
         for (int index = 0; index < structure.size(); index++) {
-            Slot planned = structure.get(index);
-            MealSlotEntity slot = bySlotKey.get(
-                    planned.mealType().name() + "#" + planned.sequence());
+            // Cấu trúc dựng theo đúng thứ tự các bữa của ngày và lượt tạo lại dừng ngay khi một
+            // bữa không dựng được, nên vị trí thứ i của cấu trúc là bữa thứ i của ngày.
+            MealSlotEntity slot = daySlots.get(index);
             slot.getItems().removeIf(item -> !pinned(item));
             for (Choice choice : outcome.choicesOf(index)) {
                 Candidate candidate = choice.candidate();
@@ -589,8 +719,19 @@ public class MealPlanEditService {
         }
     }
 
+    /**
+     * Khóa của một bữa — <strong>có ngày</strong>.
+     *
+     * <p>Thiếu ngày thì với kế hoạch bảy ngày của nhánh 9, bảy bữa trưa cùng mang khóa
+     * {@code LUNCH#1}: lượt hoàn tác sẽ ghi đè cả bảy bằng nội dung của một ngày, và không có lỗi
+     * nào nổ ra để nói rằng sáu ngày vừa bị viết lại.</p>
+     */
     private static String slotKey(MealSlotEntity slot) {
-        return slot.getMealType().name() + "#" + slot.getSequence();
+        return slotKey(slot.getLocalDate(), slot.getMealType(), slot.getSequence());
+    }
+
+    private static String slotKey(LocalDate date, MealType mealType, short sequence) {
+        return date + "|" + mealType.name() + "#" + sequence;
     }
 
     // =========================================================================================
@@ -644,8 +785,8 @@ public class MealPlanEditService {
                 .collect(Collectors.toMap(MealPlanEditService::slotKey, slot -> slot));
 
         for (RevisionSlot snapshot : revision.slots()) {
-            MealSlotEntity slot = bySlotKey.get(
-                    snapshot.mealType().name() + "#" + snapshot.sequence());
+            MealSlotEntity slot = bySlotKey.get(slotKey(
+                    snapshot.localDate(), snapshot.mealType(), snapshot.sequence()));
             if (slot == null) {
                 throw new BusinessException(ErrorCode.VERSION_CONFLICT,
                         "Thực đơn đã đổi cấu trúc bữa, không khôi phục được. Hãy tải lại.");
@@ -665,8 +806,8 @@ public class MealPlanEditService {
         }
 
         for (RevisionSlot snapshot : revision.slots()) {
-            MealSlotEntity slot = bySlotKey.get(
-                    snapshot.mealType().name() + "#" + snapshot.sequence());
+            MealSlotEntity slot = bySlotKey.get(slotKey(
+                    snapshot.localDate(), snapshot.mealType(), snapshot.sequence()));
             slot.getItems().clear();
             for (RevisionItem saved : snapshot.items()) {
                 MealPlanItemEntity item = new MealPlanItemEntity();
@@ -734,11 +875,20 @@ public class MealPlanEditService {
     private List<ReasonNote> wholePlanNotes(MealPlanEntity plan, PlanLimits limits) {
         List<ReasonNote> notes = new ArrayList<>();
 
-        BigDecimal cost = MealPlanService.totalCostOf(plan);
-        if (limits.dailyBudgetVnd() != null && cost != null
-                && cost.compareTo(limits.dailyBudgetVnd()) > 0) {
-            notes.add(ReasonNote.of(RecommendationReason.DAY_OVER_BUDGET, cost.toPlainString()));
+        if (limits.dailyBudgetVnd() != null) {
+            // Ngân sách người dùng khai là của MỘT ngày, nên kế hoạch nhiều ngày so theo từng
+            // ngày: so tổng cả tuần với mức của một ngày thì bảy ngày nào cũng "vượt".
+            for (LocalDate date : datesOf(plan)) {
+                BigDecimal cost = MealPlanService.dayCostOf(plan, date);
+                if (cost != null && cost.compareTo(limits.dailyBudgetVnd()) > 0) {
+                    notes.add(ReasonNote.of(RecommendationReason.DAY_OVER_BUDGET,
+                            cost.toPlainString()));
+                    break;
+                }
+            }
         }
+
+        notes.addAll(weeklyLimits.notes(weeklyConsumption(plan)));
 
         if (limits.maxMinutesPerMeal() != null) {
             Map<String, Integer> minutes = recipeMinutes(plan);
@@ -754,6 +904,33 @@ public class MealPlanEditService {
             }
         }
         return notes;
+    }
+
+    /** Các ngày của kế hoạch, theo thứ tự. */
+    private List<LocalDate> datesOf(MealPlanEntity plan) {
+        return plan.getSlots().stream()
+                .map(MealSlotEntity::getLocalDate)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    /** Mức tuần đã dùng của kế hoạch <strong>như nó đang nằm trong database</strong>. */
+    private WeeklyAllowance weeklyConsumption(MealPlanEntity plan) {
+        if (weeklyLimits.limits().isEmpty()) {
+            return WeeklyAllowance.unlimited();
+        }
+        List<RecipeSnapshot> snapshots = new ArrayList<>();
+        for (MealSlotEntity slot : plan.getSlots()) {
+            slot.getItems().forEach(item -> snapshots.add(readSnapshot(item)));
+        }
+        WeeklyAllowance allowance = weeklyLimits.allowanceFor(snapshots);
+        for (MealSlotEntity slot : plan.getSlots()) {
+            for (MealPlanItemEntity item : slot.getItems()) {
+                allowance = allowance.consume(item.getRecipeId(), item.getServings());
+            }
+        }
+        return allowance;
     }
 
     private Map<String, Integer> recipeMinutes(MealPlanEntity plan) {
@@ -788,8 +965,7 @@ public class MealPlanEditService {
 
     private GenerationStatus statusFrom(List<ReasonView> notes) {
         boolean needsReview = notes.stream()
-                .anyMatch(note -> !RecommendationReason.PARTIAL_DAY_PLAN.name()
-                        .equals(note.code()));
+                .anyMatch(note -> !MealPlanService.describesOnly(note.code()));
         return needsReview ? GenerationStatus.READY_WITH_NOTES : GenerationStatus.READY;
     }
 
