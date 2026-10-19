@@ -3,8 +3,10 @@ package vn.nutrimom.nutrition.service;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -13,6 +15,7 @@ import vn.nutrimom.nutrition.domain.ActivityCategory;
 import vn.nutrimom.nutrition.domain.TrimesterGroup;
 import vn.nutrimom.nutrition.service.NutritionRules.EnergyEstimateRules;
 import vn.nutrimom.nutrition.service.NutritionRules.RetentionFactor;
+import vn.nutrimom.nutrition.service.NutritionRules.WeeklyFoodLimit;
 import vn.nutrimom.nutrition.service.NutritionSeedData.MicronutrientTarget;
 import vn.nutrimom.nutrition.service.NutritionSeedData.SourcesFile;
 
@@ -53,6 +56,7 @@ public class NutritionRulesProvider {
     private record RulesDocument(String rulesVersion,
                                  List<MicronutrientTarget> micronutrientTargets,
                                  List<RetentionFactor> retentionFactors,
+                                 List<WeeklyFoodLimit> weeklyFoodLimits,
                                  EnergyEstimateRules energyEstimate) {
     }
 
@@ -70,6 +74,7 @@ public class NutritionRulesProvider {
                 Map.copyOf(units),
                 List.copyOf(orEmpty(document.micronutrientTargets())),
                 List.copyOf(orEmpty(document.retentionFactors())),
+                List.copyOf(orEmpty(document.weeklyFoodLimits())),
                 document.energyEstimate());
         check(loaded);
         return loaded;
@@ -86,6 +91,24 @@ public class NutritionRulesProvider {
         for (var target : loaded.micronutrientTargets()) {
             if (!loaded.nutrientUnits().containsKey(target.code())) {
                 problems.add("mục tiêu vi chất " + target.code() + " không có trong danh mục chất");
+            }
+        }
+
+        // Một dòng giới hạn tuần hỏng là một điều kiện an toàn im lặng không chạy: mã trùng thì
+        // dòng sau che dòng trước, mức ≤ 0 thì mọi kế hoạch bị chặn, còn nhóm rỗng thì giới hạn
+        // tồn tại trên giấy mà không đếm nguyên liệu nào. Cả ba phải nổ lúc khởi động.
+        Set<String> limitCodes = new LinkedHashSet<>();
+        for (var limit : loaded.weeklyFoodLimits()) {
+            if (limit.code() == null || limit.code().isBlank()) {
+                problems.add("có giới hạn theo tuần thiếu code");
+            } else if (!limitCodes.add(limit.code())) {
+                problems.add("giới hạn theo tuần trùng code " + limit.code());
+            }
+            if (limit.ingredientIds().isEmpty()) {
+                problems.add("giới hạn theo tuần " + limit.code() + " không khai nguyên liệu nào");
+            }
+            if (limit.maxGramPerWeek() == null || limit.maxGramPerWeek().signum() <= 0) {
+                problems.add("giới hạn theo tuần " + limit.code() + " có maxGramPerWeek ≤ 0");
             }
         }
 

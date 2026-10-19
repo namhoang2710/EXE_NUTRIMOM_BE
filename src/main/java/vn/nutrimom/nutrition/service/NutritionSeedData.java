@@ -42,7 +42,22 @@ public final class NutritionSeedData {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record RulesFile(String rulesVersion,
                             List<MicronutrientTarget> micronutrientTargets,
-                            List<MealTemplate> mealTemplates) {
+                            List<MealTemplate> mealTemplates,
+                            List<WeeklyFoodLimit> weeklyFoodLimits) {
+    }
+
+    /**
+     * Một nhóm thực phẩm có giới hạn theo tuần (nhánh 9).
+     *
+     * <p>Hình dạng này trùng với {@link NutritionRules.WeeklyFoodLimit} nhưng ở tầng khác:
+     * {@code NutritionSeedData} là hình dạng <em>file</em> để validator kiểm trước khi nhập, còn
+     * {@code NutritionRules} là tập quy tắc đã nạp. Cùng lý do với
+     * {@link MicronutrientTarget} — chỉ record đó được dùng lại ở cả hai tầng vì nó không có tham
+     * chiếu nào cần kiểm.</p>
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WeeklyFoodLimit(String code, String label, List<String> ingredientIds,
+                                  BigDecimal maxGramPerWeek, String sourceId) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
