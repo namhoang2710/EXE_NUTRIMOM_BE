@@ -31,6 +31,7 @@ import vn.nutrimom.nutrition.domain.MealPlanPreviewEntity;
 import vn.nutrimom.nutrition.domain.MealSlotEntity;
 import vn.nutrimom.nutrition.domain.MealTemplateEntity;
 import vn.nutrimom.nutrition.domain.MealType;
+import vn.nutrimom.nutrition.domain.PlanLifecycleState;
 import vn.nutrimom.nutrition.domain.RecipeEntity;
 import vn.nutrimom.nutrition.domain.RecipeRole;
 import vn.nutrimom.nutrition.domain.RecommendationReason;
@@ -57,6 +58,7 @@ import vn.nutrimom.nutrition.service.MealPlanSearch.Slot;
 import vn.nutrimom.nutrition.service.MealPlanSearch.Targets;
 import vn.nutrimom.nutrition.service.MealPlanSearch.WeeklyAllowance;
 import vn.nutrimom.nutrition.service.NutritionSnapshots.RecipeSnapshot;
+import vn.nutrimom.nutrition.service.PlanRevalidationService.EatenMeals;
 import vn.nutrimom.nutrition.service.PlanRevision.RevisionItem;
 import vn.nutrimom.nutrition.service.PlanRevision.RevisionSlot;
 
@@ -117,6 +119,7 @@ public class MealPlanEditService {
     private final WeeklyFoodLimits weeklyLimits;
     private final NutritionCalculator calculator;
     private final MealFeedbackService feedbacks;
+    private final PlanRevalidationService revalidations;
     private final ObjectMapper json;
     private final Clock clock;
 
@@ -124,8 +127,9 @@ public class MealPlanEditService {
                                MealPlanRepository plans, MealPlanPreviewRepository previews,
                                MealPlanCandidates candidates, MealPlanService planViews,
                                MealPlanGenerator generator, WeeklyFoodLimits weeklyLimits,
-                               NutritionCalculator calculator,
-                               MealFeedbackService feedbacks, ObjectMapper json, Clock clock) {
+                               NutritionCalculator calculator, MealFeedbackService feedbacks,
+                               PlanRevalidationService revalidations,
+                               ObjectMapper json, Clock clock) {
         this.profiles = profiles;
         this.recipes = recipes;
         this.plans = plans;
@@ -136,6 +140,7 @@ public class MealPlanEditService {
         this.weeklyLimits = weeklyLimits;
         this.calculator = calculator;
         this.feedbacks = feedbacks;
+        this.revalidations = revalidations;
         this.json = json;
         this.clock = clock;
     }
@@ -454,6 +459,9 @@ public class MealPlanEditService {
 
         PlanLimits limits = limitsOf(profile, request.constraints(), request.seedOrDefault());
         CatalogContext catalog = candidates.loadCatalog();
+        // BR11: bữa đã ghi nhật ký không được lập lại. Nạp một lượt ở đây rồi đi cùng mọi bước
+        // dưới — hỏi lại nhật ký trong vòng lặp là một câu truy vấn cho mỗi bữa của mỗi ngày.
+        EatenMeals eaten = revalidations.eatenMealsOf(plan);
         List<MealSlotEntity> slots = MealPlanService.orderedSlots(plan);
         // Kế hoạch nhiều ngày tạo lại theo NGÀY, đúng như lúc lập (nhánh 9): một hàm mục tiêu
         // chung cho bảy ngày sẽ cho phép một ngày thiếu được bù bằng một ngày thừa.
@@ -472,7 +480,7 @@ public class MealPlanEditService {
             for (MealSlotEntity slot : day.getValue()) {
                 BigDecimal share = candidates.shareOf(slot.getMealType(), snackCount(plan, slot));
                 Optional<Slot> rebuilt =
-                        rebuildSlot(plan, slot, profile, limits, catalog, share, notes);
+                        rebuildSlot(slot, profile, limits, catalog, share, eaten, notes);
                 if (rebuilt.isEmpty()) {
                     feasible = false;
                     continue;
@@ -503,7 +511,7 @@ public class MealPlanEditService {
                         // này, nên chúng ăn vào mức tuần ngay từ bây giờ. Mục giữ của chính ngày
                         // đang dựng thì không: nó đã là một lựa chọn của ngày đó và bộ sinh cộng
                         // nó như mọi lựa chọn khác.
-                        withPinnedOfLaterDays(consumed, byDate, day.getKey()));
+                        withPinnedOfLaterDays(consumed, byDate, day.getKey(), eaten));
                 if (!outcome.complete()) {
                     searchLimit = outcome.searchLimit();
                     feasible = false;
@@ -529,7 +537,8 @@ public class MealPlanEditService {
         storeRevision(userId, plan);
         int day = 0;
         for (var entry : byDate.entrySet()) {
-            applyOutcome(entry.getValue(), structures.get(entry.getKey()), outcomes.get(day++));
+            applyOutcome(entry.getValue(), structures.get(entry.getKey()), outcomes.get(day++),
+                    eaten);
         }
         plan.setPlanVersion(plan.getPlanVersion() + 1);
         return finish(userId, plan, wholePlanNotes(plan, limits), notes, true);
@@ -561,15 +570,16 @@ public class MealPlanEditService {
     /** Mức tuần đã dùng, cộng thêm các mục đang giữ của những ngày sau ngày đang dựng. */
     private WeeklyAllowance withPinnedOfLaterDays(WeeklyAllowance consumed,
                                                   Map<LocalDate, List<MealSlotEntity>> byDate,
-                                                  LocalDate currentDay) {
+                                                  LocalDate currentDay, EatenMeals eaten) {
         WeeklyAllowance allowance = consumed;
         for (var day : byDate.entrySet()) {
             if (!day.getKey().isAfter(currentDay)) {
                 continue;
             }
             for (MealSlotEntity slot : day.getValue()) {
+                boolean alreadyEaten = eaten.contains(slot);
                 for (MealPlanItemEntity item : slot.getItems()) {
-                    if (pinned(item)) {
+                    if (pinned(item, alreadyEaten)) {
                         allowance = allowance.consume(item.getRecipeId(), item.getServings());
                     }
                 }
@@ -585,10 +595,10 @@ public class MealPlanEditService {
      * {@code template_code}. Tạo lại là tìm lựa chọn khác trong cùng cấu trúc, không phải dựng lại
      * một bữa khác hình dạng (BR06).</p>
      */
-    private Optional<Slot> rebuildSlot(MealPlanEntity plan, MealSlotEntity slot,
+    private Optional<Slot> rebuildSlot(MealSlotEntity slot,
                                        ProfileSnapshot profile, PlanLimits limits,
                                        CatalogContext catalog, BigDecimal share,
-                                       List<ReasonNote> notes) {
+                                       EatenMeals eaten, List<ReasonNote> notes) {
         MealTemplateEntity template = candidates.template(slot.getMealType(), slot.mode())
                 .orElse(null);
         if (template == null) {
@@ -598,12 +608,27 @@ public class MealPlanEditService {
                                     slot.getSequence())));
         }
 
+        boolean alreadyEaten = eaten.contains(slot);
+        if (alreadyEaten && !slot.getItems().isEmpty()) {
+            // Bữa không đổi mà không ai nói gì trông như một lỗi — lý do thì ngược lại hẳn.
+            notes.add(ReasonNote.of(RecommendationReason.PLAN_KEPT_EATEN_MEAL,
+                    MealPlanCandidates.describeSlot(slot.getMealType(), slot.getSequence())));
+        }
+
         Map<RecipeRole, MealPlanItemEntity> keep = new HashMap<>();
         for (MealPlanItemEntity item : slot.getItems()) {
-            if (!pinned(item)) {
+            if (!pinned(item, alreadyEaten)) {
                 continue;
             }
             RecipeEntity recipe = requireCatalogRecipe(item.getRecipeId());
+            if (alreadyEaten) {
+                // Bữa đã ăn giữ nguyên và KHÔNG bị kiểm lại điều kiện: nó là một việc đã xảy ra,
+                // không phải một lựa chọn còn đang chờ nấu. Chặn cả lượt tạo lại vì một bữa hôm
+                // qua không hợp dị ứng vừa khai sẽ khiến người dùng không còn đường nào đi tiếp —
+                // họ không sửa lại được bữa đã ăn (BR17).
+                keep.put(recipe.getRole(), item);
+                continue;
+            }
             EligibilityVerdict verdict = candidates.judge(recipe, profile, limits, catalog);
             if (!verdict.eligible()) {
                 throw new BusinessException(ErrorCode.RECIPE_NOT_ELIGIBLE,
@@ -663,12 +688,21 @@ public class MealPlanEditService {
     /**
      * Mục mà lượt tạo lại <strong>không được chạm vào</strong>.
      *
-     * <p>Hôm nay chỉ có cờ khóa. Khi nhánh 8 có nhật ký, BR11 ("tạo lại không sửa mục đã ăn") chỉ
-     * cần thêm một vế vào đúng đây — và vì lượt tạo lại không có đường nào khác để bỏ qua một mục,
-     * thêm vế đó là đủ, không phải rà lại cả lớp.</p>
+     * <p>Hai vế, và chúng khác nhau về bản chất dù cùng kết quả:</p>
+     * <ul>
+     *   <li><strong>khóa</strong> — người dùng nói họ muốn giữ món này. Vẫn bị kiểm lại điều kiện,
+     *       và không hợp thì lượt tạo lại dừng kèm tên mục đó (BR10);</li>
+     *   <li><strong>đã ghi nhật ký</strong> — bữa đã ăn rồi. Không kiểm lại, không đổi, không có
+     *       đường nào để một lượt tạo lại viết lại một việc đã xảy ra (BR11, bất biến 3).</li>
+     * </ul>
+     *
+     * <p>Vì lượt tạo lại không có đường nào khác để bỏ qua một mục, đây là chỗ duy nhất quyết định
+     * cả hai.</p>
+     *
+     * @param alreadyEaten bữa chứa mục này đã có dòng trong {@code app.diary_entries}
      */
-    private boolean pinned(MealPlanItemEntity item) {
-        return item.isLocked();
+    private boolean pinned(MealPlanItemEntity item, boolean alreadyEaten) {
+        return item.isLocked() || alreadyEaten;
     }
 
     /** Các mục đang giữ, nêu tên để người dùng chọn mục muốn bỏ giữ. */
@@ -694,12 +728,13 @@ public class MealPlanEditService {
      * không có cơ hội bị viết lại (TC11).</p>
      */
     private void applyOutcome(List<MealSlotEntity> daySlots, List<Slot> structure,
-                              Outcome outcome) {
+                              Outcome outcome, EatenMeals eaten) {
         for (int index = 0; index < structure.size(); index++) {
             // Cấu trúc dựng theo đúng thứ tự các bữa của ngày và lượt tạo lại dừng ngay khi một
             // bữa không dựng được, nên vị trí thứ i của cấu trúc là bữa thứ i của ngày.
             MealSlotEntity slot = daySlots.get(index);
-            slot.getItems().removeIf(item -> !pinned(item));
+            boolean alreadyEaten = eaten.contains(slot);
+            slot.getItems().removeIf(item -> !pinned(item, alreadyEaten));
             for (Choice choice : outcome.choicesOf(index)) {
                 Candidate candidate = choice.candidate();
                 if (candidate.locked()) {
@@ -949,6 +984,11 @@ public class MealPlanEditService {
      *
      * <p>{@code generation_status} tính lại từ chính các ghi chú vừa dựng, bằng đúng hàm của nhánh
      * 5: một kế hoạch sau khi sửa mà hết ghi chú thì quay về {@code READY}, và ngược lại.</p>
+     *
+     * <p>{@code lifecycle_state} cũng vậy, và đây là chỗ vòng trạng thái của nhánh 10 khép lại:
+     * {@link MealPlanService#view} vừa kiểm lại cả kế hoạch theo hồ sơ hiện tại, nên đổi xong mục
+     * xung đột cuối cùng là kế hoạch tự quay về {@link PlanLifecycleState#SAVED} — không cần ai
+     * nhớ bấm thêm một nút nào.</p>
      */
     private PlanEditView finish(String userId, MealPlanEntity plan, List<ReasonNote> planNotes,
                                 List<ReasonNote> operationNotes, boolean changed) {
@@ -956,6 +996,7 @@ public class MealPlanEditService {
         if (changed) {
             GenerationStatus status = statusFrom(rendered.notes());
             plan.setGenerationStatus(status);
+            plan.setLifecycleState(rendered.lifecycleState());
             plans.saveAndFlush(plan);
             rendered = withStatus(rendered, status);
         }
