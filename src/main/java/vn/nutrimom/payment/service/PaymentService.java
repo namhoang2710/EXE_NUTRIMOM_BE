@@ -4,6 +4,7 @@ import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_PAYME
 import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_PAYMENT_RENEWED;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.Period;
 import java.time.ZoneOffset;
@@ -12,9 +13,12 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.notification.service.AdminNotificationEvents;
+import vn.nutrimom.common.api.PageResponse;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.payment.config.PayOSProperties;
@@ -205,10 +209,10 @@ public class PaymentService {
     @Transactional
     public void confirmMockPayment(String userId, Long orderCode) {
         if (!properties.isDemoEnabled()) throw new BusinessException(ErrorCode.FORBIDDEN, "Thanh toán demo đã bị tắt.");
-        PaymentOrderEntity order = orderRepository.findByOrderCodeForUpdate(orderCode)
+        // Lọc chủ sở hữu trong truy vấn, cùng quy ước với getOrderDetails.
+        PaymentOrderEntity order = orderRepository.findByOrderCodeAndUserIdForUpdate(orderCode, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
 
-        if (!order.getUserId().equals(userId)) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         if (order.getSource() != PaymentSource.DEMO) throw new BusinessException(ErrorCode.FORBIDDEN);
 
         if (order.getStatus() == PaymentOrderStatus.PAID) {
@@ -301,12 +305,12 @@ public class PaymentService {
 
     @Transactional
     public PaymentOrderResponse getOrderDetails(String userId, Long orderCode) {
-        PaymentOrderEntity order = orderRepository.findByOrderCodeForUpdate(orderCode)
+        // Lọc chủ sở hữu ngay trong truy vấn: đơn của người khác và đơn không tồn tại cho ra cùng
+        // một 404, không lộ việc đơn có tồn tại (docs/security.md mục 2). Giữ PAYMENT_ORDER_NOT_FOUND
+        // thay vì AccessGuard vì helper đó ném cứng RESOURCE_NOT_FOUND, sẽ đổi luôn mã lỗi của ca
+        // "đơn không tồn tại" vốn chẳng liên quan gì tới IDOR.
+        PaymentOrderEntity order = orderRepository.findByOrderCodeAndUserIdForUpdate(orderCode, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
-
-        if (!order.getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xem đơn hàng này.");
-        }
 
         // Nếu đơn hàng đang PENDING và PayOS đã cấu hình, đồng bộ trạng thái mới nhất từ PayOS
         if (order.getStatus() == PaymentOrderStatus.PENDING && order.getSource() == PaymentSource.REAL && properties.isConfigured()) {
@@ -322,6 +326,36 @@ public class PaymentService {
             }
         }
 
+        return toResponse(order);
+    }
+
+    /**
+     * Lịch sử giao dịch của chính người gọi, phân trang và lọc ở tầng truy vấn.
+     *
+     * <p>Cố ý <strong>không</strong> đồng bộ PayOS cho các đơn PENDING như endpoint chi tiết làm:
+     * một trang toàn đơn dở dang sẽ thành ngần ấy lời gọi mạng trong một request. Muốn trạng thái
+     * mới nhất của một đơn thì gọi {@code GET /payments/orders/{orderCode}}.</p>
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<PaymentOrderResponse> getUserOrders(String userId,
+                                                            int page,
+                                                            int pageSize,
+                                                            PaymentOrderStatus status,
+                                                            PlanTier planTier,
+                                                            LocalDate fromDate,
+                                                            LocalDate toDate) {
+        // Khoảng ngày nhận theo ngày lịch UTC và bao trọn cả ngày toDate (nửa mở: < toDate + 1 ngày).
+        OffsetDateTime from = fromDate == null ? null : fromDate.atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+
+        Page<PaymentOrderEntity> found = orderRepository.findHistory(
+                userId, status, planTier, from, to, PageRequest.of(page - 1, pageSize));
+
+        return PageResponse.of(found.getContent().stream().map(this::toResponse).toList(),
+                page, pageSize, found.getTotalElements());
+    }
+
+    private PaymentOrderResponse toResponse(PaymentOrderEntity order) {
         return new PaymentOrderResponse(
                 order.getId(),
                 order.getOrderCode(),
@@ -330,29 +364,13 @@ public class PaymentService {
                 order.getAmount(),
                 order.getCurrency(),
                 order.getStatus(),
+                order.getSource(),
                 order.getCheckoutUrl(),
+                order.getQrCode(),
                 order.getDescription(),
                 order.getPaidAt(),
-                order.getCreatedAt()
+                order.getCreatedAt(),
+                order.getUpdatedAt()
         );
-    }
-
-    @Transactional(readOnly = true)
-    public List<PaymentOrderResponse> getUserOrders(String userId) {
-        return orderRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(order -> new PaymentOrderResponse(
-                        order.getId(),
-                        order.getOrderCode(),
-                        order.getPlanTier(),
-                        order.getPlanTier().getDisplayName(),
-                        order.getAmount(),
-                        order.getCurrency(),
-                        order.getStatus(),
-                        order.getCheckoutUrl(),
-                        order.getDescription(),
-                        order.getPaidAt(),
-                        order.getCreatedAt()
-                ))
-                .toList();
     }
 }
