@@ -1,6 +1,8 @@
 package vn.nutrimom.nutrition.repository;
 
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,4 +44,18 @@ public interface MealPlanRepository extends JpaRepository<MealPlanEntity, String
     @Query("select p from MealPlanEntity p where p.id = :id and p.userId = :userId")
     Optional<MealPlanEntity> findForUpdate(@Param("id") String id,
                                            @Param("userId") String userId);
+
+    /**
+     * Các kế hoạch <strong>còn ngày chưa trôi qua</strong> — tập mà nhánh 10 kiểm lại khi hồ sơ đổi.
+     *
+     * <p>Điều kiện là {@code end_date >= hôm nay} chứ không phải {@code start_date}: một kế hoạch
+     * bảy ngày bắt đầu từ thứ hai vẫn còn bốn ngày phía trước vào thứ năm, và bỏ sót nó nghĩa là
+     * một dị ứng vừa khai không chạm tới đúng những bữa người dùng sắp nấu.</p>
+     *
+     * <p>Kế hoạch đã trôi qua hết cố ý nằm ngoài: thay đổi hồ sơ không viết lại lịch sử đã ăn
+     * (BR17), và một kế hoạch không còn ngày nào ở phía trước thì cũng không còn gì để đổi.</p>
+     */
+    @EntityGraph(attributePaths = "slots")
+    List<MealPlanEntity> findByUserIdAndEndDateGreaterThanEqualOrderByStartDateAsc(
+            String userId, LocalDate endDate);
 }

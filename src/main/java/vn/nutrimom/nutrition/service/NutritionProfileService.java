@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -60,6 +61,7 @@ public class NutritionProfileService {
     private final IngredientRepository ingredients;
     private final RecipeRepository recipes;
     private final EnergyEstimator energyEstimator;
+    private final PlanRevalidationService revalidations;
     private final CalendarZone zones;
     private final Clock clock;
 
@@ -70,6 +72,7 @@ public class NutritionProfileService {
                                    IngredientRepository ingredients,
                                    RecipeRepository recipes,
                                    EnergyEstimator energyEstimator,
+                                   PlanRevalidationService revalidations,
                                    CalendarZone zones,
                                    Clock clock) {
         this.pregnancies = pregnancies;
@@ -79,6 +82,7 @@ public class NutritionProfileService {
         this.ingredients = ingredients;
         this.recipes = recipes;
         this.energyEstimator = energyEstimator;
+        this.revalidations = revalidations;
         this.zones = zones;
         this.clock = clock;
     }
@@ -126,6 +130,25 @@ public class NutritionProfileService {
                 energyEstimator.estimate(energyInputs(preference, age)));
     }
 
+    /**
+     * Cùng ảnh chụp, nhưng <strong>rỗng</strong> thay vì ném lỗi khi chưa có thai kỳ đang hoạt động.
+     *
+     * <p>Dành cho các đường <em>đọc</em> chỉ muốn làm giàu thêm phản hồi — nhánh 10 kiểm lại kế
+     * hoạch theo hồ sơ hiện tại là một. Thai kỳ kết thúc không làm những thực đơn đã lưu biến mất,
+     * và để một lượt {@code GET /api/v1/meal-plans/{id}} hỏng vì không còn gì để đối chiếu là đổi
+     * một tính năng phụ lấy chính thứ người dùng đang muốn xem.</p>
+     *
+     * <p>Các đường <em>ghi</em> vẫn dùng {@link #snapshot(String)}: lập hay sửa thực đơn mà không
+     * đọc được hồ sơ thì phải dừng, không phải chạy tiếp với một hồ sơ trống.</p>
+     */
+    @Transactional(readOnly = true)
+    public Optional<ProfileSnapshot> snapshotIfAvailable(String userId) {
+        if (pregnancies.findByOwnerUserIdAndStatus(userId, PregnancyStatus.ACTIVE).isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(snapshot(userId));
+    }
+
     /** Đầu vào EER từ hồ sơ; mọi trường cho phép null vì bước 5 onboarding bỏ qua được (TC05). */
     private EnergyInputs energyInputs(EatingPreferenceEntity preference, GestationalAge age) {
         return new EnergyInputs(
@@ -148,6 +171,11 @@ public class NutritionProfileService {
      * so sánh ảnh chụp trước và sau. Một lượt {@code PUT} gửi lại y nguyên dữ liệu cũ (người dùng
      * bấm Lưu hai lần, hoặc mạng gửi lại) không được làm mọi kế hoạch đang có thành
      * {@code NEEDS_UPDATE} ở nhánh 10.</p>
+     *
+     * <p><strong>Kiểm lại kế hoạch ngay trong cùng transaction</strong> (nhánh 10): lưu hồ sơ rồi
+     * để một lượt chạy nền đi đánh dấu sau sẽ có một khoảng thời gian — ngắn thôi — mà người dùng
+     * đã khai thêm dị ứng nhưng thực đơn hôm nay vẫn trông như đã được kiểm. Khoảng đó đúng là lúc
+     * họ mở ứng dụng ra xem mình vừa khai gì.</p>
      */
     @Transactional
     public SaveNutritionProfileResponse save(String userId, SaveNutritionProfileRequest request) {
@@ -165,9 +193,12 @@ public class NutritionProfileService {
         }
         preferences.saveAndFlush(preference);
 
-        // Việc đánh dấu mục kế hoạch tương lai là NEEDS_UPDATE thuộc nhánh 10; trường có mặt từ
-        // bây giờ để nhánh đó không phải đổi hình dạng hợp đồng đã công bố.
-        return new SaveNutritionProfileResponse(preference.getProfileVersion(), List.of(),
+        // Kiểm cả khi lượt lưu này không đổi gì: câu hỏi là "hôm nay còn mục nào cần đổi", và câu
+        // trả lời đó không phụ thuộc vào việc lần bấm Lưu vừa rồi có đổi gì hay không. Một kế hoạch
+        // đang NEEDS_UPDATE từ hôm qua vẫn phải được nói ra.
+        List<String> itemsToRevalidate = revalidations.afterProfileChange(snapshot(userId));
+
+        return new SaveNutritionProfileResponse(preference.getProfileVersion(), itemsToRevalidate,
                 toView(userId, pregnancy, preference));
     }
 

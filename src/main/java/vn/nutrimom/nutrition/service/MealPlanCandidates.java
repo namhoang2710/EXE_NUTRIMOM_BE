@@ -195,6 +195,24 @@ public class MealPlanCandidates {
         return filter.judge(candidate, hardConstraints(profile, limits), catalog.facts(), cost);
     }
 
+    /**
+     * Xét một món chỉ theo các điều kiện <strong>bắt buộc</strong> của hồ sơ (nhánh 10).
+     *
+     * <p>Cùng {@link EligibilityFilter} và cùng đường dựng ứng viên với {@link #judge}, chỉ khác
+     * tập điều kiện: {@link ProfileSnapshot#mandatoryConstraints()} bỏ hết ưu tiên mềm, vì câu hỏi
+     * ở đây không phải "món này có nên được gợi ý không" mà "một món <em>đã nằm trong kế hoạch</em>
+     * có còn dùng được sau khi hồ sơ đổi không".</p>
+     *
+     * <p>Không truyền chi phí: không có giới hạn ngân sách cứng nào để đối chiếu, nên quy đổi giá
+     * ở đây chỉ là việc thừa.</p>
+     */
+    public EligibilityVerdict judgeMandatory(RecipeEntity recipe, ProfileSnapshot profile,
+                                             CatalogContext catalog) {
+        RecipeCandidate candidate = RecipeCandidate.of(recipe, catalog.ingredientsById());
+        return filter.judge(candidate, profile.mandatoryConstraints(), catalog.facts(),
+                Optional.empty());
+    }
+
     /** Ứng viên dựng từ một công thức <strong>đã qua</strong> {@link #judge}. */
     public Candidate candidateOf(RecipeEntity recipe, CatalogContext catalog,
                                  BigDecimal lockedServings) {

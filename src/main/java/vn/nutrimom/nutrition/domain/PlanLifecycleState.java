@@ -16,11 +16,21 @@ public enum PlanLifecycleState {
     SAVED,
 
     /**
-     * Hồ sơ ăn uống hoặc tập quy tắc đã đổi sau khi kế hoạch được lưu.
+     * Kế hoạch còn mục <strong>chưa ăn</strong> không hợp điều kiện bắt buộc của hồ sơ hiện tại.
      *
-     * <p>Nhánh 10 đặt trạng thái này bằng cách so {@code profile_version} và {@code rules_version}
-     * của kế hoạch với giá trị hiện tại. Nhánh 5 không bao giờ ghi giá trị này — nó chỉ đọc được
-     * nghĩa của nó.</p>
+     * <p>Nhánh 10 đặt trạng thái này, nhưng <strong>không</strong> bằng cách so
+     * {@code profile_version}: so số phiên bản sẽ bắt cả một lần sửa ngân sách hay một món vừa
+     * đánh dấu yêu thích phải "cập nhật thực đơn", trong khi tài liệu nhánh nói rõ những thay đổi
+     * đó chỉ ảnh hưởng <em>lần gợi ý tiếp theo</em>. Điều kiện thật là: còn ít nhất một mục ở hôm
+     * nay chưa ghi hoặc ở ngày sau mà {@link vn.nutrimom.nutrition.service.EligibilityFilter} chặn
+     * theo dị ứng, chế độ ăn hoặc nguyên liệu phải tránh.</p>
+     *
+     * <p><strong>Không chặn xem kế hoạch.</strong> Nó chỉ đánh dấu các mục cần đổi; đổi hết thì
+     * quay về {@link #SAVED}. Hệ thống không tự đổi món và không tự mở khóa mục đã khóa (BR10).</p>
+     *
+     * <p>Cột {@code lifecycle_state} là <strong>bản sao để truy vấn</strong>: đường lưu hồ sơ và
+     * đường sửa kế hoạch ghi lại nó, còn giá trị đi ra tới giao diện luôn được tính lại lúc đọc,
+     * vì hồ sơ có thể vừa đổi ở một thiết bị khác mà không có gì chạy qua kế hoạch này.</p>
      */
     NEEDS_UPDATE
 }

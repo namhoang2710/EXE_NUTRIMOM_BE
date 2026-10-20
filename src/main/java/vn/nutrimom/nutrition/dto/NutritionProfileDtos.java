@@ -130,10 +130,16 @@ public final class NutritionProfileDtos {
     /**
      * Thân phản hồi của {@code PUT}.
      *
-     * @param itemsToRevalidate các mục kế hoạch tương lai cần kiểm tra lại sau khi hồ sơ đổi.
-     *                          <strong>Nhánh này luôn trả rỗng</strong>: việc đánh dấu
-     *                          {@code NEEDS_UPDATE} thuộc nhánh 10. Trường có mặt ngay từ bây giờ
-     *                          để nhánh 10 không phải đổi hình dạng hợp đồng đã công bố.
+     * @param itemsToRevalidate {@code item_id} của các mục kế hoạch <strong>chưa ăn</strong> không
+     *                          còn hợp điều kiện bắt buộc sau khi hồ sơ đổi (nhánh 10), theo thứ
+     *                          tự ngày rồi buổi trong ngày. Rỗng là trường hợp thường gặp: chỉ dị
+     *                          ứng, chế độ ăn và nguyên liệu phải tránh mới đưa tên vào đây — đổi
+     *                          sở thích hay ngân sách chỉ ảnh hưởng lần gợi ý tiếp theo.
+     *                          <p>Cố ý vẫn là danh sách mã, không phải danh sách object: hình dạng
+     *                          này đã công bố từ nhánh 3, và chi tiết của từng mục (lý do, cờ
+     *                          {@code conflict}, {@code lifecycle_state} của kế hoạch) nằm ở
+     *                          {@code GET /api/v1/meal-plans/{id}} — một chỗ duy nhất dựng chúng,
+     *                          và nó luôn tính lại theo hồ sơ tại thời điểm đọc.</p>
      */
     public record SaveNutritionProfileResponse(int profileVersion,
                                                List<String> itemsToRevalidate,
