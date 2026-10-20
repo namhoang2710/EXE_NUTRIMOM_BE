@@ -33,4 +33,6 @@ V64 = `diary_entries` + `meal_feedbacks` (nhật ký, nhánh 8) — DB vẫn ở
 nằm trong repo nên số kế tiếp trống ở cả hai phía là 64.
 **V63 và V64 chưa chạy lên DB dùng chung** (tính tới 18/10/2026, DB đang ở V62). Phải áp đúng thứ tự
 V63 rồi V64: `out-of-order` đang tắt nên áp V64 trước sẽ làm Flyway **im lặng bỏ qua** V63.
+V65 = `community` (Cộng đồng dành cho mẹ, nhánh `feature/mother-community-be`) — số lấy ngày 20/10/2026 khi
+DB dùng chung đã ở V64 và không nhánh remote nào có V65+. Chỉ chạy V65 trên Postgres local cho tới khi PR được duyệt.
 Không tái sử dụng các số này. Những thay đổi tiếp theo phải dùng số còn trống sau khi đối chiếu.

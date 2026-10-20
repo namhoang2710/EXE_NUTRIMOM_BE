@@ -100,6 +100,8 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | INVALID_IMAGE_DIMENSIONS | 422 | false | knowledge (image upload) |
 | IMAGE_PROCESSING_FAILED | 422 | false | knowledge (image upload) |
 | IMAGE_PROCESSING_BUSY | 429 | true | knowledge (image upload) |
+| COMMUNITY_PIN_LIMIT_REACHED | 409 | false | community (admin ghim quá số bài tối đa) |
+| COMMUNITY_MEDIA_INVALID | 422 | false | community (image_ids không thuộc người dùng, đã gắn bài khác hoặc đã hết hạn) |
 | REQUEST_ALREADY_CLAIMED | 409 | false | consultation (yêu cầu ngẫu nhiên đã bị chuyên gia khác nhận) |
 | REVIEW_ALREADY_EXISTS | 409 | false | consultation (đã đánh giá buổi tư vấn) |
 | REVIEW_NOT_ALLOWED | 409 | false | consultation (chưa hoàn thành, không được đánh giá) |
