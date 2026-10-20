@@ -2,6 +2,7 @@ package vn.nutrimom.entitlement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Period;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -79,18 +80,28 @@ class PlanCatalogTest {
         assertThat(catalog.entitlementsOf(PlanTier.PLAN_399K).scanQuota().isUnlimited()).isTrue();
     }
 
-    /**
-     * Catalog nói đúng số ngày server CẤP, không phải lời quảng cáo.
-     *
-     * <p>Trang giá rao PLAN_399K "Trọn 9 tháng" nhưng
-     * {@code PaymentService.activateOrderAndSubscription} cấp {@code plusDays(30)} cho mọi gói trả
-     * phí. Ghim 30 ở đây để catalog không trở thành nguồn sai; bài test này sẽ đỏ đúng lúc ai đó
-     * chữa bug kia, và khi đó sửa luôn con số ở catalog.</p>
-     */
+    /** Catalog nói đúng thời hạn server CẤP, không phải lời quảng cáo trên thẻ giá. */
     @Test
     void durationReflectsWhatTheServerActuallyGrants() {
-        assertThat(catalog.get(PlanTier.FREE).durationDays()).isZero();
-        assertThat(catalog.get(PlanTier.PLAN_99K).durationDays()).isEqualTo(30);
-        assertThat(catalog.get(PlanTier.PLAN_399K).durationDays()).isEqualTo(30);
+        assertThat(catalog.get(PlanTier.FREE).duration()).isEqualTo(Period.ZERO);
+        assertThat(catalog.get(PlanTier.PLAN_99K).duration()).isEqualTo(Period.ofDays(30));
+        assertThat(catalog.get(PlanTier.PLAN_399K).duration()).isEqualTo(Period.ofMonths(10));
+    }
+
+    /**
+     * Thứ catalog công bố và thứ {@code PaymentService} cấp là <strong>cùng một</strong> giá trị.
+     *
+     * <p>Trước đây hai bên là hai con số rời: catalog ghi 30 còn
+     * {@code activateOrderAndSubscription} hardcode {@code plusDays(30)}, nên PLAN_399K bán 399k mà
+     * nhận đúng thời hạn của gói 99k. Nay cả hai đọc {@link PlanTier#getTerm()}; test này chặn việc
+     * ai đó tách chúng ra trở lại.</p>
+     */
+    @Test
+    void catalogAndPaymentReadTheSameTerm() {
+        for (PlanTier tier : PlanTier.values()) {
+            assertThat(catalog.get(tier).duration())
+                    .as("thời hạn công bố của %s phải đúng bằng PlanTier.getTerm()", tier)
+                    .isEqualTo(tier.getTerm());
+        }
     }
 }

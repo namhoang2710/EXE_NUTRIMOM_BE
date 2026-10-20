@@ -41,11 +41,10 @@ import vn.nutrimom.payment.domain.PlanTier;
  * <p><strong>Thứ tự</strong> của {@link #all()} là thứ tự thẻ trên trang giá
  * (FREE → PLAN_399K → PLAN_99K, gói nổi bật nằm giữa), khớp thứ tự mà test frontend đang ghim.</p>
  *
- * <p><strong>{@code durationDays} nói đúng thứ server đang cấp, không phải lời quảng cáo.</strong>
- * {@code PaymentService.activateOrderAndSubscription} cấp {@code plusDays(30)} cho mọi gói trả phí,
- * kể cả PLAN_399K dù trang giá rao "Trọn 9 tháng". Công bố 270 ở đây trong khi server cấp 30 sẽ biến
- * catalog thành nguồn sai — tệ hơn hiện trạng. Chữa tận gốc là cho hàm đó đọc {@code durationDays}
- * từ đây; việc đó thuộc module payment nên không làm trong nhánh này.</p>
+ * <p><strong>{@code duration} nói đúng thứ server đang cấp, không phải lời quảng cáo.</strong>
+ * Cả catalog này lẫn {@code PaymentService.activateOrderAndSubscription} đều đọc
+ * {@link PlanTier#getTerm()}, nên thứ công bố và thứ được cấp là <em>cùng một giá trị</em>, không
+ * phải hai con số phải nhớ đồng bộ bằng tay. {@code PlanCatalogTest} ghim bất biến đó.</p>
  */
 @Component
 public class PlanCatalog {
@@ -58,7 +57,7 @@ public class PlanCatalog {
                 PlanTier.FREE,
                 PlanTier.FREE.getDisplayName(),
                 "Khởi đầu nhẹ nhàng với những công cụ thiết yếu cho hành trình của mẹ.",
-                PlanTier.FREE.getPrice(), "VND", 0, false,
+                PlanTier.FREE.getPrice(), "VND", PlanTier.FREE.getTerm(), false,
                 new PlanEntitlements(
                         EnumSet.of(MEDICAL_RECORDS, AI_SCAN, CHATBOT, CONSULTATION,
                                 DOCTOR_BOOKING, SUPPORT),
@@ -67,7 +66,7 @@ public class PlanCatalog {
                 PlanTier.PLAN_399K,
                 PlanTier.PLAN_399K.getDisplayName(),
                 "Đầy đủ công cụ chăm sóc, theo dõi và kết nối gia đình trong suốt thai kỳ.",
-                PlanTier.PLAN_399K.getPrice(), "VND", 30, true,
+                PlanTier.PLAN_399K.getPrice(), "VND", PlanTier.PLAN_399K.getTerm(), true,
                 new PlanEntitlements(
                         EnumSet.allOf(vn.nutrimom.entitlement.domain.PlanFeature.class),
                         ScanQuota.unlimited())));
@@ -75,7 +74,7 @@ public class PlanCatalog {
                 PlanTier.PLAN_99K,
                 PlanTier.PLAN_99K.getDisplayName(),
                 "Thêm công cụ theo dõi chủ động và gợi ý phù hợp với từng giai đoạn.",
-                PlanTier.PLAN_99K.getPrice(), "VND", 30, false,
+                PlanTier.PLAN_99K.getPrice(), "VND", PlanTier.PLAN_99K.getTerm(), false,
                 new PlanEntitlements(
                         EnumSet.of(CONCEPTION_CALCULATOR, MEDICAL_RECORDS, AI_SCAN,
                                 CALENDAR_REMINDERS, PERSONALISED_GUIDANCE, CHATBOT,

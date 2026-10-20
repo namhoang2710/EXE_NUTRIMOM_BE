@@ -21,7 +21,19 @@ public final class EntitlementDtos {
      * ({@code FREE|PLAN_99K|PLAN_399K}) — deep link {@code ?plan=PLAN_399K} và {@code isPaidPlanTier}
      * so sánh literal nên lệch hoa thường là hỏng.</p>
      *
-     * <p>{@code durationDays} là số ngày server thực cấp, không phải lời quảng cáo trên thẻ giá.</p>
+     * <p><strong>Ba field thời hạn, đọc field nào cho việc gì:</strong></p>
+     * <ul>
+     *   <li>{@code durationIso} — nguồn chính xác, {@code Period.toString()}:
+     *       {@code "P0D"} / {@code "P30D"} / {@code "P10M"}. {@code Period.parse()} round-trip
+     *       được. Dùng nó khi cần tính toán.</li>
+     *   <li>{@code durationLabel} — chuỗi hiển thị dựng sẵn ({@code "10 tháng"}), FE render thẳng
+     *       thay vì tự ghép từ con số.</li>
+     *   <li>{@code durationDays} — số ngày <strong>danh nghĩa</strong> để hiển thị thô
+     *       ({@code 0 / 30 / 300}). Với gói tính theo tháng lịch nó là xấp xỉ: PLAN_399K thực cấp
+     *       303–305 ngày tuỳ ngày mua. Giữ lại vì nó là field FE cũ đang đọc, và giữ kiểu
+     *       {@code int} non-null vì {@code default-property-inclusion: non_null} sẽ <em>xoá hẳn</em>
+     *       field khỏi JSON nếu để null — đổi hợp đồng của một endpoint công khai.</li>
+     * </ul>
      */
     public record PlanResponse(
             String id,
@@ -30,6 +42,8 @@ public final class EntitlementDtos {
             int price,
             String currency,
             int durationDays,
+            String durationIso,
+            String durationLabel,
             boolean featured,
             List<PlanFeatureResponse> features,
             ScanQuotaResponse scanQuota) { }

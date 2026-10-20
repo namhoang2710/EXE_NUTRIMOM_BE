@@ -5,6 +5,7 @@ import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_PAYME
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -230,24 +231,30 @@ public class PaymentService {
         // The DB upgrade trigger must see this ledger entry before entitlement changes.
         orderRepository.saveAndFlush(order);
 
-        // Kích hoạt hoặc gia hạn Subscription thêm 30 ngày cho User
+        // Kích hoạt hoặc gia hạn Subscription theo đúng thời hạn của gói đã mua
+        Period term = order.getPlanTier().getTerm();
         Optional<UserSubscriptionEntity> activeSubOpt = subscriptionRepository
                 .findFirstByUserIdAndStatusOrderByEndDateDesc(order.getUserId(), SubscriptionStatus.ACTIVE);
 
         boolean renewal = activeSubOpt.isPresent() && activeSubOpt.get().isActive();
         if (renewal) {
             UserSubscriptionEntity existing = activeSubOpt.get();
-            existing.setEndDate(existing.getEndDate().plusDays(30));
-            existing.setPlanTier(order.getPlanTier());
+            existing.setEndDate(existing.getEndDate().plus(term));
+            // Chỉ nâng tier, không bao giờ hạ. Ghi đè vô điều kiện sẽ khiến người đang giữ PLAN_399K
+            // mà mua thêm một gói rẻ hơn mất trọn phần thời hạn còn lại ở quyền lợi cao. Thứ tự khai
+            // báo PlanTier là thứ hạng gói nên compareTo nói đúng cao thấp.
+            if (order.getPlanTier().compareTo(existing.getPlanTier()) > 0) {
+                existing.setPlanTier(order.getPlanTier());
+            }
             subscriptionRepository.save(existing);
             log.info("Extended subscription for user: {} with plan: {} until {}",
-                    order.getUserId(), order.getPlanTier(), existing.getEndDate());
+                    order.getUserId(), existing.getPlanTier(), existing.getEndDate());
         } else {
             UserSubscriptionEntity newSub = new UserSubscriptionEntity(
                     order.getUserId(),
                     order.getPlanTier(),
                     now,
-                    now.plusDays(30)
+                    now.plus(term)
             );
             subscriptionRepository.save(newSub);
             log.info("Created new subscription for user: {} with plan: {} until {}",
