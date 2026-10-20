@@ -20,7 +20,9 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.nutrition.domain.CoverageStatus;
@@ -154,23 +156,25 @@ public class MealPlanService {
         ProfileSnapshot profile = profiles.snapshot(userId);
         requireMatchingProfileVersion(request.profileVersion(), profile.profileVersion());
 
-        Optional<PreviewResponse> replayed = replay(userId, request.requestId());
+        String fingerprint = PreviewFingerprint.of(request, json);
+        Optional<PreviewResponse> replayed = replay(userId, request.requestId(), fingerprint);
         if (replayed.isPresent()) {
             return replayed.get();
         }
 
         PreviewResponse response = generate(profile, request);
-        return store(userId, request.requestId(), profile.profileVersion(), response);
+        return store(userId, request.requestId(), fingerprint, profile.profileVersion(), response);
     }
 
     /**
-     * Gửi lại cùng {@code request_id} trả lại <strong>đúng bản cũ</strong> (_CONTRACT.md mục 6).
+     * Gửi lại cùng {@code request_id} trả lại <strong>đúng bản cũ</strong> (_CONTRACT.md mục 6) —
+     * nhưng chỉ khi nội dung yêu cầu cũng y như cũ.
      *
      * <p>Bản đã hết hạn thì xóa lười ngay tại đây rồi sinh bản mới: giữ lại một bản chết chỉ để
      * khóa {@code request_id} sẽ làm người dùng bấm "Tạo thực đơn" mà không bao giờ ra được kết quả
      * mới.</p>
      */
-    private Optional<PreviewResponse> replay(String userId, String requestId) {
+    private Optional<PreviewResponse> replay(String userId, String requestId, String fingerprint) {
         Optional<MealPlanPreviewEntity> existing =
                 previews.findByUserIdAndRequestId(userId, requestId);
         if (existing.isEmpty()) {
@@ -182,11 +186,43 @@ public class MealPlanService {
             previews.flush();
             return Optional.empty();
         }
-        return Optional.of(readPayload(preview));
+        return Optional.of(replayOf(preview, fingerprint));
     }
 
-    private PreviewResponse store(String userId, String requestId, int profileVersion,
-                                  PreviewResponse response) {
+    /** Đọc payload đúng một lần: đối chiếu dấu vân tay rồi dựng body từ chính cây JSON đó. */
+    private PreviewResponse replayOf(MealPlanPreviewEntity preview, String fingerprint) {
+        JsonNode payload = json.readTree(preview.getPayload());
+        requireSameRequest(payload, fingerprint);
+        return withPreviewId(responseOf(payload), preview.getId(), preview.getExpiresAt());
+    }
+
+    /**
+     * Cùng {@code request_id} nhưng body khác là <strong>lỗi của client</strong>, không phải một
+     * lần gửi lại.
+     *
+     * <p>Trả bản cũ ở đây là nói dối: client vừa sửa yêu cầu — thêm {@code locked_items}, đổi
+     * {@code start_date} — và sẽ tin rằng yêu cầu mới đã chạy. {@code IDEMPOTENCY_CONFLICT} (409)
+     * đã có sẵn trong {@code ErrorCode} và _CONTRACT.md mục 3 xếp nó vào nhóm dùng lại; module
+     * assistant đã xử đúng kiểu này ở {@code AssistantStore}.</p>
+     *
+     * <p>Dòng ghi trước khi có dấu vân tay thì không có gì để đối chiếu — giữ nguyên hành vi cũ
+     * thay vì báo xung đột oan. Xem {@link PreviewFingerprint} về khoảng mù nửa giờ đó.</p>
+     */
+    private void requireSameRequest(JsonNode payload, String fingerprint) {
+        JsonNode stored = payload.path(PreviewFingerprint.PAYLOAD_FIELD);
+        if (!stored.isString()) {
+            return;
+        }
+        if (!stored.stringValue().equals(fingerprint)) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT,
+                    "request_id này đã dùng cho một yêu cầu tạo thực đơn khác. "
+                            + "Hãy gửi lại với request_id mới.",
+                    Map.of("request_id", "đã gắn với một yêu cầu khác"));
+        }
+    }
+
+    private PreviewResponse store(String userId, String requestId, String fingerprint,
+                                  int profileVersion, PreviewResponse response) {
         MealPlanPreviewEntity preview = new MealPlanPreviewEntity();
         preview.setUserId(userId);
         preview.setRequestId(requestId);
@@ -198,16 +234,19 @@ public class MealPlanService {
         // Ghi payload với chính id sắp lưu, để preview_id trong body và trong bảng là một.
         preview.setId(java.util.UUID.randomUUID().toString());
         PreviewResponse stored = withPreviewId(response, preview.getId(), preview.getExpiresAt());
-        preview.setPayload(json.writeValueAsString(stored));
+        ObjectNode payload = json.valueToTree(stored);
+        payload.put(PreviewFingerprint.PAYLOAD_FIELD, fingerprint);
+        preview.setPayload(json.writeValueAsString(payload));
 
         try {
             previews.saveAndFlush(preview);
         } catch (DataIntegrityViolationException duplicateRequestId) {
             // Hai lượt gửi song song cùng request_id: unique (user_id, request_id) chặn bản thứ
-            // hai. Đọc lại bản thắng và trả về nó — đúng tinh thần idempotency, không phải lỗi.
-            return previews.findByUserIdAndRequestId(userId, requestId)
-                    .map(this::readPayload)
+            // hai. Đọc lại bản thắng — nhưng vẫn đối chiếu body: "song song" không có nghĩa là
+            // "cùng nội dung", và hai yêu cầu khác nhau đua nhau trên một khóa vẫn là xung đột.
+            MealPlanPreviewEntity winner = previews.findByUserIdAndRequestId(userId, requestId)
                     .orElseThrow(() -> duplicateRequestId);
+            return replayOf(winner, fingerprint);
         }
         return stored;
     }
@@ -967,8 +1006,21 @@ public class MealPlanService {
     }
 
     private PreviewResponse readPayload(MealPlanPreviewEntity preview) {
-        PreviewResponse stored = json.readValue(preview.getPayload(), PreviewResponse.class);
-        return withPreviewId(stored, preview.getId(), preview.getExpiresAt());
+        return withPreviewId(responseOf(json.readTree(preview.getPayload())), preview.getId(),
+                preview.getExpiresAt());
+    }
+
+    /**
+     * Body xem trước, <strong>trừ</strong> dấu vân tay nằm nhờ trong cùng cột.
+     *
+     * <p>Gỡ khóa đó ở đúng một chỗ: nó là chuyện nội bộ của idempotency, không phải trường của
+     * hợp đồng JSON, và không nơi nào khác được nhìn thấy nó.</p>
+     */
+    private PreviewResponse responseOf(JsonNode payload) {
+        if (payload instanceof ObjectNode body) {
+            body.remove(PreviewFingerprint.PAYLOAD_FIELD);
+        }
+        return json.treeToValue(payload, PreviewResponse.class);
     }
 
     private PreviewResponse withPreviewId(PreviewResponse response, String previewId,

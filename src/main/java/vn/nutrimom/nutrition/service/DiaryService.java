@@ -9,6 +9,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -261,16 +262,36 @@ public class DiaryService {
      */
     @Transactional
     public DiaryView create(String userId, CreateDiaryEntryRequest request) {
+        requireOneShape(request);
+        // Dựng dòng trước, tra request_id sau: dòng dựng xong chính là thứ để đối chiếu với bản
+        // đã lưu, nên không cần một cột dấu vân tay nào — bảng đã giữ đủ.
+        DiaryEntryEntity entry = build(userId, request);
+
         Optional<DiaryEntryEntity> replay = entries.findByUserIdAndRequestId(userId,
                 request.requestId());
         if (replay.isPresent()) {
             // Gửi lại cùng request_id trả lại đúng bản ghi cũ (TC16). Ghi trùng ở đây không chỉ
             // thừa một dòng — nó làm tổng đã ăn của ngày gấp đôi.
+            requireSameRequest(replay.get(), entry);
             return view(userId, replay.get().getLocalDate());
         }
 
-        requireOneShape(request);
+        try {
+            entries.saveAndFlush(entry);
+        } catch (DataIntegrityViolationException duplicateRequestId) {
+            // Hai lượt gửi song song cùng request_id: unique (user_id, request_id) chặn bản thứ
+            // hai. Đọc lại bản thắng — nhưng vẫn đối chiếu nội dung: "song song" không có nghĩa là
+            // "cùng nội dung", và hai yêu cầu khác nhau đua nhau trên một khóa vẫn là xung đột.
+            DiaryEntryEntity winner = entries.findByUserIdAndRequestId(userId, request.requestId())
+                    .orElseThrow(() -> duplicateRequestId);
+            requireSameRequest(winner, entry);
+            return view(userId, winner.getLocalDate());
+        }
+        return view(userId, entry.getLocalDate());
+    }
 
+    /** Dòng nhật ký như yêu cầu mô tả, chưa lưu. */
+    private DiaryEntryEntity build(String userId, CreateDiaryEntryRequest request) {
         DiaryEntryEntity entry = new DiaryEntryEntity();
         entry.setUserId(userId);
         entry.setLocalDate(request.localDate());
@@ -291,17 +312,61 @@ public class DiaryService {
             entry.setCustomText(request.customText().trim());
             entry.setAmountText(request.amountText());
         }
+        return entry;
+    }
 
-        try {
-            entries.saveAndFlush(entry);
-        } catch (DataIntegrityViolationException duplicateRequestId) {
-            // Hai lượt gửi song song cùng request_id: unique (user_id, request_id) chặn bản thứ
-            // hai. Đọc lại bản thắng — đúng tinh thần idempotency, không phải lỗi.
-            DiaryEntryEntity winner = entries.findByUserIdAndRequestId(userId, request.requestId())
-                    .orElseThrow(() -> duplicateRequestId);
-            return view(userId, winner.getLocalDate());
+    /**
+     * Cùng {@code request_id} nhưng nội dung khác là <strong>lỗi của client</strong>, không phải
+     * một lần gửi lại.
+     *
+     * <p>Trả bản cũ ở đây là nói dối: client vừa sửa yêu cầu — đổi số phần, đổi bữa — và sẽ tin
+     * rằng dòng đã được ghi theo nội dung mới. {@code IDEMPOTENCY_CONFLICT} (409) đã có sẵn trong
+     * {@code ErrorCode} và _CONTRACT.md mục 3 xếp nó vào nhóm dùng lại; module assistant đã xử
+     * đúng kiểu này ở {@code AssistantStore}.</p>
+     *
+     * <p><strong>Không có cột dấu vân tay</strong>, nên cũng không có migration: khác bản xem
+     * trước (xem {@link PreviewFingerprint}), nhật ký lưu thẳng từng trường người dùng gửi lên, và
+     * dựng lại dòng từ yêu cầu rồi so từng trường cho ra đúng kết luận ấy mà không phải động vào
+     * schema của database dùng chung.</p>
+     *
+     * <p>So <strong>sau khi đã giải nghĩa</strong> ({@code source_plan_item_id} tra ra mục kế
+     * hoạch, {@code recipe_id} tra ra món), nên một yêu cầu chỉ gửi mục kế hoạch vẫn khớp với dòng
+     * đã lưu cả hai trường. Cố ý <strong>không</strong> so {@code recipe_version} và
+     * {@code recipe_snapshot}: chúng là ảnh chụp lúc ghi, seed đổi công thức giữa hai lần gửi
+     * không biến một lần gửi lại thành xung đột (BR17).</p>
+     *
+     * <p>Giới hạn đã biết: dòng đã bị {@code PATCH} sửa thì không còn mô tả yêu cầu gốc nữa, nên
+     * gửi lại đúng body cũ sau khi sửa sẽ báo xung đột. Chấp nhận — cửa sổ gửi lại tính bằng giây,
+     * còn sửa là một thao tác người dùng về sau; đổi lại là <strong>một</strong> quy tắc duy nhất
+     * ở đây thay vì hai.</p>
+     */
+    private void requireSameRequest(DiaryEntryEntity stored, DiaryEntryEntity requested) {
+        if (sameRequest(stored, requested)) {
+            return;
         }
-        return view(userId, entry.getLocalDate());
+        throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT,
+                "request_id này đã dùng cho một dòng nhật ký khác. "
+                        + "Hãy gửi lại với request_id mới.",
+                Map.of("request_id", "đã gắn với một yêu cầu khác"));
+    }
+
+    private boolean sameRequest(DiaryEntryEntity stored, DiaryEntryEntity requested) {
+        return stored.getLocalDate().equals(requested.getLocalDate())
+                && stored.getMealType() == requested.getMealType()
+                && Objects.equals(stored.getRecipeId(), requested.getRecipeId())
+                && Objects.equals(stored.getSourcePlanItemId(), requested.getSourcePlanItemId())
+                && sameServings(stored.getActualServings(), requested.getActualServings())
+                && Objects.equals(stored.getCustomText(), requested.getCustomText())
+                && Objects.equals(stored.getAmountText(), requested.getAmountText())
+                && stored.isEstimateIncomplete() == requested.isEstimateIncomplete();
+    }
+
+    /** 1 và 1.00 là cùng một khẩu phần: so theo giá trị, không theo cách viết. */
+    private boolean sameServings(BigDecimal stored, BigDecimal requested) {
+        if (stored == null || requested == null) {
+            return stored == requested;
+        }
+        return stored.compareTo(requested) == 0;
     }
 
     /**

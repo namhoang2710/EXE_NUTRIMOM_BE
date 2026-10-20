@@ -154,6 +154,68 @@ class DiaryIntegrationTest extends ApiIntegrationTestSupport {
         assertThat(energy(diary, "logged_nutrition")).isEqualByComparingTo(ONE_SERVING_KCAL);
     }
 
+    /**
+     * Sửa nội dung rồi gửi lại bằng {@code request_id} cũ là xung đột, không phải gửi lại.
+     *
+     * <p>Trả dòng cũ ở đây làm client tin rằng số phần mới đã được ghi, trong khi tổng của ngày
+     * vẫn là con số cũ.</p>
+     */
+    @Test
+    void theSameRequestIdWithADifferentBodyIsRejectedAndLogsNothing() throws Exception {
+        Session session = onboardedMom("0912480023");
+        Plan plan = savedLunchPlan(session);
+        PlanItem rice = plan.item(RICE);
+
+        logFromPlan(session, "req-changed-mind", rice.itemId(), "1");
+        logEntryRaw(session, """
+                {"request_id":"req-changed-mind","local_date":"%s","meal_type":"LUNCH",
+                 "source_plan_item_id":"%s","servings":2}
+                """.formatted(DATE, rice.itemId()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_CONFLICT"));
+
+        JsonNode diary = diary(session);
+        assertThat(diary.at("/entries").size())
+                .describedAs("yêu cầu bị từ chối thì không sinh dòng nào")
+                .isEqualTo(1);
+        assertThat(energy(diary, "logged_nutrition")).isEqualByComparingTo(ONE_SERVING_KCAL);
+    }
+
+    /** Cách viết khác nhau, nghĩa như nhau: vẫn là một lần gửi lại, không phải xung đột. */
+    @Test
+    void theSameEntryWrittenDifferentlyIsStillTheSameRequest() throws Exception {
+        Session session = onboardedMom("0912480024");
+        Plan plan = savedLunchPlan(session);
+        PlanItem rice = plan.item(RICE);
+
+        logFromPlan(session, "req-same-meaning", rice.itemId(), "1");
+        // Cùng món, viết số phần là 1.00 và nêu thẳng recipe_id mà mục kế hoạch vẫn trỏ tới.
+        logEntry(session, """
+                {"request_id":"req-same-meaning","local_date":"%s","meal_type":"LUNCH",
+                 "source_plan_item_id":"%s","recipe_id":"%s","servings":1.00}
+                """.formatted(DATE, rice.itemId(), RICE));
+
+        JsonNode diary = diary(session);
+        assertThat(diary.at("/entries").size()).isEqualTo(1);
+        assertThat(energy(diary, "logged_nutrition")).isEqualByComparingTo(ONE_SERVING_KCAL);
+    }
+
+    /** {@code request_id} mới thì dòng thứ hai được ghi bình thường. */
+    @Test
+    void aNewRequestIdLogsASecondEntry() throws Exception {
+        Session session = onboardedMom("0912480025");
+        Plan plan = savedLunchPlan(session);
+        PlanItem rice = plan.item(RICE);
+
+        logFromPlan(session, "req-first-try", rice.itemId(), "1");
+        logFromPlan(session, "req-second-try", rice.itemId(), "1");
+
+        JsonNode diary = diary(session);
+        assertThat(diary.at("/entries").size()).isEqualTo(2);
+        assertThat(energy(diary, "logged_nutrition"))
+                .isEqualByComparingTo(ONE_SERVING_KCAL.multiply(new BigDecimal("2")));
+    }
+
     // =========================================================================================
     // TC17 — xóa
     // =========================================================================================

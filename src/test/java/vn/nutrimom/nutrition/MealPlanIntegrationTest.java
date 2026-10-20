@@ -248,6 +248,78 @@ class MealPlanIntegrationTest extends ApiIntegrationTestSupport {
                 .count()).isEqualTo(1);
     }
 
+    /**
+     * Sửa yêu cầu rồi gửi lại bằng {@code request_id} cũ là xung đột, không phải gửi lại.
+     *
+     * <p>Đây là tình huống bắt được lúc thử tay: lần đầu không khóa món, lần sau thêm
+     * {@code locked_items} nhưng quên đổi {@code request_id}. Trả bản cũ ở đây làm client tin rằng
+     * món đã được khóa.</p>
+     */
+    @Test
+    void theSameRequestIdWithADifferentBodyIsRejectedAndWritesNothing() throws Exception {
+        Session session = onboardedMom("0912380036");
+        MvcResult first = preview(session, """
+                {"request_id":"req-changed-mind","start_date":"2026-10-14",
+                 "meal_types":["LUNCH","DINNER"],"seed":17}
+                """).andExpect(status().isOk()).andReturn();
+        String lunchRecipe = data(first).at("/days/0/slots/0/items/0/recipe_id").stringValue();
+
+        preview(session, """
+                {"request_id":"req-changed-mind","start_date":"2026-10-14",
+                 "meal_types":["LUNCH","DINNER"],"seed":17,
+                 "locked_items":[{"meal_type":"LUNCH","sequence":1,"recipe_id":"%s",
+                                  "servings":2}]}
+                """.formatted(lunchRecipe))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_CONFLICT"));
+
+        assertThat(previews.findAll().stream()
+                .filter(row -> row.getUserId().equals(session.userId()))
+                .count())
+                .describedAs("yêu cầu bị từ chối thì không sinh bản ghi nào")
+                .isEqualTo(1);
+    }
+
+    /** Cách viết khác nhau, nghĩa như nhau: vẫn là một lần gửi lại, không phải xung đột. */
+    @Test
+    void theSameRequestWrittenDifferentlyIsStillTheSameRequest() throws Exception {
+        Session session = onboardedMom("0912380037");
+        MvcResult first = preview(session, """
+                {"request_id":"req-same-meaning","start_date":"2026-10-14",
+                 "meal_types":["LUNCH","DINNER"],"seed":17}
+                """).andExpect(status().isOk()).andReturn();
+
+        // Thứ tự bữa đảo lại, và day_count/snack_count ghi rõ đúng giá trị mặc định.
+        MvcResult again = preview(session, """
+                {"request_id":"req-same-meaning","start_date":"2026-10-14","day_count":1,
+                 "meal_types":["DINNER","LUNCH"],"snack_count":1,"seed":17}
+                """).andExpect(status().isOk()).andReturn();
+
+        assertThat(data(again).at("/preview_id").stringValue())
+                .isEqualTo(data(first).at("/preview_id").stringValue());
+    }
+
+    /** {@code request_id} mới thì yêu cầu mới được chạy bình thường. */
+    @Test
+    void aNewRequestIdCreatesASecondPreview() throws Exception {
+        Session session = onboardedMom("0912380038");
+        MvcResult first = preview(session, """
+                {"request_id":"req-first-try","start_date":"2026-10-14",
+                 "meal_types":["LUNCH"],"seed":17}
+                """).andExpect(status().isOk()).andReturn();
+        MvcResult second = preview(session, """
+                {"request_id":"req-second-try","start_date":"2026-10-15",
+                 "meal_types":["LUNCH"],"seed":17}
+                """).andExpect(status().isOk()).andReturn();
+
+        assertThat(data(second).at("/preview_id").stringValue())
+                .isNotEqualTo(data(first).at("/preview_id").stringValue());
+        assertThat(data(second).at("/days/0/local_date").stringValue()).isEqualTo("2026-10-15");
+        assertThat(previews.findAll().stream()
+                .filter(row -> row.getUserId().equals(session.userId()))
+                .count()).isEqualTo(2);
+    }
+
     // =========================================================================================
     // Lưu kế hoạch
     // =========================================================================================

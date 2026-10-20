@@ -659,7 +659,7 @@ này và đúng hình dạng phản hồi này, phần riêng của chúng ở [
 
 | Trường | Ý nghĩa |
 |---|---|
-| `request_id` | **idempotency key**, bắt buộc. Gửi lại cùng giá trị trả lại **đúng bản xem trước cũ** |
+| `request_id` | **idempotency key**, bắt buộc. Gửi lại cùng giá trị **kèm cùng nội dung** trả lại đúng bản xem trước cũ; nội dung khác → `IDEMPOTENCY_CONFLICT` (409) |
 | `profile_version` | phiên bản hồ sơ giao diện đang cầm; lệch → `VERSION_CONFLICT`, không lập thực đơn trên dữ liệu cũ. Bỏ trống = không kiểm |
 | `snack_count` | 1–3, mặc định 1. Tỉ lệ 15% của bữa phụ **chia đều** cho từng bữa (QĐ-02) |
 | `constraints.*` | ngân sách và thời gian phải **> 0** — cả hai nằm dưới mẫu số một phép chia |
@@ -829,6 +829,27 @@ các mục — kể cả sau khi seed sửa công thức (BR17).
 
 Bản xem trước hết hạn được **xóa lười lúc đọc**: gửi lại cùng `request_id` sau 30 phút thì bản chết
 bị xóa và một lượt tìm mới chạy, thay vì khóa `request_id` vĩnh viễn.
+
+### Gửi lại cùng `request_id` nhưng body khác → `IDEMPOTENCY_CONFLICT` (409)
+
+Một `request_id` khóa **một yêu cầu**, không khóa một ô trống. Sửa body rồi gửi lại bằng mã cũ —
+thêm `locked_items`, đổi `start_date` — thì server trả `IDEMPOTENCY_CONFLICT` (409) kèm
+`fields.request_id` và lời nhắn đổi `request_id`, chứ không im lặng trả bản cũ. Trả bản cũ ở đó làm
+client tin rằng yêu cầu mới đã chạy, trong khi nó chưa từng được chạy.
+
+Dấu vân tay lấy đúng những trường **quyết định nội dung** thực đơn: `start_date`, `day_count`,
+`meal_types`, `snack_count`, `constraints.*`, `locked_items[]`, `seed`. **Không** lấy `request_id`
+(nó là khóa) và **không** lấy `profile_version` (đã kiểm riêng bằng giá trị hiện tại của hồ sơ).
+Giá trị được chuẩn hóa trước khi băm — mặc định được điền, `meal_types` và `locked_items` được sắp
+xếp, `servings` so theo giá trị — nên `{"meal_types":["DINNER","LUNCH"]}` và
+`{"meal_types":["LUNCH","DINNER"],"day_count":1}` vẫn là **cùng một yêu cầu**.
+
+Dấu vân tay nằm trong chính cột `payload` (JSONB) dưới khóa nội bộ `_request_fingerprint`, **không
+có migration nào** — xem `PreviewFingerprint`. Hệ quả: những bản xem trước ghi trước thay đổi này
+không có dấu vân tay nên giữ hành vi cũ; TTL 30 phút làm khoảng mù đó tự hết sau nửa giờ.
+
+Đường đua hai lượt gửi song song cùng `request_id` cũng đối chiếu như vậy: bản thắng được đọc lại
+rồi so body, "song song" không có nghĩa là "cùng nội dung".
 
 ---
 
@@ -1288,8 +1309,20 @@ không được hiểu thành một phần.
 ```
 
 "Ăn một nửa" chính là `"servings": 0.5`. `request_id` nằm **trong body**, unique cùng `user_id`:
-gửi lại cùng giá trị trả về đúng bản ghi cũ, không tạo bữa thứ hai (TC16). Ghi trùng ở đây không
-chỉ thừa một dòng — nó làm tổng đã ăn của ngày gấp đôi.
+gửi lại cùng giá trị **kèm cùng nội dung** trả về đúng bản ghi cũ, không tạo bữa thứ hai (TC16).
+Ghi trùng ở đây không chỉ thừa một dòng — nó làm tổng đã ăn của ngày gấp đôi.
+
+Cùng `request_id` nhưng **nội dung khác** — đổi `servings`, đổi `meal_type` — trả
+`IDEMPOTENCY_CONFLICT` (409) kèm `fields.request_id`, và **không ghi dòng nào**. Nhật ký không cần
+cột dấu vân tay nào cho việc này (cũng không cần migration): bảng đã giữ đủ, nên server dựng lại
+dòng từ yêu cầu rồi so từng trường với dòng đã lưu — `local_date`, `meal_type`, `recipe_id`,
+`source_plan_item_id`, `servings`, `custom_text`, `amount_text`, `estimate_incomplete`.
+
+So **sau khi đã giải nghĩa**, nên một yêu cầu chỉ gửi `source_plan_item_id` vẫn khớp với dòng đã
+lưu cả `recipe_id`, và `1` khớp với `1.00`. Cố ý **không** so `recipe_version` và `recipe_snapshot`:
+chúng là ảnh chụp lúc ghi, seed đổi công thức giữa hai lần gửi không biến một lần gửi lại thành
+xung đột (BR17). Giới hạn đã biết: dòng đã bị `PATCH` sửa không còn mô tả yêu cầu gốc, nên gửi lại
+body gốc sau khi sửa cũng báo xung đột — cửa sổ gửi lại tính bằng giây, còn sửa là thao tác về sau.
 
 Hai dạng dòng, chọn đúng một:
 
@@ -1785,6 +1818,17 @@ Module thêm **đúng một** mã vào danh mục chung:
 
 Mọi tình huống khác dùng lại mã sẵn có: `VALIDATION_ERROR`, `VERSION_CONFLICT`,
 `IDEMPOTENCY_CONFLICT`, `RESOURCE_NOT_FOUND`, `PLAN_UPGRADE_REQUIRED`.
+
+`IDEMPOTENCY_CONFLICT` (409) được dùng lại ở **đúng hai đường ghi** — hai đường mang `request_id`
+trong body (_CONTRACT.md mục 6):
+
+| Đường | Khi nào 409 |
+|---|---|
+| `POST /api/v1/meal-plans/preview` | cùng `request_id`, nhưng `start_date` / `day_count` / `meal_types` / `snack_count` / `constraints` / `locked_items` / `seed` khác lần trước |
+| `POST /api/v1/diary-entries` | cùng `request_id`, nhưng dòng mô tả một bữa khác lần trước |
+
+Cả hai trả kèm `fields.request_id` và lời nhắn đổi `request_id`, và **không ghi gì**. Cùng
+`request_id` với **cùng** nội dung vẫn trả đúng bản ghi cũ như trước — đó mới là lần gửi lại.
 
 `NO_MATCH` và `SEARCH_LIMIT` **không phải** mã lỗi — chúng là `reason_codes` trong body trả
 **HTTP 200**, vì không tìm được thực đơn là kết quả nghiệp vụ hợp lệ. Sáu mã `SHOPPING_*` của
