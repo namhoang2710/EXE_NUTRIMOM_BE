@@ -337,7 +337,33 @@ public enum RecommendationReason {
      */
     DIARY_TOO_SPARSE(Kind.RESULT,
             "Nhật ký hôm nay chưa đủ dữ liệu để nói về khẩu phần cả ngày — "
-                    + "gợi ý bên dưới là gợi ý đa dạng thông thường");
+                    + "gợi ý bên dưới là gợi ý đa dạng thông thường"),
+
+    // --- Nói về một kế hoạch sau khi hồ sơ đổi (nhánh 10) -------------------------------------
+
+    /**
+     * Hồ sơ đã đổi và kế hoạch còn mục <strong>chưa ăn</strong> không hợp điều kiện bắt buộc mới.
+     *
+     * <p>Phát ra ở mức kế hoạch, đi kèm {@code lifecycle_state = NEEDS_UPDATE} và cờ xung đột ở
+     * từng mục. Câu chữ nói <em>việc cần làm</em> chứ không phán xét: hệ thống không tự đổi món và
+     * không tự mở khóa mục người dùng đã giữ (BR10) — nó chỉ chỉ đúng chỗ cần đổi.</p>
+     *
+     * <p>{@code detail} là số mục cần đổi. Cố ý không liệt kê tên món ở đây: danh sách đó nằm ngay
+     * trên từng mục, và lặp lại nó ở đầu trang chỉ làm một kế hoạch bảy ngày thành một đoạn văn.</p>
+     */
+    PLAN_NEEDS_UPDATE_AFTER_PROFILE_CHANGE(Kind.RESULT,
+            "Hồ sơ của bạn đã đổi: %s món trong thực đơn không còn hợp điều kiện bắt buộc, "
+                    + "hãy đổi những món được đánh dấu trước khi dùng tiếp"),
+
+    /**
+     * Lượt tạo lại đã <strong>giữ nguyên</strong> một bữa vì nó đã được ghi vào nhật ký (BR11).
+     *
+     * <p>Phải nói ra: người dùng bấm "Tạo lại" và mong cả ngày đổi, nên một bữa không đổi mà không
+     * ai giải thích trông như một lỗi. Lý do thì ngược lại — bữa đó đã ăn rồi, và lập lại một việc
+     * đã xảy ra là thứ duy nhất ở đây thực sự sai (bất biến 3).</p>
+     */
+    PLAN_KEPT_EATEN_MEAL(Kind.RESULT,
+            "Giữ nguyên %s vì bữa này đã được ghi vào nhật ký — tạo lại không sửa bữa đã ăn");
 
     /** Nhóm của lý do — ngăn một mã chặn bị đem ra làm lời khen. */
     public enum Kind {

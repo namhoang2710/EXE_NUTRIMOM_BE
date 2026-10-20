@@ -228,12 +228,18 @@ public final class MealPlanDtos {
      * @param servingGram một phần tương đương bao nhiêu gram; null = <strong>món chưa cân
      *                    được</strong>, không phải 0 gram. Giao diện chỉ mở ô nhập theo gram khi
      *                    trường này có số
+     * @param conflict    món <strong>không còn hợp điều kiện bắt buộc</strong> của hồ sơ hiện tại
+     *                    (nhánh 10). Tính lại mỗi lần đọc, không phải một cờ đã lưu — hồ sơ có thể
+     *                    vừa đổi ở thiết bị khác. Luôn {@code false} ở bản xem trước: nội dung vừa
+     *                    đi qua bước lọc xong. Mục ở ngày đã qua hoặc ở bữa đã ghi nhật ký cũng
+     *                    luôn {@code false}: thay đổi hồ sơ không viết lại lịch sử (BR17).
+     *                    {@code reasonCodes} lúc đó nêu đúng thành phần đang xung đột
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ItemView(String itemId, String recipeId, String name, RecipeRole role,
                            int recipeVersion, BigDecimal servings, BigDecimal servingGram,
-                           Integer minutes, boolean locked, BigDecimal estimatedCostVnd,
-                           List<ReasonView> reasonCodes) {
+                           Integer minutes, boolean locked, boolean conflict,
+                           BigDecimal estimatedCostVnd, List<ReasonView> reasonCodes) {
     }
 
     /**

@@ -60,6 +60,7 @@ import vn.nutrimom.nutrition.service.MealPlanSearch.Targets;
 import vn.nutrimom.nutrition.service.MealPlanSearch.WeeklyAllowance;
 import vn.nutrimom.nutrition.service.NutritionSnapshots.Portion;
 import vn.nutrimom.nutrition.service.NutritionSnapshots.RecipeSnapshot;
+import vn.nutrimom.nutrition.service.PlanRevalidationService.Revalidation;
 import vn.nutrimom.nutrition.service.NutritionTotals.NutrientTotal;
 
 /**
@@ -99,6 +100,7 @@ public class MealPlanService {
     private final MealPlanGenerator generator;
     private final WeeklyFoodLimits weeklyLimits;
     private final MealFeedbackService feedbacks;
+    private final PlanRevalidationService revalidations;
     private final ObjectMapper json;
     private final Clock clock;
 
@@ -106,7 +108,7 @@ public class MealPlanService {
                            MealPlanRepository plans, MealPlanPreviewRepository previews,
                            MealPlanCandidates candidates, NutritionCalculator calculator,
                            MealPlanGenerator generator, WeeklyFoodLimits weeklyLimits,
-                           MealFeedbackService feedbacks,
+                           MealFeedbackService feedbacks, PlanRevalidationService revalidations,
                            ObjectMapper json, Clock clock) {
         this.profiles = profiles;
         this.recipes = recipes;
@@ -117,6 +119,7 @@ public class MealPlanService {
         this.generator = generator;
         this.weeklyLimits = weeklyLimits;
         this.feedbacks = feedbacks;
+        this.revalidations = revalidations;
         this.json = json;
         this.clock = clock;
     }
@@ -666,7 +669,9 @@ public class MealPlanService {
         return new ItemView(null, recipe.recipeId(), recipe.name(), recipe.role(),
                 recipe.recipeVersion(), choice.servings(),
                 choice.candidate().snapshot().servingGram(), recipe.minutes(),
-                choice.candidate().locked(), choice.costVnd(), List.of());
+                // Nội dung vừa qua bước lọc theo đúng hồ sơ của lượt này, nên không mục nào xung
+                // đột. Bản xem trước cũng chưa có dòng nào trong database để đánh dấu.
+                choice.candidate().locked(), false, choice.costVnd(), List.of());
     }
 
     /**
@@ -828,12 +833,21 @@ public class MealPlanService {
      * Vai trò và thời gian nấu thì đọc từ danh mục hiện tại: chúng là thông tin hiển thị, không
      * tham gia phép tính nào.</p>
      *
+     * <p><strong>Kiểm lại theo hồ sơ hiện tại ngay tại đây</strong> (nhánh 10): mỗi mục chưa ăn
+     * được đối chiếu với các điều kiện bắt buộc đang có, và {@code lifecycle_state} trả về là kết
+     * quả <em>vừa tính</em> chứ không phải cột đã lưu. Cột có thể lạc hậu — người dùng đổi hồ sơ ở
+     * thiết bị khác thì không có gì chạy qua kế hoạch này để cập nhật nó — và một thực đơn nói
+     * "đang hợp lệ" trong khi nó chứa món vừa thành dị ứng là đúng thứ không được phép xảy ra.</p>
+     *
      * @param extraNotes ghi chú mà <em>nơi gọi</em> vừa phát hiện — nhánh 6 kiểm lại toàn kế hoạch
      *                   sau mỗi thao tác sửa và đưa kết quả vào đây, thay vì tự dựng một response
      *                   thứ hai có hình dạng hơi khác
      */
     public PlanView view(MealPlanEntity plan, List<ReasonNote> extraNotes) {
         List<MealSlotEntity> ordered = orderedSlots(plan);
+        Revalidation revalidation = profiles.snapshotIfAvailable(plan.getUserId())
+                .map(profile -> revalidations.check(plan, profile))
+                .orElseGet(Revalidation::clean);
 
         Map<String, RecipeEntity> recipesById = new HashMap<>();
         for (MealSlotEntity slot : ordered) {
@@ -860,11 +874,14 @@ public class MealPlanService {
                         .add(portion);
                 wholePlan.add(portion);
                 RecipeEntity recipe = recipesById.get(item.getRecipeId());
+                // Món khóa cũng mang cờ xung đột như mọi món khác (BR10): khóa là một yêu cầu
+                // giữ, không phải một chứng nhận an toàn, và hệ thống không âm thầm mở khóa nó.
                 items.add(new ItemView(item.getId(), item.getRecipeId(), snapshot.name(),
                         recipe == null ? null : recipe.getRole(), item.getRecipeVersion(),
                         item.getServings(), snapshot.servingGram(),
                         recipe == null ? null : recipe.getMinutes(),
-                        item.isLocked(), item.getCostSnapshot(), List.of()));
+                        item.isLocked(), revalidation.conflicts(item.getId()),
+                        item.getCostSnapshot(), views(revalidation.reasonsFor(item.getId()))));
             }
             slotsByDate.computeIfAbsent(slot.getLocalDate(), date -> new ArrayList<>())
                     .add(new SlotView(slot.getMealType(), slot.getSequence(),
@@ -887,8 +904,12 @@ public class MealPlanService {
         if (totals.coverage() != CoverageStatus.COMPLETE) {
             notes.add(ReasonNote.of(RecommendationReason.NUTRITION_DATA_INCOMPLETE));
         }
+        if (revalidation.anyConflict()) {
+            notes.add(ReasonNote.of(RecommendationReason.PLAN_NEEDS_UPDATE_AFTER_PROFILE_CHANGE,
+                    String.valueOf(revalidation.conflictsByItem().size())));
+        }
 
-        return new PlanView(plan.getId(), plan.getGenerationStatus(), plan.getLifecycleState(),
+        return new PlanView(plan.getId(), plan.getGenerationStatus(), revalidation.state(),
                 plan.getPlanVersion(), plan.getProfileVersion(), plan.getRulesVersion(),
                 plan.getStartDate(), plan.getEndDate(), totals.coverage(), views(notes),
                 List.copyOf(days));

@@ -15,7 +15,7 @@ từng nhánh merge.
 | 7 — danh sách mua sắm (V63) | **đã làm** |
 | 8 — nhật ký và phản hồi (V64) | **đã làm** |
 | 9 — thực đơn ba và bảy ngày (không có migration) | **đã làm** |
-| 10 | chưa |
+| 10 — cập nhật hồ sơ và kiểm tra lại kế hoạch (không có migration) | **đã làm** |
 
 JSON snake_case, bọc `ApiResponse` (`data`, `meta`); lỗi theo [error-codes.md](error-codes.md).
 
@@ -295,15 +295,17 @@ ACTIVE_PREGNANCY_NOT_FOUND`.
 {
   "data": {
     "profile_version": 4,
-    "items_to_revalidate": [],
+    "items_to_revalidate": ["3f2a…"],
     "profile": { "...": "y hệt thân của GET" }
   }
 }
 ```
 
-`items_to_revalidate` **luôn rỗng ở nhánh này**. Đánh dấu mục kế hoạch tương lai là
-`NEEDS_UPDATE` là việc của nhánh 10; trường có mặt từ bây giờ để nhánh đó không phải đổi hình dạng
-hợp đồng đã công bố.
+`items_to_revalidate` là `item_id` của các mục kế hoạch **chưa ăn** không còn hợp điều kiện bắt
+buộc sau lượt lưu này — nhánh 10 điền, xem
+[Cập nhật hồ sơ và kiểm tra lại kế hoạch](#cập-nhật-hồ-sơ-và-kiểm-tra-lại-kế-hoạch-nhánh-10).
+Rỗng là trường hợp thường gặp: chỉ dị ứng, chế độ ăn và nguyên liệu phải tránh mới đưa tên vào
+đây.
 
 #### Hợp nhất, không thay thế
 
@@ -692,7 +694,7 @@ này và đúng hình dạng phản hồi này, phần riêng của chúng ở [
             "items": [
               { "recipe_id": "rec.com-trang", "name": "Cơm trắng", "role": "STAPLE",
                 "recipe_version": 1, "servings": 1.0, "serving_gram": 180.00,
-                "minutes": 25, "locked": false,
+                "minutes": 25, "locked": false, "conflict": false,
                 "estimated_cost_vnd": 1240.00, "reason_codes": [] }
             ],
             "reason_codes": []
@@ -713,6 +715,11 @@ Khối `nutrition` đúng hình dạng đã công bố ở nhánh 2: `known_valu
 Hai trường của mục, thêm ở nhánh 6: `item_id` là địa chỉ để sửa đúng mục đó, chỉ có ở **kế hoạch đã
 lưu** (bản xem trước chưa có dòng nào trong database để trỏ tới); `serving_gram` là khối lượng một
 phần, null nghĩa là **món chưa cân được**, và giao diện chỉ mở ô nhập theo gram khi nó có số.
+
+`conflict` thêm ở nhánh 10: món không còn hợp điều kiện bắt buộc của hồ sơ **hiện tại**, và
+`reason_codes` của mục nêu đúng thành phần đang xung đột. Luôn `false` ở bản xem trước và ở mục
+của ngày đã qua hoặc bữa đã ghi nhật ký. Xem
+[Cập nhật hồ sơ và kiểm tra lại kế hoạch](#cập-nhật-hồ-sơ-và-kiểm-tra-lại-kế-hoạch-nhánh-10).
 
 **Phản hồi cố ý không mang điểm số.** `J` và năm phần phạt giữ ở backend, đúng như điểm món ở nhánh 4.
 
@@ -1612,6 +1619,136 @@ không phải quyền lợi bán.
 
 ---
 
+## Cập nhật hồ sơ và kiểm tra lại kế hoạch (nhánh 10)
+
+Tài liệu thi công: [docs/nutrition/branch-10-revalidation.md](nutrition/branch-10-revalidation.md).
+
+**Không có endpoint mới và không có migration.** Nhánh này mở rộng ba thứ đã có:
+
+| Đã có | Thêm gì |
+|---|---|
+| `PUT /api/v1/me/nutrition-profile` | `items_to_revalidate` trả **thật** thay vì luôn rỗng |
+| `GET /api/v1/meal-plans/{id}` | `lifecycle_state` tính lại lúc đọc, và `conflict` + `reason_codes` ở **từng mục** |
+| `POST /api/v1/meal-plans/{id}/regenerate` | chính là nút "Áp dụng cho thực đơn hiện tại"; thêm vế "không sửa bữa đã ăn" |
+
+### Ba mức ảnh hưởng, đừng xử lý như nhau (UC06)
+
+| Đổi gì trong hồ sơ | Ảnh hưởng |
+|---|---|
+| `allergy_status` · `allergen_ids` · `diet_pattern` · `hard_exclusion_ingredient_ids` | kiểm lại mục **hôm nay chưa ăn** và **mọi ngày sau**; mục xung đột bị đánh dấu, kế hoạch sang `NEEDS_UPDATE` |
+| `disliked_ingredient_ids` · `tolerance_tags` · `favorite_recipe_ids` · `blocked_recipe_ids` · `daily_budget_vnd` · `max_minutes_per_meal` · các trường EER | chỉ **lần gợi ý tiếp theo**. Kế hoạch hiện tại giữ nguyên tới khi người dùng bấm "Áp dụng cho thực đơn hiện tại" |
+| ngày đã ăn | **không đụng tới** (BR17) |
+
+Ranh giới này là `ProfileSnapshot.mandatoryConstraints()`, và nó cố ý **không** nhìn thấy ưu tiên
+mềm. Cách làm sai hiển nhiên là so `profile_version` của kế hoạch với giá trị hiện tại: lúc đó một
+lần sửa ngân sách cũng bắt người dùng "cập nhật thực đơn", nhãn đó xuất hiện thường xuyên tới mức
+không còn ai đọc — và lần nó thật sự có nghĩa là lần nói về một món gây dị ứng.
+
+"Không gợi ý món này nữa" (`blocked_recipe_ids`) nằm ở mức 2 chứ không mức 1: nó giữ món khỏi các
+lượt gợi ý sau, không biến một bữa đã lập thành bữa phải đổi.
+
+### Phạm vi: "hôm nay chưa ăn" và mọi ngày sau
+
+Một bữa được kiểm lại khi **cả hai** vế đúng:
+
+1. ngày của bữa **không ở quá khứ** (so với hôm nay theo **lịch của người dùng**, lấy từ múi giờ hồ
+   sơ thai kỳ — không phải ngày UTC của máy chủ);
+2. `app.diary_entries` **chưa có dòng nào** cho đúng cặp (ngày, loại bữa) đó.
+
+Vế thứ hai đối chiếu ở mức *loại bữa*, đúng quy ước nhánh 8 đã đặt cho "bữa chưa ghi": ăn khác kế
+hoạch vẫn là đã ăn bữa đó. Chiều đọc là **một chiều** — bước kiểm lại nhìn sang nhật ký để biết đâu
+là lịch sử, nhật ký không bao giờ bị nó ghi vào (bất biến 3).
+
+### Vòng trạng thái
+
+```
+PREVIEW ──lưu──▶ SAVED ──hồ sơ đổi──▶ NEEDS_UPDATE
+                   ▲                        │
+                   └────đổi mục xung đột────┘
+```
+
+- `NEEDS_UPDATE` **không chặn** việc xem kế hoạch — tổng dinh dưỡng, chi phí và danh sách bữa vẫn
+  đi ra đầy đủ. Nó chỉ chỉ chỗ cần đổi.
+- Đổi hết mục xung đột thì kế hoạch tự quay về `SAVED`: `MealPlanEditService.finish` dựng phản hồi
+  bằng chính `MealPlanService.view`, vốn vừa kiểm lại cả kế hoạch.
+- **BR10: món khóa vẫn được kiểm lại.** Mục khóa không còn hợp lệ thì mang `conflict: true` và
+  **vẫn `locked: true`** — hệ thống không âm thầm mở khóa và không tự thay món. Bấm `regenerate`
+  lúc đó nhận `RECIPE_NOT_ELIGIBLE` (422) kèm `fields.item_id`.
+
+### Cờ xung đột được tính lại lúc đọc, không lưu
+
+Nhánh này không có migration, nên không có cột nào để ghi cờ. Hóa ra đó mới là hướng đúng: một cờ
+đã lưu lạc hậu ngay khi người dùng đổi hồ sơ ở thiết bị khác, và lúc đó giao diện nói một món an
+toàn là nguy hiểm — hoặc tệ hơn, ngược lại.
+
+Thứ duy nhất được ghi là `meal_plans.lifecycle_state`, và nó chỉ là **bản sao để truy vấn**: lượt
+lưu hồ sơ và lượt sửa kế hoạch cập nhật nó, còn giá trị đi ra tới giao diện luôn là kết quả vừa
+tính. Hệ quả cần biết: `GET /api/v1/meal-plans/{id}` nạp danh mục nguyên liệu một lượt để chạy bước
+lọc — trừ khi kế hoạch đã trôi qua hết, lúc đó không còn gì để kiểm nên cũng không nạp gì.
+
+### "Áp dụng cho thực đơn hiện tại"
+
+Không có endpoint riêng — nút này gọi `POST /api/v1/meal-plans/{planId}/regenerate` của nhánh 6 với
+`expected_profile_version` là số **mới**. Lượt tạo lại đọc giới hạn mềm từ hồ sơ hiện tại, nên
+ngân sách và thời gian vừa sửa được áp vào đúng lúc đó, do người dùng quyết định.
+
+### Bữa đã ghi nhật ký không bị tạo lại (BR11)
+
+`MealPlanEditService.pinned` nay có hai vế, và chúng khác nhau về bản chất:
+
+| Vế | Có bị kiểm lại điều kiện không | Nếu không hợp |
+|---|---|---|
+| `locked` — người dùng muốn giữ | **có** | cả lượt tạo lại dừng, kèm `item_id` (BR10) |
+| bữa đã có dòng trong `app.diary_entries` | **không** | không áp dụng — bữa đã ăn rồi |
+
+Bữa đã ăn mà bị chặn vì một dị ứng vừa khai sẽ khiến người dùng không còn đường nào đi tiếp: họ
+không sửa lại được bữa hôm qua. Lượt tạo lại giữ nguyên bữa đó và **nói ra** bằng
+`PLAN_KEPT_EATEN_MEAL` trong `notes` của thao tác — một bữa không đổi mà không ai giải thích trông
+như một lỗi.
+
+### Mã lý do thêm ở nhánh này (HTTP 200)
+
+| Mã | Ở đâu | Khi nào |
+|---|---|---|
+| `PLAN_NEEDS_UPDATE_AFTER_PROFILE_CHANGE` | `notes` của kế hoạch | kế hoạch còn mục chưa ăn xung đột; `%s` là số mục |
+| `PLAN_KEPT_EATEN_MEAL` | `notes` của lượt `regenerate` | một bữa được giữ nguyên vì đã ghi nhật ký |
+
+Lý do của **từng mục** không phải mã mới: chúng là mã chặn sẵn có của bước lọc —
+`ALLERGEN_MATCH`, `ALLERGEN_VIA_COMPONENT`, `HARD_EXCLUSION`, `DIET_PATTERN_CONFLICT` — nên câu
+chữ nêu đúng thành phần đang xung đột (BR15).
+
+`UNSCREENED_INGREDIENT` **không** vào đây: "chưa rà soát thành phần" là khoảng trống của danh mục
+(BR03), không phải điều kiện người dùng vừa đặt ra. Đánh dấu nó thì một lượt nhập seed thiếu dữ
+liệu sẽ bắt mọi kế hoạch đang có phải sửa.
+
+### Lịch sử không bị viết lại
+
+Lượt `PUT` hồ sơ **không chạy một câu `UPDATE` nào** vào `app.diary_entries` hay
+`app.meal_plan_items` — kể cả với mục đang xung đột, vì đổi món là việc của người dùng. Bài kiểm
+`ProfileRevalidationIntegrationTest` so nguyên văn mọi dòng của hai bảng đó trước và sau một lượt
+khai thêm dị ứng.
+
+Dòng nhật ký giữ `recipe_snapshot` và `recipe_version` của **lúc ghi**, nên tổng "đã ghi" của một
+ngày đã qua không đổi một chữ số nào sau khi hồ sơ đổi (BR17, và cũng là TC21 của nhánh 8).
+
+### Chưa có kế hoạch thì vẫn có việc để làm
+
+Không có endpoint nào mới cho trường hợp này: `POST /api/v1/recommendations` chạy được không cần kế
+hoạch, và `GET /api/v1/diary?date=` mở được với `planned_nutrition` rỗng. Giao diện ghép hai thứ đó
+thành "bữa gợi ý hôm nay + nút tạo thực đơn" — **không phải một màn hình trắng**.
+
+### Giọng điệu thông báo
+
+Lời nhắc nói **việc tiếp theo**, không phán xét: "Bạn còn một bữa chưa ghi", "Hôm nay có thể thêm
+một món rau". Không có mã nào trong module nói "Bạn thất bại" hay "Bạn thiếu chất" dựa trên một
+ngày nhật ký — `DIARY_LOGGED_TOTAL_ONLY` và `DIARY_TOO_SPARSE` tồn tại đúng để chặn cách đọc đó.
+
+**BR20:** không có mục tiêu năng lượng thì không hiển thị tỉ lệ đạt mục tiêu.
+`energy_estimate.kcal_per_day` null nghĩa là chưa ước tính được, `remaining.energy_target_kcal`
+cũng null, và không có chỗ nào mượn một mức mặc định.
+
+---
+
 ## Seed
 
 Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutrientSources.json`,
@@ -1651,5 +1788,8 @@ Mọi tình huống khác dùng lại mã sẵn có: `VALIDATION_ERROR`, `VERSIO
 
 `NO_MATCH` và `SEARCH_LIMIT` **không phải** mã lỗi — chúng là `reason_codes` trong body trả
 **HTTP 200**, vì không tìm được thực đơn là kết quả nghiệp vụ hợp lệ. Sáu mã `SHOPPING_*` của
-nhánh 7 và sáu mã `DIARY_*` của nhánh 8 cũng vậy: chúng nói về một dòng, một danh sách hay một
-ngày, không phải về một yêu cầu thất bại.
+nhánh 7, sáu mã `DIARY_*` của nhánh 8 và hai mã `PLAN_*` của nhánh 10 cũng vậy: chúng nói về một
+dòng, một danh sách, một ngày hay một kế hoạch, không phải về một yêu cầu thất bại.
+
+Nhánh 10 **không thêm mã lỗi nào**: món khóa không còn hợp hồ sơ dùng lại `RECIPE_NOT_ELIGIBLE` đã
+có từ nhánh 6.

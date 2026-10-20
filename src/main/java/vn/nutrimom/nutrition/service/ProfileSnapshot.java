@@ -62,4 +62,26 @@ public record ProfileSnapshot(String userId, String profileId, int profileVersio
         return new ProfileConstraints(allergenIds, allergyStatus, dietPattern, hardExclusionIds,
                 blockedRecipeIds, strictMaxMinutes, strictBudgetVnd);
     }
+
+    /**
+     * Chỉ những điều kiện <strong>bắt buộc</strong>: dị ứng, chế độ ăn, nguyên liệu phải tránh.
+     *
+     * <p>Dùng khi hồ sơ đổi và nhánh 10 phải quyết định một mục kế hoạch <em>đã lưu</em> có còn
+     * dùng được không ({@link PlanRevalidationService}). Khác {@link #constraints} ở ba chỗ, và cả
+     * ba đều theo mục 1 của tài liệu nhánh 10 — thay đổi <em>sở thích</em> chỉ ảnh hưởng lần gợi ý
+     * tiếp theo, không bắt người dùng xem lại thực đơn đang có:</p>
+     *
+     * <ul>
+     *   <li>món đã chặn để trống: "không gợi ý món này nữa" là một sở thích, không phải một giới
+     *       hạn an toàn — nó giữ món khỏi các lượt gợi ý sau, chứ không biến một bữa đã lập thành
+     *       một bữa phải đổi;</li>
+     *   <li>không có giới hạn thời gian cứng;</li>
+     *   <li>không có giới hạn ngân sách cứng — ngân sách thuộc mức "sở thích hoặc ngân sách", và
+     *       nút "Áp dụng cho thực đơn hiện tại" mới là chỗ nó được áp vào kế hoạch đang có.</li>
+     * </ul>
+     */
+    public ProfileConstraints mandatoryConstraints() {
+        return new ProfileConstraints(allergenIds, allergyStatus, dietPattern, hardExclusionIds,
+                Set.of(), null, null);
+    }
 }
