@@ -97,6 +97,13 @@ public enum ErrorCode {
     IMAGE_PROCESSING_FAILED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Không xử lý được ảnh. Vui lòng chọn ảnh khác."),
     IMAGE_PROCESSING_BUSY(HttpStatus.TOO_MANY_REQUESTS, true, "Hệ thống xử lý ảnh đang bận. Vui lòng thử lại."),
 
+    // --- Community (Cộng đồng dành cho mẹ) ---
+    // Các lỗi khác của module dùng lại code sẵn có: RESOURCE_NOT_FOUND, VALIDATION_ERROR,
+    // VERSION_CONFLICT, QUOTA_EXCEEDED, FORBIDDEN, R2_UPLOAD_FAILED, IMAGE_*.
+    COMMUNITY_PIN_LIMIT_REACHED(HttpStatus.CONFLICT, false, "Đã đạt số bài ghim tối đa. Hãy bỏ ghim một bài trước."),
+    COMMUNITY_MEDIA_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, false,
+            "Ảnh không hợp lệ hoặc đã hết hạn. Vui lòng tải ảnh lên lại."),
+
     // --- Consultation / experts (đặt lịch tư vấn 1-1) ---
     REQUEST_ALREADY_CLAIMED(HttpStatus.CONFLICT, false,
             "Yêu cầu đã được một chuyên gia khác tiếp nhận."),
