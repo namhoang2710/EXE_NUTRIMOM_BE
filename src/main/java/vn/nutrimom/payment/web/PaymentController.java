@@ -4,8 +4,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import java.time.LocalDate;
 import java.util.Map;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,9 +19,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
+import vn.nutrimom.common.api.PageResponse;
+import vn.nutrimom.payment.domain.PaymentOrderStatus;
+import vn.nutrimom.payment.domain.PlanTier;
 import vn.nutrimom.payment.dto.CreatePaymentRequest;
 import vn.nutrimom.payment.dto.PaymentOrderResponse;
 import vn.nutrimom.payment.dto.PaymentResponse;
@@ -66,9 +73,19 @@ public class PaymentController {
 
     @GetMapping("/orders")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Lịch sử các đơn thanh toán của người dùng")
-    public ApiResponse<List<PaymentOrderResponse>> getUserOrders(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponses.success(paymentService.getUserOrders(jwt.getSubject()));
+    @Operation(summary = "Lịch sử giao dịch của người dùng (phân trang, lọc tuỳ chọn)",
+            description = "Đơn PENDING ở đây KHÔNG được đồng bộ lại với PayOS; muốn trạng thái mới "
+                    + "nhất của một đơn thì gọi GET /payments/orders/{orderCode}.")
+    public ApiResponse<PageResponse<PaymentOrderResponse>> getUserOrders(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int pageSize,
+            @RequestParam(required = false) PaymentOrderStatus status,
+            @RequestParam(required = false) PlanTier planTier,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ApiResponses.success(paymentService.getUserOrders(
+                jwt.getSubject(), page, pageSize, status, planTier, fromDate, toDate));
     }
 
     @PostMapping("/webhook")

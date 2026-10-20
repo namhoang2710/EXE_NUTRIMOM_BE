@@ -43,6 +43,27 @@ class SubscriptionPlanIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.data[2].duration_days").value(30));
     }
 
+    /**
+     * Ba field thời hạn, và {@code duration_days} phải <strong>luôn có mặt</strong>.
+     *
+     * <p>{@code default-property-inclusion: non_null} sẽ xoá hẳn field khỏi JSON nếu nó null, nên
+     * để nullable là âm thầm đổi hợp đồng của một endpoint công khai. {@code duration_iso} là
+     * nguồn chính xác cho gói tính theo tháng lịch; {@code duration_days} chỉ là con số danh nghĩa.</p>
+     */
+    @Test
+    void everyPlanPublishesItsTermInAFormTheClientCanRender() throws Exception {
+        mockMvc.perform(get("/api/v1/subscription-plans"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].duration_iso").value("P0D"))
+                .andExpect(jsonPath("$.data[0].duration_label").value("Mãi mãi"))
+                .andExpect(jsonPath("$.data[0].duration_days").value(0))
+                .andExpect(jsonPath("$.data[1].duration_iso").value("P10M"))
+                .andExpect(jsonPath("$.data[1].duration_label").value("10 tháng"))
+                .andExpect(jsonPath("$.data[1].duration_days").value(300))
+                .andExpect(jsonPath("$.data[2].duration_iso").value("P30D"))
+                .andExpect(jsonPath("$.data[2].duration_label").value("30 ngày"));
+    }
+
     @Test
     void everyPlanShipsTheWholeFeatureTableSoTheComparisonStaysAligned() throws Exception {
         mockMvc.perform(get("/api/v1/subscription-plans"))

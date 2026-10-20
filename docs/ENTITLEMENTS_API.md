@@ -25,6 +25,8 @@ Trang giá phải render được khi chưa đăng nhập, nếu không FE vẫn
       "price": 0,
       "currency": "VND",
       "duration_days": 0,
+      "duration_iso": "P0D",
+      "duration_label": "Mãi mãi",
       "featured": false,
       "features": [
         { "code": "FAMILY_SHARING", "label": "Liên kết gia đình", "included": false },
@@ -44,6 +46,21 @@ Trang giá phải render được khi chưa đăng nhập, nếu không FE vẫn
   "meta": { "request_id": "...", "server_time": "..." }
 }
 ```
+
+### Thời hạn gói: ba field, đọc field nào cho việc gì
+
+| Field | Dùng khi | FREE | PLAN_399K | PLAN_99K |
+|---|---|---|---|---|
+| `duration_iso` | **Nguồn chính xác.** `Period.toString()`, `Period.parse()` round-trip được | `P0D` | `P10M` | `P30D` |
+| `duration_label` | Hiển thị — FE render thẳng, đừng tự ghép từ con số | `Mãi mãi` | `10 tháng` | `30 ngày` |
+| `duration_days` | Số ngày **danh nghĩa** (tháng = 30), giữ cho FE cũ | `0` | `300` | `30` |
+
+PLAN_399K là **10 tháng lịch**: ngày hết hạn rơi đúng ngày đó 10 tháng sau, nên số ngày thực tế là
+303–305 tuỳ ngày mua. `duration_days: 300` là xấp xỉ có chủ ý — cần con số đúng thì đọc `duration_iso`.
+
+`duration_days` **luôn có mặt và luôn là `int`**. Đừng đổi nó sang nullable: `default-property-inclusion:
+non_null` sẽ **xoá hẳn field khỏi JSON** chứ không trả `null`, tức âm thầm đổi hợp đồng của một
+endpoint công khai. Ghim ở `SubscriptionPlanIntegrationTest#everyPlanPublishesItsTermInAFormTheClientCanRender`.
 
 Hai bất biến của response, **đừng phá**:
 
@@ -128,11 +145,17 @@ Cố ý không cho `@ConfigurationProperties` ghi đè giá: nó cho phép confi
 
 ## Việc còn lại / nợ kỹ thuật
 
-- **`duration_days` đang trả 30 cho cả PLAN_99K lẫn PLAN_399K**, vì
-  `PaymentService.activateOrderAndSubscription` cấp `plusDays(30)` cho mọi gói trả phí — trong khi
-  trang giá rao PLAN_399K "Trọn 9 tháng". Catalog cố ý nói đúng thứ server **đang cấp** chứ không
-  nói theo quảng cáo. Chữa tận gốc: cho hàm đó đọc `durationDays` từ `PlanCatalog`. Thuộc module
-  payment nên không làm trong nhánh này. Ghim ở `PlanCatalogTest#durationReflectsWhatTheServerActuallyGrants`.
+- ~~`duration_days` trả 30 cho cả hai gói trả phí~~ — **đã trả nợ.** Thời hạn nay nằm ở
+  `PlanTier.getTerm()`, cả catalog lẫn `PaymentService.activateOrderAndSubscription` đọc *cùng một*
+  giá trị nên không lệch được. Đặt ở enum (không phải `PlanCatalog`) vì `entitlement` đã phụ thuộc
+  `payment`; cho payment đọc ngược catalog sẽ tạo phụ thuộc vòng. Ghim ở
+  `PlanCatalogTest#catalogAndPaymentReadTheSameTerm`.
+- **Gia hạn chỉ nâng tier, không bao giờ hạ.** Mua gói rẻ hơn khi đang giữ gói cao thì cộng thời hạn
+  nhưng giữ nguyên quyền lợi cao (`PaymentService.activateOrderAndSubscription`). Chặn ngay từ
+  checkout sạch hơn nhưng cần error code mới — chưa làm. Ghim ở
+  `PaymentSafetyIntegrationTest#buyingACheaperPlanWhileHoldingAHigherOneExtendsWithoutDowngrading`.
+- **`AdminOperationsService` giới hạn `expiringWithinDays` ≤ 30** → khách PLAN_399K sẽ vô hình với
+  màn hình nhắc gia hạn suốt ~9 tháng đầu. Hệ quả vận hành của thời hạn 10 tháng, chưa xử lý.
 - **Không có job nào chuyển subscription hết hạn sang `EXPIRED`** — hết hạn chỉ tính lúc đọc. Vô hại
   với entitlements (đã lọc theo cửa sổ ngày) nhưng báo cáo theo `status` sẽ sai.
 - **Ba đường phân giải gói vẫn tồn tại**: `EntitlementService` (mới),

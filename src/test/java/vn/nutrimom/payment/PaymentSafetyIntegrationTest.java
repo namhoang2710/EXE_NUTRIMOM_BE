@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import java.time.Duration;
+import java.time.Period;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -99,14 +100,40 @@ class PaymentSafetyIntegrationTest {
         assertThrows(BusinessException.class,()->service.handlePayOSWebhook(webhook(demo,99000,"VND")));
         assertEquals(0,tx.execute(s->subscriptions.findAllByUserIdOrderByCreatedAtDesc(user).size()).intValue());
     }
-    @Test void real399kPaymentGrantsThirtyDaysAndRecordsRealPaidAmount() {
+    @Test void real399kPaymentGrantsTheCatalogTermAndRecordsRealPaidAmount() {
         long code=order(PaymentSource.REAL,PaymentOrderStatus.PENDING,PlanTier.PLAN_399K);
         service.handlePayOSWebhook(webhook(code,399000,"VND"));
-        assertDays(30);
+        assertTerm(PlanTier.PLAN_399K.getTerm());
         tx.executeWithoutResult(s->{var paid=orders.findByOrderCode(code).orElseThrow();
             assertEquals(PaymentSource.REAL,paid.getSource());assertEquals(PaymentOrderStatus.PAID,paid.getStatus());
             assertEquals(399000,paid.getAmount());assertNotNull(paid.getPaidAt());
             assertEquals(PlanTier.PLAN_399K,subscriptions.findAllByUserIdOrderByCreatedAtDesc(user).get(0).getPlanTier());});
+    }
+    /**
+     * Mua gói rẻ hơn khi đang giữ gói cao chỉ cộng thời hạn, KHÔNG hạ quyền lợi.
+     *
+     * <p>Nhánh gia hạn từng ghi đè tier vô điều kiện. Với hạn 30 ngày thiệt hại còn nhỏ; từ khi
+     * PLAN_399K cấp 10 tháng thì một đơn 99k sẽ nuốt mất gần 10 tháng quyền lợi cao để đổi lấy
+     * 30 ngày.</p>
+     */
+    @Test void buyingACheaperPlanWhileHoldingAHigherOneExtendsWithoutDowngrading() {
+        properties.setDemoEnabled(true);
+        service.confirmMockPayment(user,order(PaymentSource.DEMO,PaymentOrderStatus.PENDING,PlanTier.PLAN_399K));
+        assertEquals(PlanTier.PLAN_399K,currentTier());
+
+        service.confirmMockPayment(user,order(PaymentSource.DEMO,PaymentOrderStatus.PENDING,PlanTier.PLAN_99K));
+        assertEquals(PlanTier.PLAN_399K,currentTier());
+        assertTerm(PlanTier.PLAN_399K.getTerm(),PlanTier.PLAN_99K.getTerm());
+    }
+    /** Chiều ngược lại vẫn phải nâng được tier. */
+    @Test void buyingAHigherPlanWhileHoldingALowerOneUpgradesTheTier() {
+        properties.setDemoEnabled(true);
+        service.confirmMockPayment(user,order(PaymentSource.DEMO,PaymentOrderStatus.PENDING,PlanTier.PLAN_99K));
+        assertEquals(PlanTier.PLAN_99K,currentTier());
+
+        service.confirmMockPayment(user,order(PaymentSource.DEMO,PaymentOrderStatus.PENDING,PlanTier.PLAN_399K));
+        assertEquals(PlanTier.PLAN_399K,currentTier());
+        assertTerm(PlanTier.PLAN_99K.getTerm(),PlanTier.PLAN_399K.getTerm());
     }
     @Test void publicWebhookCannotUseUnsignedPayloadWhenGatewayIsUnconfigured() {
         long code=order(PaymentSource.DEMO,PaymentOrderStatus.PENDING);
@@ -138,6 +165,21 @@ class PaymentSafetyIntegrationTest {
     private void assertDays(long days) {
         tx.executeWithoutResult(s->{var rows=subscriptions.findAllByUserIdOrderByCreatedAtDesc(user);
             assertEquals(1,rows.size());assertEquals(days,Duration.between(rows.get(0).getStartDate(),rows.get(0).getEndDate()).toDays());});
+    }
+    /**
+     * Kỳ vọng tính từ startDate đã lưu chứ không phải một hằng số ngày: PLAN_399K là 10 tháng
+     * <em>lịch</em> nên số ngày thực tế là 303–305 tuỳ ngày chạy test. Nhận nhiều term để kiểm cả
+     * các lần gia hạn cộng dồn.
+     */
+    private void assertTerm(Period... terms) {
+        tx.executeWithoutResult(s->{var rows=subscriptions.findAllByUserIdOrderByCreatedAtDesc(user);
+            assertEquals(1,rows.size());
+            var expected=rows.get(0).getStartDate();
+            for(Period t:terms) expected=expected.plus(t);
+            assertEquals(expected,rows.get(0).getEndDate());});
+    }
+    private PlanTier currentTier() {
+        return tx.execute(s->subscriptions.findAllByUserIdOrderByCreatedAtDesc(user).get(0).getPlanTier());
     }
     private void concurrent(Runnable... actions) throws Exception {
         var pool=Executors.newFixedThreadPool(actions.length);var ready=new CountDownLatch(actions.length);var go=new CountDownLatch(1);
