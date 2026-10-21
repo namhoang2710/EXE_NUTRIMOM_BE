@@ -32,11 +32,24 @@ public class CommunityMembers {
     /** Một câu truy vấn cho cả trang; id không còn tồn tại thì không có trong map. */
     public Map<String, Author> authors(Collection<String> ids) {
         Map<String, Author> result = new HashMap<>();
-        if (ids.isEmpty()) return result;
-        for (MemberView view : members.findViews(ids)) {
-            result.put(view.id(), new Author(view.id(), view.displayName(), view.avatarKey()));
-        }
+        views(ids).forEach((id, view) -> result.put(id, author(view)));
         return result;
+    }
+
+    /** Như {@link #authors} nhưng giữ cả cờ {@code official} cho thẻ bài. */
+    public Map<String, MemberView> views(Collection<String> ids) {
+        Map<String, MemberView> result = new HashMap<>();
+        if (ids.isEmpty()) return result;
+        for (MemberView view : members.findViews(ids)) result.put(view.id(), view);
+        return result;
+    }
+
+    public boolean isActiveAdmin(String userId) {
+        return members.isActiveAdmin(userId);
+    }
+
+    public static Author author(MemberView view) {
+        return new Author(view.id(), view.displayName(), view.avatarKey());
     }
 
     public static Author fallback(String id) {

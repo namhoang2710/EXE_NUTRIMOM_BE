@@ -31,7 +31,7 @@ public final class CommunityDtos {
                            int likeCount, int commentCount, boolean likedByMe, boolean savedByMe, boolean pinned,
                            PostStatus status, String rejectReason, boolean canEdit, boolean canDelete,
                            long version, OffsetDateTime publishedAt, OffsetDateTime createdAt,
-                           OffsetDateTime editedAt) { }
+                           OffsetDateTime editedAt, boolean official) { }
 
     /** Trang feed. {@code pinned} chỉ có ở trang đầu (không gửi cursor). */
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -80,6 +80,13 @@ public final class CommunityDtos {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AdminPostItem(PostItem post, long openReportCount, String moderatedBy,
                                 OffsetDateTime moderatedAt, OffsetDateTime deletedAt) { }
+
+    /** Admin đăng bài: duyệt ngay, ghim tuỳ chọn. Không có trường tác giả/trạng thái — lấy từ JWT. */
+    public record AdminCreatePostRequest(
+            @NotNull(message = "content là bắt buộc") @Size(max = 6000, message = "content quá dài") String content,
+            @NotNull(message = "topic là bắt buộc") PostTopic topic,
+            @Size(max = 4, message = "Tối đa 4 ảnh mỗi bài") List<@NotBlank String> imageIds,
+            Boolean pinned) { }
 
     public record RejectRequest(
             @NotBlank(message = "reason là bắt buộc") @Size(max = 500, message = "reason tối đa 500 ký tự") String reason) { }

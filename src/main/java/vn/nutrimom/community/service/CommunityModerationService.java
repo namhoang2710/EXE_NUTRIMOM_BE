@@ -15,6 +15,7 @@ import vn.nutrimom.community.domain.CommunityClock;
 import vn.nutrimom.community.domain.CommunityNotificationType;
 import vn.nutrimom.community.domain.CommunityPost;
 import vn.nutrimom.community.domain.PostStatus;
+import vn.nutrimom.community.dto.CommunityDtos.AdminCreatePostRequest;
 import vn.nutrimom.community.dto.CommunityDtos.AdminPostItem;
 import vn.nutrimom.community.dto.CommunityDtos.PostItem;
 import vn.nutrimom.community.repository.CommunityPostImageRepository;
@@ -32,24 +33,28 @@ public class CommunityModerationService {
     private final CommunityReportRepository reports;
     private final CommunityPostAssembler assembler;
     private final CommunityNotificationService notifications;
+    private final CommunityPostService postService;
     private final CommunityProperties properties;
 
     public CommunityModerationService(CommunityPostRepository posts, CommunityPostImageRepository images,
             CommunityReportRepository reports, CommunityPostAssembler assembler,
-            CommunityNotificationService notifications, CommunityProperties properties) {
+            CommunityNotificationService notifications, CommunityPostService postService,
+            CommunityProperties properties) {
         this.posts = posts;
         this.images = images;
         this.reports = reports;
         this.assembler = assembler;
         this.notifications = notifications;
+        this.postService = postService;
         this.properties = properties;
     }
 
     @Transactional(readOnly = true)
-    public CursorPage<AdminPostItem> list(String adminId, PostStatus status, String cursor, int limit) {
+    public CursorPage<AdminPostItem> list(String adminId, PostStatus status, boolean pinnedOnly, String cursor,
+            int limit) {
         CommunityLimits.requirePageSize(limit, 50);
         CommunityCursor from = CommunityCursor.descending(cursor);
-        var page = CommunityCursor.window(posts.findAdminPage(status, from.at(), from.id(),
+        var page = CommunityCursor.window(posts.findAdminPage(status, pinnedOnly, from.at(), from.id(),
                 PageRequest.of(0, limit + 1)), limit, CommunityPost::getCreatedAt, CommunityPost::getId);
         return new CursorPage<>(toAdminItems(page.items(), adminId), page.nextCursor(), page.hasMore());
     }
@@ -57,6 +62,28 @@ public class CommunityModerationService {
     @Transactional(readOnly = true)
     public AdminPostItem detail(String adminId, String postId) {
         return toAdminItems(List.of(require(postId)), adminId).get(0);
+    }
+
+    /**
+     * Ban quản trị đăng bài: duyệt ngay, ghim tuỳ chọn. Không tính quota 10 bài/24 giờ của người dùng.
+     * Ghim khi đã đủ số bài ghim → 409 và không tạo bài (kiểm tra trước khi ghi).
+     */
+    @Transactional
+    public AdminPostItem createPost(String adminId, AdminCreatePostRequest request) {
+        boolean pin = Boolean.TRUE.equals(request.pinned());
+        if (pin && posts.countPinned() >= properties.maxPinnedPosts()) {
+            throw new BusinessException(ErrorCode.COMMUNITY_PIN_LIMIT_REACHED);
+        }
+        OffsetDateTime now = CommunityClock.now();
+        CommunityPost post = postService.insert(adminId, request.content(), request.topic(), request.imageIds(),
+                PostStatus.APPROVED, now);
+        moderatedBy(post, adminId, now);
+        if (pin) {
+            post.setPinnedAt(now);
+            post.setPinnedBy(adminId);
+        }
+        posts.saveAndFlush(post);
+        return detail(adminId, post.getId());
     }
 
     @Transactional
@@ -70,7 +97,7 @@ public class CommunityModerationService {
         if (post.getPublishedAt() == null) post.setPublishedAt(now);
         moderatedBy(post, adminId, now);
         posts.saveAndFlush(post);
-        notifications.moderated(post, CommunityNotificationType.POST_APPROVED);
+        notifyAuthor(post, adminId, CommunityNotificationType.POST_APPROVED);
         return detail(adminId, postId);
     }
 
@@ -84,7 +111,7 @@ public class CommunityModerationService {
         post.setPinnedBy(null);
         moderatedBy(post, adminId, now);
         posts.saveAndFlush(post);
-        notifications.moderated(post, CommunityNotificationType.POST_REJECTED);
+        notifyAuthor(post, adminId, CommunityNotificationType.POST_REJECTED);
         return detail(adminId, postId);
     }
 
@@ -130,7 +157,7 @@ public class CommunityModerationService {
             posts.saveAndFlush(post);
             images.orphanAll(postId, now.plus(properties.removedImageRetention()), now);
             reports.closeOpenForPost(postId, adminId, note, now);
-            notifications.moderated(post, CommunityNotificationType.POST_REMOVED);
+            notifyAuthor(post, adminId, CommunityNotificationType.POST_REMOVED);
         }
         return detail(adminId, postId);
     }
@@ -147,6 +174,11 @@ public class CommunityModerationService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, CommunityPostService.NOT_FOUND);
         }
         return post;
+    }
+
+    /** Admin xử lý bài của chính mình thì không tự gửi thông báo cho mình. */
+    private void notifyAuthor(CommunityPost post, String adminId, CommunityNotificationType type) {
+        if (!post.getAuthorId().equals(adminId)) notifications.moderated(post, type);
     }
 
     private static void moderatedBy(CommunityPost post, String adminId, OffsetDateTime now) {

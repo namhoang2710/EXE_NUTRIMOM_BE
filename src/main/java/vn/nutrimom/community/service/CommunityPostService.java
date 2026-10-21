@@ -79,25 +79,37 @@ public class CommunityPostService {
         if (posts.countByAuthorIdAndCreatedAtGreaterThanEqual(userId, now.minusHours(24)) >= properties.dailyPostLimit()) {
             throw new BusinessException(ErrorCode.QUOTA_EXCEEDED, "Bạn đã đăng số bài tối đa trong 24 giờ.");
         }
-        List<String> imageIds = imageIds(request.imageIds());
-        CommunityPost post = new CommunityPost();
-        post.setAuthorId(userId);
-        post.setContent(CommunityText.required(request.content(), CommunityLimits.POST_MAX_CHARS, "content"));
-        post.setTopic(request.topic());
-        post.setStatus(PostStatus.PENDING);
-        post.setImageCount(imageIds.size());
-        posts.saveAndFlush(post);
-        for (int i = 0; i < imageIds.size(); i++) {
-            if (images.attach(imageIds.get(i), userId, post.getId(), i, now) != 1) {
-                throw new BusinessException(ErrorCode.COMMUNITY_MEDIA_INVALID);
-            }
-        }
+        CommunityPost post = insert(userId, request.content(), request.topic(), request.imageIds(), PostStatus.PENDING, now);
         return assembler.one(post, userId);
     }
 
     /**
+     * Tạo bài và gắn ảnh trong giao dịch của người gọi — dùng chung cho bài người dùng (PENDING) và bài
+     * admin đăng (APPROVED ngay). Ảnh không thuộc tác giả / đã gắn / hết hạn thì cả giao dịch rollback.
+     */
+    CommunityPost insert(String authorId, String rawContent, PostTopic topic, List<String> rawImageIds,
+            PostStatus status, OffsetDateTime now) {
+        List<String> imageIds = imageIds(rawImageIds);
+        CommunityPost post = new CommunityPost();
+        post.setAuthorId(authorId);
+        post.setContent(CommunityText.required(rawContent, CommunityLimits.POST_MAX_CHARS, "content"));
+        post.setTopic(topic);
+        post.setStatus(status);
+        if (status == PostStatus.APPROVED) post.setPublishedAt(now);
+        post.setImageCount(imageIds.size());
+        posts.saveAndFlush(post);
+        for (int i = 0; i < imageIds.size(); i++) {
+            if (images.attach(imageIds.get(i), authorId, post.getId(), i, now) != 1) {
+                throw new BusinessException(ErrorCode.COMMUNITY_MEDIA_INVALID);
+            }
+        }
+        return post;
+    }
+
+    /**
      * Chủ bài sửa nội dung/ảnh. Bài đã duyệt quay về PENDING để admin xem lại (không thể duyệt xong rồi
-     * sửa thành nội dung khác). Ảnh bị bỏ chuyển ORPHANED, chỉ bị xoá khỏi R2 sau thời gian giữ lại.
+     * sửa thành nội dung khác) — trừ khi người sửa là admin đang hoạt động: bài của ban quản trị không cần
+     * tự duyệt lại. Ảnh bị bỏ chuyển ORPHANED, chỉ bị xoá khỏi R2 sau thời gian giữ lại.
      */
     @Transactional
     public PostItem update(String userId, String postId, UpdatePostRequest request) {
@@ -122,7 +134,8 @@ public class CommunityPostService {
         post.setTopic(request.topic());
         post.setImageCount(imageIds.size());
         post.setEditedAt(now);
-        if (post.getStatus() != PostStatus.PENDING) {
+        boolean adminKeepsApproval = post.getStatus() == PostStatus.APPROVED && members.isActiveAdmin(userId);
+        if (post.getStatus() != PostStatus.PENDING && !adminKeepsApproval) {
             post.setStatus(PostStatus.PENDING);
             post.setRejectReason(null);
         }

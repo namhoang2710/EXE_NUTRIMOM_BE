@@ -28,11 +28,13 @@ Migration: `V65__community.sql`.
   "like_count": 3, "comment_count": 1, "liked_by_me": true, "saved_by_me": false, "pinned": false,
   "status": "APPROVED", "reject_reason": "chỉ có khi là bài của mình",
   "can_edit": false, "can_delete": false, "version": 2,
-  "published_at": "…", "created_at": "…", "edited_at": null
+  "published_at": "…", "created_at": "…", "edited_at": null,
+  "official": false
 }
 ```
 `content` là **văn bản thuần** — FE phải hiển thị bằng text (không `dangerouslySetInnerHTML`).
 `avatar_key` có thể null. `can_edit`/`can_delete` chỉ là gợi ý hiển thị; BE vẫn kiểm quyền.
+`official = true` khi tác giả hiện có role ADMIN → FE hiện nhãn **"Ban quản trị"** cạnh tên.
 
 ## Người dùng — `/api/v1/community`
 
@@ -72,15 +74,24 @@ trang `{ type, id, slug?, title?, excerpt, thumbnail_url?, saved_at }`, mới l�
 ## Admin — `/api/v1/admin/community` (role ADMIN)
 | Method | Path | Body | Trả về |
 |---|---|---|---|
-| GET | `/posts?status&cursor&limit` | — | trang `{ post: PostItem, open_report_count, moderated_by, moderated_at, deleted_at }` |
+| GET | `/posts?status&pinned&cursor&limit` | — | trang `{ post: PostItem, open_report_count, moderated_by, moderated_at, deleted_at }`; `pinned=true` chỉ trả bài đang ghim |
+| POST | `/posts` | `{ content (1–5000), topic, image_ids?: string[≤4], pinned?: boolean }` | 201 `AdminPostItem` — bài **duyệt ngay**; `pinned=true` ghim luôn (đủ 3 bài ghim → 409 `COMMUNITY_PIN_LIMIT_REACHED`, **không tạo bài**). Ảnh upload trước qua `POST /community/media`. Không tính quota 10 bài/24h |
 | GET | `/posts/{id}` | — | như trên |
 | POST | `/posts/{id}/approve` | — | |
 | POST | `/posts/{id}/reject` | `{ reason }` | |
 | PUT / DELETE | `/posts/{id}/pin` | — | tối đa 3 bài ghim → 409 `COMMUNITY_PIN_LIMIT_REACHED` |
-| DELETE | `/posts/{id}` | `{ reason? }` | gỡ bài (REMOVED), đóng mọi báo cáo OPEN, báo chủ bài |
+| DELETE | `/posts/{id}` | `{ reason? }` | gỡ bài (REMOVED), đóng mọi báo cáo OPEN, báo chủ bài (trừ khi là bài của chính admin) |
 | DELETE | `/comments/{id}` | — | xoá bình luận bất kỳ |
 | GET | `/reports?status=OPEN\|DISMISSED\|ACTION_TAKEN&cursor&limit` | — | trang báo cáo (có `reporter`, `post_excerpt`, `open_report_count`) |
 | POST | `/reports/{id}/resolve` | `{ action: DISMISS\|REMOVE_POST, note? }` | báo cáo sau xử lý |
+
+
+**Phân quyền:** mọi API admin chỉ dành cho tài khoản **ADMIN đang hoạt động** (kiểm cả role trong token lẫn trạng thái
+trong DB). User thường → 403, chưa đăng nhập → 401, admin bị khoá → 403. Người viết vẫn tự sửa/xoá **bài của chính mình**
+qua API người dùng; admin sửa bài của chính mình thì bài giữ trạng thái đã duyệt.
+
+**Gợi ý FE trang `/admin/community`:** nút "Viết bài" (dùng lại form đăng bài + ô "Ghim bài này", gọi `POST /posts`),
+tab "Đã ghim" (`?pinned=true`, nút Bỏ ghim), nút "Duyệt & ghim" ở tab Chờ duyệt (gọi `approve` rồi `PUT pin`).
 
 ## Lỗi hay gặp
 | HTTP | code | Khi nào | FE nên |
