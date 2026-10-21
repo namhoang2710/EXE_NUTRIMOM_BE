@@ -59,16 +59,20 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, St
     List<CommunityPost> findMinePage(@Param("authorId") String authorId, @Param("status") PostStatus status,
             @Param("at") OffsetDateTime at, @Param("id") String id, Pageable window);
 
-    /** Hàng kiểm duyệt của admin. Bài người dùng tự xoá không hiện, bài admin gỡ (REMOVED) thì có. */
+    /**
+     * Hàng kiểm duyệt của admin. Bài người dùng tự xoá không hiện, bài admin gỡ (REMOVED) thì có.
+     * {@code pinnedOnly}: chỉ bài đang ghim (tối đa vài bài, vẫn xếp theo ngày tạo để cursor ổn định).
+     */
     @Query("""
             select p from CommunityPost p
             where (:status is null or p.status = :status)
               and (p.deletedAt is null or p.status = vn.nutrimom.community.domain.PostStatus.REMOVED)
+              and (:pinnedOnly = false or p.pinnedAt is not null)
               and (p.createdAt < :at or (p.createdAt = :at and p.id < :id))
             order by p.createdAt desc, p.id desc
             """)
-    List<CommunityPost> findAdminPage(@Param("status") PostStatus status, @Param("at") OffsetDateTime at,
-            @Param("id") String id, Pageable window);
+    List<CommunityPost> findAdminPage(@Param("status") PostStatus status, @Param("pinnedOnly") boolean pinnedOnly,
+            @Param("at") OffsetDateTime at, @Param("id") String id, Pageable window);
 
     long countByAuthorIdAndCreatedAtGreaterThanEqual(String authorId, OffsetDateTime since);
 

@@ -19,11 +19,22 @@ public interface CommunityMemberRepository extends Repository<UserEntity, String
 
     @Query("""
             select new vn.nutrimom.community.repository.MemberView(
-                u.id, u.displayName, u.avatarKey)
+                u.id, u.displayName, u.avatarKey,
+                case when exists (select 1 from UserEntity a join a.roles r
+                                  where a.id = u.id and r = vn.nutrimom.auth.domain.UserRole.ADMIN)
+                     then true else false end)
             from UserEntity u where u.id in :ids
             """)
     List<MemberView> findViews(@Param("ids") Collection<String> ids);
 
     @Query("select u.status from UserEntity u where u.id = :id")
     Optional<UserStatus> findStatus(@Param("id") String id);
+
+    /** Admin đang hoạt động (cùng điều kiện với ActiveAdminFilter). */
+    @Query("""
+            select count(u) > 0 from UserEntity u
+            where u.id = :id and u.status = vn.nutrimom.auth.domain.UserStatus.ACTIVE
+              and vn.nutrimom.auth.domain.UserRole.ADMIN member of u.roles
+            """)
+    boolean isActiveAdmin(@Param("id") String id);
 }
