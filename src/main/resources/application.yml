@@ -166,6 +166,28 @@ app:
       secret-access-key: ${R2_SECRET_ACCESS_KEY:}
       bucket-name: ${R2_BUCKET_NAME:}
       public-base-url: ${R2_PUBLIC_BASE_URL:}
+  # Cộng đồng dành cho mẹ. R2 ở tài khoản Cloudflare riêng, KHÔNG fallback sang R2_* của bài viết.
+  community:
+    max-images-per-post: 4
+    max-pinned-posts: 3
+    # Quota theo cửa sổ trượt 24 giờ, mỗi người dùng; vượt → 429 QUOTA_EXCEEDED.
+    daily-post-limit: 10
+    daily-comment-limit: 100
+    daily-image-limit: 40
+    # Ảnh đã upload nhưng không gắn vào bài sẽ bị dọn sau pending-image-ttl.
+    pending-image-ttl: PT24H
+    # Ảnh của bài bị xoá/gỡ được giữ thêm một thời gian để xử lý khiếu nại rồi mới xoá khỏi R2.
+    removed-image-retention: P7D
+    media-cleanup-enabled: ${COMMUNITY_MEDIA_CLEANUP_ENABLED:true}
+    media-cleanup-interval: PT1H
+    media-cleanup-batch-size: 50
+    r2:
+      enabled: ${COMMUNITY_R2_ENABLED:false}
+      account-id: ${COMMUNITY_R2_ACCOUNT_ID:}
+      access-key-id: ${COMMUNITY_R2_ACCESS_KEY_ID:}
+      secret-access-key: ${COMMUNITY_R2_SECRET_ACCESS_KEY:}
+      bucket-name: ${COMMUNITY_R2_BUCKET_NAME:}
+      public-base-url: ${COMMUNITY_R2_PUBLIC_BASE_URL:}
   notification:
     admin-job-enabled: ${NUTRIMOM_ADMIN_NOTIFICATION_JOB_ENABLED:true}
     # Key AES-256 (base64 của 32 byte) để mã hóa push token trước khi lưu — spec mục 18.
@@ -224,6 +246,19 @@ app:
         admin-stream:
           capacity: 20
           window: PT1M
+        # Cộng đồng: upload ảnh tốn CPU/RAM nhất nên siết chặt nhất; báo cáo siết để chống spam.
+        community-media:
+          capacity: 10
+          window: PT5M
+        community-report:
+          capacity: 5
+          window: PT10M
+        community-reaction:
+          capacity: 60
+          window: PT1M
+        community-comment:
+          capacity: 30
+          window: PT1M
         default:
           capacity: 100
           window: PT1M
@@ -275,6 +310,22 @@ app:
         # trỏ tới policy `default`: RateLimitFilter cho qua VÔ HẠN khi không rule nào khớp, nên
         # một endpoint ẩn danh mà không khai ở đây là bỏ ngỏ hoàn toàn.
         - pattern: /api/v1/subscription-plans
+          policy: default
+        # Cộng đồng — rule cụ thể trước rule chung. Rule chung bắt buộc phải có: path không khớp rule
+        # nào là KHÔNG giới hạn.
+        - pattern: /api/v1/community/media
+          policy: community-media
+        - pattern: /api/v1/community/posts/*/reports
+          policy: community-report
+        - pattern: /api/v1/community/posts/*/like
+          policy: community-reaction
+        - pattern: /api/v1/community/posts/*/save
+          policy: community-reaction
+        - pattern: /api/v1/community/posts/*/comments
+          policy: community-comment
+        - pattern: /api/v1/community/**
+          policy: default
+        - pattern: /api/v1/me/saved-items
           policy: default
   otp:
     code-length: 6

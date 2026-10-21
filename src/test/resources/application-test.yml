@@ -27,6 +27,9 @@ app:
   storage:
     r2:
       enabled: false
+  community:
+    # Job dọn ảnh chạy theo lịch; test gọi cleanup() trực tiếp khi cần.
+    media-cleanup-enabled: false
   notification:
     admin-job-enabled: false
     # Base64 của 32 byte cố định — chỉ dùng cho test, không phải secret thật.
