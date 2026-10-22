@@ -37,6 +37,8 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrderEntity
 
     Optional<PaymentOrderEntity> findByOrderCode(Long orderCode);
 
+    boolean existsByOrderCode(Long orderCode);
+
     List<PaymentOrderEntity> findAllByUserIdOrderByCreatedAtDesc(String userId);
     List<PaymentOrderEntity> findTop3ByUserIdOrderByCreatedAtDesc(String userId);
 

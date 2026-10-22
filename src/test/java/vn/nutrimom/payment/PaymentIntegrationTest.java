@@ -175,6 +175,28 @@ class PaymentIntegrationTest {
                 .andExpect(jsonPath("$.data.total_items").value(0));
     }
 
+    /**
+     * Mã đơn phải mang trọn giây epoch. Cách sinh cũ lấy {@code epochSec % 1_000_000} nên phần giờ
+     * quay vòng sau 11,57 ngày, và {@code order_code} thì có UNIQUE — đủ lâu là hai đơn trùng mã và
+     * người dùng ăn 500 ngay lúc bấm thanh toán.
+     */
+    @Test
+    void orderCodeCarriesTheFullEpochSecondAndStaysUnique() throws Exception {
+        long nowSeconds = java.time.Instant.now().getEpochSecond();
+        var codes = new java.util.HashSet<Long>();
+
+        for (int i = 0; i < 5; i++) {
+            long code = createOrder(createUserAccount("09876520" + i, "Mẹ Bầu Mã " + i), "PLAN_99K");
+            codes.add(code);
+            org.junit.jupiter.api.Assertions.assertTrue(Math.abs(code / 1000L - nowSeconds) < 120,
+                    "orderCode " + code + " không mang giây epoch hiện tại (" + nowSeconds + ")");
+            org.junit.jupiter.api.Assertions.assertTrue(code > 0 && code <= 9007199254740991L,
+                    "orderCode " + code + " nằm ngoài khoảng PayOS chấp nhận");
+        }
+
+        org.junit.jupiter.api.Assertions.assertEquals(5, codes.size(), "mã đơn bị trùng");
+    }
+
     private long createOrder(String userId, String planTier) throws Exception {
         var result = mockMvc.perform(post("/api/v1/payments/subscription-checkout")
                         .with(userJwt(userId))
