@@ -20,6 +20,13 @@ spring:
         enabled: false
 
 app:
+  payment:
+    # Không để thread nền gọi PayOS song song với integration test; bài kiểm job gọi thẳng
+    # PaymentReconciliationJob.runOnce() với Clock cố định.
+    reconcile-job-enabled: false
+    checkout-ttl: PT5M
+    reconcile-grace: PT2M
+    reconcile-cooldown: PT5M
   consultation:
     monitor-enabled: false
   admin:

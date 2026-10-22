@@ -60,6 +60,26 @@ public class PaymentOrderEntity {
     @Column(name = "paid_at")
     private OffsetDateTime paidAt;
 
+    /**
+     * Hạn hiệu lực của link checkout, chính là giá trị đã gửi sang PayOS ở {@code expiredAt}.
+     *
+     * <p>Null với đơn tạo trước V67: lúc đó link gửi đi không kèm hạn nên PayOS không bao giờ tự
+     * đóng nó. Job đối soát coi null là {@code createdAt + checkout-ttl} và phải gọi cancel lên
+     * cổng trước khi đánh EXPIRED.</p>
+     */
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
+
+    /**
+     * Lần gần nhất có ai đó hỏi PayOS về đơn này.
+     *
+     * <p>Vừa là cờ giành việc giữa nhiều instance job, vừa là cooldown chặn FE poll endpoint chi
+     * tiết dội thẳng sang cổng. Chỉ được ghi bằng câu update bulk của repository: ghi qua entity sẽ
+     * bump {@code version} và biến một lần PATCH hợp lệ của client thành VERSION_CONFLICT.</p>
+     */
+    @Column(name = "reconcile_attempt_at")
+    private OffsetDateTime reconcileAttemptAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -206,6 +226,19 @@ public class PaymentOrderEntity {
 
     public void setPaidAt(OffsetDateTime paidAt) {
         this.paidAt = paidAt;
+    }
+
+    public OffsetDateTime getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(OffsetDateTime expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    /** Chỉ có getter: cột này do câu update bulk của repository ghi, không bao giờ qua entity. */
+    public OffsetDateTime getReconcileAttemptAt() {
+        return reconcileAttemptAt;
     }
 
     public long getVersion() {
