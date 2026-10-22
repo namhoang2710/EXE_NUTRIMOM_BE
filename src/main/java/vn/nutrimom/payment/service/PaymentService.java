@@ -3,11 +3,13 @@ package vn.nutrimom.payment.service;
 import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_PAYMENT_PAID;
 import static vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_PAYMENT_RENEWED;
 
+import jakarta.persistence.criteria.Predicate;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.Period;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -15,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.nutrimom.notification.service.AdminNotificationEvents;
@@ -48,6 +52,15 @@ import vn.payos.model.webhooks.WebhookData;
 public class PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
+    /**
+     * Thứ tự này trước đây nằm trong {@code order by} của JPQL; bỏ {@code @Query} thì nó phải đi
+     * theo {@code Pageable}, không thì trang mất thứ tự ổn định. Giữ {@code created_at DESC} vì đó
+     * là thứ index {@code ix_payment_orders_user_created} (V31) phục vụ; {@code id DESC} chỉ để phá
+     * hoà khi hai đơn trùng timestamp.
+     */
+    private static final Sort HISTORY_SORT = Sort.by(Sort.Direction.DESC, "createdAt")
+            .and(Sort.by(Sort.Direction.DESC, "id"));
 
     private final PayOS payOS;
     private final PayOSProperties properties;
@@ -348,11 +361,49 @@ public class PaymentService {
         OffsetDateTime from = fromDate == null ? null : fromDate.atStartOfDay().atOffset(ZoneOffset.UTC);
         OffsetDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
 
-        Page<PaymentOrderEntity> found = orderRepository.findHistory(
-                userId, status, planTier, from, to, PageRequest.of(page - 1, pageSize));
+        Page<PaymentOrderEntity> found = orderRepository.findAll(
+                historyFilter(userId, status, planTier, from, to),
+                PageRequest.of(page - 1, pageSize, HISTORY_SORT));
 
         return PageResponse.of(found.getContent().stream().map(this::toResponse).toList(),
                 page, pageSize, found.getTotalElements());
+    }
+
+    /**
+     * Bộ lọc lịch sử: chỉ thêm điều kiện cho bộ lọc thực sự có giá trị.
+     *
+     * <p>Mẫu {@code (:param is null or cot = :param)} <strong>không dùng được</strong> với tham số
+     * thời gian trên PostgreSQL. Null {@code OffsetDateTime} đi xuống driver thành
+     * {@code setNull(idx, Types.TIMESTAMP[_WITH_TIMEZONE])}, và pgjdbc ánh xạ cả hai mã đó sang oid
+     * {@code UNSPECIFIED}; trong vế {@code $1 is null} thì Postgres không còn chỗ nào để suy kiểu và
+     * trả {@code 42P18 could not determine data type of parameter}, tức là HTTP 500 cho mọi request
+     * không gửi đủ cả hai ngày. Tham số enum/varchar không dính vì chúng có oid thật.</p>
+     *
+     * <p>H2 ở profile test không ép suy luận kiểu nên nó <em>không</em> bắt được lỗi này — đừng coi
+     * test xanh là bằng chứng cho đường đọc lịch sử.</p>
+     */
+    private static Specification<PaymentOrderEntity> historyFilter(String userId,
+                                                                   PaymentOrderStatus status,
+                                                                   PlanTier planTier,
+                                                                   OffsetDateTime from,
+                                                                   OffsetDateTime to) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("userId"), userId));
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (planTier != null) {
+                predicates.add(cb.equal(root.get("planTier"), planTier));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThan(root.get("createdAt"), to));
+            }
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
     }
 
     private PaymentOrderResponse toResponse(PaymentOrderEntity order) {
