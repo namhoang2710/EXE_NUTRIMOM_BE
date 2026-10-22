@@ -111,6 +111,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | PAYMENT_ORDER_NOT_FOUND | 404 | false | payment |
 | PAYMENT_FAILED | 400 | false | payment (PayOS từ chối / lỗi khởi tạo link) |
 | PAYMENT_SIGNATURE_INVALID | 400 | false | payment (webhook sai chữ ký) |
+| PAYMENT_ORDER_NOT_CANCELLABLE | 409 | false | payment (huỷ đơn đã thanh toán) |
 | INVALID_PLAN_TIER | 400 | false | payment (gói không hợp lệ, vd thanh toán gói FREE) |
 | PLAN_UPGRADE_REQUIRED | 403 | false | entitlement (tính năng không có trong gói hiện tại) |
 | ASSISTANT_BUSY | 409 | true | assistant |
