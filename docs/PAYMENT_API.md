@@ -5,6 +5,12 @@
 
 Cổng thanh toán duy nhất là **PayOS** (VietQR). Không có VNPay/MoMo/Casso.
 
+Hai tài liệu vận hành đi kèm:
+[payment-history-500-response-2026-10-22.md](payment-history-500-response-2026-10-22.md) (vì sao
+lịch sử giao dịch từng trả 500 trên PostgreSQL và cách đã sửa) và
+[payment-pending-backlog-reconciliation.md](payment-pending-backlog-reconciliation.md) (xử lý đống
+đơn `PENDING` tồn đọng từ trước V67, phần job không tự làm).
+
 ## Thời hạn gói
 
 | Gói | Giá | Thời hạn server cấp |

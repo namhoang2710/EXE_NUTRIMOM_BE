@@ -52,6 +52,7 @@ public class PaymentService {
 
     private static final String USER_CANCEL_REASON = "Người dùng huỷ đơn";
     private static final String SUPERSEDED_REASON = "Người dùng tạo đơn mới cho gói khác";
+    private static final int ORDER_CODE_ATTEMPTS = 5;
 
     /**
      * Thứ tự này trước đây nằm trong {@code order by} của JPQL; bỏ {@code @Query} thì nó phải đi
@@ -132,10 +133,7 @@ public class PaymentService {
         int amount = plan.getPrice();
         OffsetDateTime expiresAt = now.plus(paymentProperties.getCheckoutTtl());
 
-        // Sinh mã đơn hàng duy nhất dạng số nguyên dương (PayOS yêu cầu orderCode kiểu số)
-        long timestampSec = System.currentTimeMillis() / 1000L;
-        long randomSuffix = ThreadLocalRandom.current().nextLong(100L, 999L);
-        long orderCode = (timestampSec % 1_000_000L) * 1000L + randomSuffix;
+        long orderCode = nextOrderCode(now);
 
         String description = "NutriMom " + plan.name();
         if (description.length() > 25) {
@@ -226,6 +224,33 @@ public class PaymentService {
      * cũ trên DB dùng chung có thể đã vi phạm sẵn nên migration sẽ fail, và khi index đứng được thì
      * một cú click đúp biến thành 500 vi phạm ràng buộc thay vì tái sử dụng êm.</p>
      */
+    /**
+     * Mã đơn hàng: giây epoch <strong>đầy đủ</strong> nhân 1000 cộng một hậu tố ngẫu nhiên.
+     *
+     * <p>Bản cũ lấy {@code (epochSec % 1_000_000) * 1000 + random(100..999)}. Phần {@code % 1e6}
+     * khiến phần giờ của mã quay vòng đúng 11,57 ngày, trong khi {@code order_code} có UNIQUE và
+     * PayOS cũng đòi mã duy nhất vĩnh viễn: hai đơn cách nhau một chu kỳ, rơi trúng cùng giây và
+     * cùng hậu tố là một lần vi phạm ràng buộc, tức 500 ngay lúc người dùng bấm thanh toán. Xác
+     * suất ấy tăng theo bình phương lượng đơn mỗi ngày, nên nó là thứ chỉ nổ khi đã có người dùng
+     * thật.</p>
+     *
+     * <p>Bỏ phép chia dư thì phần giây không bao giờ lặp lại nữa. Giá trị hiện ở mức 1,8e12, còn
+     * rất xa trần 9007199254740991 của PayOS. Chỉ còn một cửa trùng là hai đơn trong cùng một giây
+     * bốc trúng cùng hậu tố; vòng lặp dưới đây tra bảng trước khi gọi cổng nên cửa đó thu lại còn
+     * đúng hai lệnh insert song song trong cùng mili giây, và UNIQUE vẫn là chốt chặn cuối.</p>
+     */
+    private long nextOrderCode(OffsetDateTime now) {
+        long seconds = now.toEpochSecond();
+        for (int attempt = 0; attempt < ORDER_CODE_ATTEMPTS; attempt++) {
+            long candidate = seconds * 1000L + ThreadLocalRandom.current().nextLong(1000L);
+            if (!orderRepository.existsByOrderCode(candidate)) {
+                return candidate;
+            }
+        }
+        log.warn("Could not allocate a free orderCode after {} attempts", ORDER_CODE_ATTEMPTS);
+        throw new BusinessException(ErrorCode.PAYMENT_FAILED, "Không tạo được mã đơn hàng. Vui lòng thử lại.");
+    }
+
     private PaymentOrderEntity findReusable(String userId, PlanTier plan, PaymentSource source, OffsetDateTime now) {
         return orderRepository.findPendingByUser(userId, source).stream()
                 .filter(order -> order.getPlanTier() == plan)
