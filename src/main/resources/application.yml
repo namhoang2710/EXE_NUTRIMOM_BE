@@ -104,6 +104,16 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  payment:
+    # Hạn hiệu lực của link checkout. Gửi sang PayOS ở expiredAt (epoch GIÂY) và lưu ở
+    # payment_orders.expires_at để FE đếm ngược.
+    checkout-ttl: ${NUTRIMOM_PAYMENT_CHECKOUT_TTL:PT5M}
+    # Job đối soát đơn quá hạn. Tắt là đơn chờ sẽ nằm PENDING vĩnh viễn và link cũ còn trả được.
+    reconcile-job-enabled: ${NUTRIMOM_PAYMENT_RECONCILE_ENABLED:true}
+    reconcile-job-interval: ${NUTRIMOM_PAYMENT_RECONCILE_INTERVAL:PT5M}
+    reconcile-batch-size: ${NUTRIMOM_PAYMENT_RECONCILE_BATCH:50}
+    reconcile-grace: ${NUTRIMOM_PAYMENT_RECONCILE_GRACE:PT2M}
+    reconcile-cooldown: ${NUTRIMOM_PAYMENT_RECONCILE_COOLDOWN:PT5M}
   admin:
     metrics-snapshot-enabled: ${NUTRIMOM_ADMIN_METRICS_SNAPSHOT_ENABLED:true}
     expert-performance:

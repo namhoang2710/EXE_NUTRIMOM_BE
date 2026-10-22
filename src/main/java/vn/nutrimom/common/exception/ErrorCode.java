@@ -123,6 +123,8 @@ public enum ErrorCode {
     PAYMENT_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy đơn hàng thanh toán."),
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST, false, "Giao dịch thanh toán thất bại."),
     PAYMENT_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, false, "Chữ ký webhook PayOS không hợp lệ."),
+    PAYMENT_ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, false,
+            "Đơn thanh toán không ở trạng thái có thể huỷ."),
     INVALID_PLAN_TIER(HttpStatus.BAD_REQUEST, false, "Gói dịch vụ không hợp lệ."),
     // 403 chứ không phải 429 như QUOTA_EXCEEDED: đây là "gói của bạn không bán tính năng này",
     // không phải "bạn đã dùng hết lượt". FE cần phân biệt hai ca để biết có mời nâng cấp hay không.

@@ -31,8 +31,23 @@ DB dùng chung đã ghi V59 recommendation và V60 `meal_plans` (thực đơn); 
 V63 = `shopping_lists` (danh sách mua sắm, nhánh 7) — số lấy từ `flyway_schema_history` lúc DB đang ở V62.
 V64 = `diary_entries` + `meal_feedbacks` (nhật ký, nhánh 8) — DB vẫn ở V62 lúc đánh số, nhưng V63 đã
 nằm trong repo nên số kế tiếp trống ở cả hai phía là 64.
-**V63 và V64 chưa chạy lên DB dùng chung** (tính tới 18/10/2026, DB đang ở V62). Phải áp đúng thứ tự
-V63 rồi V64: `out-of-order` đang tắt nên áp V64 trước sẽ làm Flyway **im lặng bỏ qua** V63.
-V65 = `community` (Cộng đồng dành cho mẹ, nhánh `feature/mother-community-be`) — số lấy ngày 20/10/2026 khi
-DB dùng chung đã ở V64 và không nhánh remote nào có V65+. Chỉ chạy V65 trên Postgres local cho tới khi PR được duyệt.
+V63 và V64 đã chạy lên DB dùng chung ngày 18/10/2026; V65 `community` đã chạy ngày 21/10/2026.
+**V66 = `traffic analytics`, đã chạy lên DB dùng chung ngày 21/10/2026 nhưng KHÔNG có file nào trong
+repo** — tác giả chưa push nhánh.
+V67 = `payment_order_lifecycle` (hạn checkout + dấu vết đối soát, nhánh `feature/payment-order-lifecycle`)
+— số lấy ngày 22/10/2026, đã đối chiếu cả `flyway_schema_history` (DB ở V66) lẫn mọi ref git (lớn
+nhất V65). Chưa chạy lên DB dùng chung.
 Không tái sử dụng các số này. Những thay đổi tiếp theo phải dùng số còn trống sau khi đối chiếu.
+
+**Đánh số bằng `flyway_schema_history`, không bằng file trong git.** V66 là ví dụ sống: ngày 22/10
+một lượt `git log --all` vẫn báo số lớn nhất là V65, trong khi DB đã ở V66 từ hôm trước. Hậu quả của
+việc chọn trùng số rất khó đọc — `out-of-order` đang tắt nên Flyway **im lặng bỏ qua** file đó
+(`Schema "app" is up to date. No migration necessary.`), rồi app chết ở `ddl-auto: validate` với
+thông báo thiếu cột, không hề nhắc gì tới migration. `validate-on-migrate` cũng tắt nên không có cả
+cảnh báo checksum. `.env` của repo có sẵn credential; chạy câu này trong SQL Editor của Supabase
+trước khi chọn số:
+
+```sql
+select version, description, installed_on
+from app.flyway_schema_history order by installed_rank desc limit 10;
+```
