@@ -1,0 +1,194 @@
+{
+  "_note": "10 món mẫu đủ phủ bốn loại bữa và sáu vai trò, để chạy được toàn bộ luồng từ tra cứu tới lập thực đơn. Bộ đầy đủ 40-60 món là công việc nhập liệu riêng.",
+  "_fixtureNote": "Ba món dưới đây cố ý là fixture cho các nhánh sau: rec.canh-bi-do-tom dùng nước dùng tôm (nguyên liệu con là tôm khô) để kiểm TC01 lọc đệ quy; rec.canh-rau-nem-san dùng gia vị UNKNOWN để kiểm BR03; rec.ga-kho-gung dùng nước mắm thiếu FOLATE để kiểm coverage PARTIAL (TC09).",
+
+  "recipes": [
+    {
+      "id": "rec.chao-yen-mach-chuoi",
+      "name": "Cháo yến mạch chuối",
+      "version": 1,
+      "role": "MAIN_DISH",
+      "mealTypes": ["BREAKFAST", "SNACK"],
+      "servingsYield": 1,
+      "servingGram": 300,
+      "minutes": 15,
+      "mainIngredientTag": "ing.yen-mach",
+      "imageKey": null,
+      "safetyNotes": "Dùng sữa đã tiệt trùng. Không dùng sữa tươi chưa qua xử lý nhiệt.",
+      "steps": "1. Đun 250ml sữa tươi với 50g yến mạch, lửa nhỏ 8 phút, khuấy đều.\n2. Thái lát 80g chuối chín.\n3. Tắt bếp, cho chuối lên mặt cháo và dùng khi còn ấm.",
+      "ingredients": [
+        { "ingredientId": "ing.yen-mach", "quantityGram": 50, "preparationState": "DRIED" },
+        { "ingredientId": "ing.sua-tuoi-tiet-trung", "quantityGram": 250, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.chuoi", "quantityGram": 80, "preparationState": "RAW" }
+      ]
+    },
+    {
+      "id": "rec.trung-op-la",
+      "name": "Trứng ốp la",
+      "version": 1,
+      "role": "PROTEIN",
+      "mealTypes": ["BREAKFAST"],
+      "servingsYield": 1,
+      "servingGram": 60,
+      "minutes": 10,
+      "mainIngredientTag": "ing.trung-ga",
+      "imageKey": null,
+      "safetyNotes": "Chiên chín kỹ cả lòng đỏ. Không để lòng đào khi đang mang thai.",
+      "steps": "1. Làm nóng chảo với 5g dầu ăn.\n2. Đập 1 quả trứng vào chảo, đậy nắp, chiên 4 phút tới khi lòng đỏ chín hẳn.\n3. Nêm một nhúm muối.",
+      "ingredients": [
+        { "ingredientId": "ing.trung-ga", "quantityGram": 55, "preparationState": "RAW" },
+        { "ingredientId": "ing.dau-an", "quantityGram": 5, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.muoi", "quantityGram": 1, "preparationState": "PROCESSED" }
+      ]
+    },
+    {
+      "id": "rec.com-trang",
+      "name": "Cơm trắng",
+      "version": 1,
+      "role": "STAPLE",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 4,
+      "servingGram": 180,
+      "minutes": 25,
+      "mainIngredientTag": "ing.gao-te",
+      "imageKey": null,
+      "safetyNotes": null,
+      "steps": "1. Vo sạch 300g gạo tẻ.\n2. Cho nước theo tỉ lệ 1:1.2 và nấu bằng nồi cơm điện.\n3. Ủ thêm 10 phút sau khi nồi chuyển chế độ giữ ấm.",
+      "ingredients": [
+        { "ingredientId": "ing.gao-te", "quantityGram": 300, "preparationState": "RAW" }
+      ]
+    },
+    {
+      "id": "rec.ga-kho-gung",
+      "name": "Gà kho gừng",
+      "version": 1,
+      "role": "PROTEIN",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 3,
+      "servingGram": 110,
+      "minutes": 30,
+      "mainIngredientTag": "ing.thit-ga-uc",
+      "imageKey": null,
+      "safetyNotes": "Kho tới khi thịt chín hoàn toàn, không còn phần hồng ở giữa.",
+      "steps": "1. Thái 300g ức gà miếng vừa ăn, ướp với 15g nước mắm và gừng thái sợi 15 phút.\n2. Phi thơm gừng với 10g dầu ăn.\n3. Cho gà vào kho lửa nhỏ 20 phút tới khi thịt chín kỹ và nước kho sánh lại.",
+      "ingredients": [
+        { "ingredientId": "ing.thit-ga-uc", "quantityGram": 300, "preparationState": "RAW" },
+        { "ingredientId": "ing.gung", "quantityGram": 15, "preparationState": "RAW" },
+        { "ingredientId": "ing.nuoc-mam", "quantityGram": 15, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.dau-an", "quantityGram": 10, "preparationState": "PROCESSED" }
+      ]
+    },
+    {
+      "id": "rec.ca-hoi-ap-chao",
+      "name": "Cá hồi áp chảo",
+      "version": 1,
+      "role": "PROTEIN",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 2,
+      "servingGram": 120,
+      "minutes": 20,
+      "mainIngredientTag": "ing.ca-hoi",
+      "imageKey": null,
+      "safetyNotes": "Áp chảo tới khi thịt cá chín hẳn, không để tái. Cá hồi thuộc nhóm nên ăn theo tần suất tuần, xem quy tắc theo tuần ở nhánh 9.",
+      "steps": "1. Thấm khô 240g phi lê cá hồi, ướp một nhúm muối 10 phút.\n2. Áp chảo với 10g dầu ăn, mỗi mặt 4 phút.\n3. Kiểm tra phần dày nhất đã chín đều trước khi tắt bếp.",
+      "ingredients": [
+        { "ingredientId": "ing.ca-hoi", "quantityGram": 240, "preparationState": "RAW" },
+        { "ingredientId": "ing.dau-an", "quantityGram": 10, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.muoi", "quantityGram": 2, "preparationState": "PROCESSED" }
+      ]
+    },
+    {
+      "id": "rec.rau-muong-luoc",
+      "name": "Rau muống luộc",
+      "version": 1,
+      "role": "VEGETABLE",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 3,
+      "servingGram": 90,
+      "minutes": 10,
+      "mainIngredientTag": "ing.rau-muong",
+      "imageKey": null,
+      "safetyNotes": "Rửa kỹ và luộc chín, không ăn tái.",
+      "steps": "1. Nhặt và rửa sạch 300g rau muống.\n2. Đun sôi nước với một nhúm muối.\n3. Luộc 4 phút, vớt ra để ráo.",
+      "ingredients": [
+        { "ingredientId": "ing.rau-muong", "quantityGram": 300, "preparationState": "RAW" },
+        { "ingredientId": "ing.muoi", "quantityGram": 2, "preparationState": "PROCESSED" }
+      ]
+    },
+    {
+      "id": "rec.canh-bi-do-tom",
+      "name": "Canh bí đỏ nấu tôm",
+      "version": 1,
+      "role": "VEGETABLE",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 3,
+      "servingGram": 200,
+      "minutes": 25,
+      "mainIngredientTag": "ing.bi-do",
+      "imageKey": null,
+      "safetyNotes": "Nấu chín kỹ tôm. Món này chứa giáp xác cả ở tôm tươi lẫn trong nước dùng.",
+      "steps": "1. Gọt và thái 300g bí đỏ.\n2. Đun 400g nước dùng tôm, cho bí đỏ vào nấu 12 phút.\n3. Cho 100g tôm sú đã bóc vỏ vào, nấu thêm 5 phút tới khi tôm chín hẳn.",
+      "ingredients": [
+        { "ingredientId": "ing.bi-do", "quantityGram": 300, "preparationState": "RAW" },
+        { "ingredientId": "ing.nuoc-dung-tom", "quantityGram": 400, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.tom-su", "quantityGram": 100, "preparationState": "RAW" }
+      ]
+    },
+    {
+      "id": "rec.dau-hu-sot-ca-chua",
+      "name": "Đậu hũ sốt cà chua",
+      "version": 1,
+      "role": "PROTEIN",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 3,
+      "servingGram": 150,
+      "minutes": 25,
+      "mainIngredientTag": "ing.dau-hu",
+      "imageKey": null,
+      "safetyNotes": null,
+      "steps": "1. Cắt 300g đậu hũ thành khối vuông, chiên sơ với 10g dầu ăn.\n2. Xào 200g cà chua thái múi cho ra nước sốt.\n3. Cho đậu hũ vào đun cùng 8 phút, nêm 10g nước mắm.",
+      "ingredients": [
+        { "ingredientId": "ing.dau-hu", "quantityGram": 300, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.ca-chua", "quantityGram": 200, "preparationState": "RAW" },
+        { "ingredientId": "ing.dau-an", "quantityGram": 10, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.nuoc-mam", "quantityGram": 10, "preparationState": "PROCESSED" }
+      ]
+    },
+    {
+      "id": "rec.canh-rau-nem-san",
+      "name": "Canh cải bó xôi nêm sẵn",
+      "version": 1,
+      "role": "VEGETABLE",
+      "mealTypes": ["LUNCH", "DINNER"],
+      "servingsYield": 2,
+      "servingGram": 180,
+      "minutes": 12,
+      "mainIngredientTag": "ing.cai-bo-xoi",
+      "imageKey": null,
+      "safetyNotes": "Gia vị nêm sẵn chưa rà soát thành phần gây dị ứng. Đọc nhãn sản phẩm trước khi dùng.",
+      "steps": "1. Rửa sạch 200g cải bó xôi.\n2. Đun sôi 350g nước, cho rau vào nấu 3 phút.\n3. Nêm 8g gia vị nêm sẵn.",
+      "ingredients": [
+        { "ingredientId": "ing.cai-bo-xoi", "quantityGram": 200, "preparationState": "RAW" },
+        { "ingredientId": "ing.gia-vi-nem-san", "quantityGram": 8, "preparationState": "PROCESSED" }
+      ]
+    },
+    {
+      "id": "rec.sua-chuoi",
+      "name": "Sữa chuối",
+      "version": 1,
+      "role": "SNACK",
+      "mealTypes": ["SNACK"],
+      "servingsYield": 1,
+      "servingGram": 280,
+      "minutes": 5,
+      "mainIngredientTag": "ing.chuoi",
+      "imageKey": null,
+      "safetyNotes": "Chỉ dùng sữa đã tiệt trùng.",
+      "steps": "1. Cho 200g sữa tươi tiệt trùng và 100g chuối chín vào máy xay.\n2. Xay mịn 30 giây và dùng ngay.",
+      "ingredients": [
+        { "ingredientId": "ing.sua-tuoi-tiet-trung", "quantityGram": 200, "preparationState": "PROCESSED" },
+        { "ingredientId": "ing.chuoi", "quantityGram": 100, "preparationState": "RAW" }
+      ]
+    }
+  ]
+}

@@ -20,7 +20,7 @@
       "foodGroup": "GRAIN",
       "allergenStatus": "KNOWN",
       "allergenIds": [],
-      "aliases": ["gạo trắng", "gạo"],
+      "aliases": ["gạo trắng", "gạo", "gạo tám thơm", "gạo tám"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -38,7 +38,7 @@
       "foodGroup": "GRAIN",
       "allergenStatus": "KNOWN",
       "allergenIds": [],
-      "aliases": ["cơm"],
+      "aliases": ["cơm", "cơm nguội"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -91,7 +91,7 @@
       "foodGroup": "MEAT_FISH_EGG",
       "allergenStatus": "KNOWN",
       "allergenIds": ["alg.giap-xac"],
-      "aliases": ["tôm", "tôm thẻ", "tép"],
+      "aliases": ["tôm", "tôm thẻ", "tép", "tôm tươi"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -257,7 +257,7 @@
       "foodGroup": "VEGETABLE_FRUIT",
       "allergenStatus": "KNOWN",
       "allergenIds": [],
-      "aliases": [],
+      "aliases": ["cà chua cherry"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -273,7 +273,7 @@
       "foodGroup": "LEGUME_NUT",
       "allergenStatus": "KNOWN",
       "allergenIds": ["alg.dau-nanh"],
-      "aliases": ["đậu phụ", "tàu hũ"],
+      "aliases": ["đậu phụ", "tàu hũ", "đậu phụ non"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -291,7 +291,7 @@
       "foodGroup": "DAIRY",
       "allergenStatus": "KNOWN",
       "allergenIds": ["alg.sua"],
-      "aliases": ["sữa tươi"],
+      "aliases": ["sữa tươi", "sữa tươi không đường"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -309,7 +309,7 @@
       "foodGroup": "GRAIN",
       "allergenStatus": "KNOWN",
       "allergenIds": [],
-      "aliases": ["yến mạch"],
+      "aliases": ["yến mạch", "bột yến mạch", "yến mạch cán vỡ"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -358,7 +358,7 @@
       "foodGroup": "SEASONING",
       "allergenStatus": "KNOWN",
       "allergenIds": [],
-      "aliases": ["dầu"],
+      "aliases": ["dầu", "dầu màu điều"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
@@ -373,12 +373,1801 @@
       "foodGroup": "SEASONING",
       "allergenStatus": "KNOWN",
       "allergenIds": [],
-      "aliases": ["muối"],
+      "aliases": ["muối", "muối hồng"],
       "components": [],
       "sourceId": "src.demo-placeholder",
       "nutrients": [
         { "code": "IODINE", "amountPer100g": 2500, "unit": "mcg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
       ],
+      "price": null
+    },
+    {
+      "id": "ing.bo-lat",
+      "canonicalName": "Bơ lạt",
+      "foodState": "PROCESSED",
+      "foodGroup": "DAIRY",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.sua"],
+      "aliases": ["bơ", "bơ nhạt", "bơ đun chảy"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 717, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.9, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 3, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.02, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 24, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 19, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "VITAMIN_D", "amountPer100g": 1.5, "unit": "mcg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.chanh",
+      "canonicalName": "Nước cốt chanh",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["chanh", "chanh vàng"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 22, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 20, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.mang-tay",
+      "canonicalName": "Măng tây",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["măng tây xanh"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 20, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 52, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 2.1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 24, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 16, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.toi",
+      "canonicalName": "Tỏi",
+      "foodState": "RAW",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["tỏi băm"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 149, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 6.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 3, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 181, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 23, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dau-olive",
+      "canonicalName": "Dầu ô liu",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["dầu olive"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 884, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dau-dua",
+      "canonicalName": "Dầu dừa",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 892, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.tieu",
+      "canonicalName": "Hạt tiêu",
+      "foodState": "DRIED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["tiêu", "tiêu đen", "tiêu xanh"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 251, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 10.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 17, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 9.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 443, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.ca-chep",
+      "canonicalName": "Cá chép",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.ca"],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 127, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 17.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 15, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 41, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 65, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "VITAMIN_D", "amountPer100g": 24.7, "unit": "mcg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.cha-ca-that-lat",
+      "canonicalName": "Chả cá thát lát (sống)",
+      "foodState": "PROCESSED",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.ca"],
+      "aliases": ["chả cá", "cá thát lát nạo"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 105, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 17, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.muc-ong",
+      "canonicalName": "Mực ống",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["mực"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 92, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 15.6, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 5, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 32, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 65, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.cua-dong",
+      "canonicalName": "Cua đồng xay",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.giap-xac"],
+      "aliases": ["cua đồng"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 87, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 12.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 4.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hat-sen",
+      "canonicalName": "Hạt sen tươi",
+      "foodState": "RAW",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hạt sen"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 89, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 4.1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 28, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 44, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.gao-nep",
+      "canonicalName": "Gạo nếp",
+      "foodState": "RAW",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["nếp"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 370, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 6.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 8, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 11, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nep-cam",
+      "canonicalName": "Nếp cẩm nấu chín",
+      "foodState": "COOKED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["nếp cẩm"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 170, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.gao-lut-chin",
+      "canonicalName": "Cơm gạo lứt",
+      "foodState": "COOKED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["gạo lứt", "cơm gạo lứt"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 123, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 9, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 10, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hanh-kho",
+      "canonicalName": "Hành tím",
+      "foodState": "RAW",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hành khô", "hành tím băm"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 72, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 34, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 37, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 11, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hanh-la",
+      "canonicalName": "Hành lá",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hành hoa"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 32, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 64, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 72, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 5.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hanh-tay",
+      "canonicalName": "Hành tây",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 40, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 19, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 23, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 6.1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.thi-la",
+      "canonicalName": "Thì là",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 43, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 150, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 6.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 208, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.rau-thom",
+      "canonicalName": "Rau thơm các loại",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["ngò rí", "rau mùi", "ngò gai", "ngò ôm", "rau ngổ", "rau răm"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 25, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 60, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 70, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dui-ga",
+      "canonicalName": "Đùi gà bỏ da",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["đùi gà", "gà ta", "thịt gà ta"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 121, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 19.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 8, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 66, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.thit-bo",
+      "canonicalName": "Thịt bò nạc",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["thăn bò", "bắp bò", "thịt bò thăn"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 143, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 21, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 6, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 2.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 65, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.thit-heo-nac",
+      "canonicalName": "Thịt heo nạc",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["thịt nạc", "thịt nạc dăm", "thịt heo băm", "thịt lợn nạc"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 160, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 19.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 1, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.9, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 9, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 70, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.thit-ba-chi",
+      "canonicalName": "Thịt ba chỉ",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["ba rọi"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 518, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 9.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.suon-heo",
+      "canonicalName": "Sườn heo",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["sườn non", "sườn mọc", "sườn lợn"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 187, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 17.9, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 18, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 60, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.gio-song",
+      "canonicalName": "Giò sống",
+      "foodState": "PROCESSED",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["chả lụa sống", "thịt xay quết"],
+      "components": ["ing.nuoc-mam"],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 136, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 17, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.cha-bong",
+      "canonicalName": "Chà bông",
+      "foodState": "PROCESSED",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "UNKNOWN",
+      "allergenIds": [],
+      "aliases": ["ruốc"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 400, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 35, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.xuc-xich",
+      "canonicalName": "Xúc xích tiệt trùng",
+      "foodState": "PROCESSED",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "UNKNOWN",
+      "allergenIds": [],
+      "aliases": ["thịt nguội"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 250, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 12, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.trung-cut",
+      "canonicalName": "Trứng cút",
+      "foodState": "RAW",
+      "foodGroup": "MEAT_FISH_EGG",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.trung"],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 158, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 13, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 66, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 3.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 64, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 263, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "VITAMIN_D", "amountPer100g": 1.4, "unit": "mcg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nam-dong-co",
+      "canonicalName": "Nấm đông cô",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["nấm hương"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 34, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 13, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 21, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "VITAMIN_D", "amountPer100g": 0.4, "unit": "mcg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nam-tuyet",
+      "canonicalName": "Nấm tuyết ngâm nở",
+      "foodState": "PROCESSED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["ngân nhĩ"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 25, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.moc-nhi",
+      "canonicalName": "Mộc nhĩ khô",
+      "foodState": "DRIED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["nấm mèo"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 284, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 9.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 5.9, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 159, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.ca-rot",
+      "canonicalName": "Cà rốt",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 41, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.9, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 19, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 33, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 8.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.khoai-tay",
+      "canonicalName": "Khoai tây",
+      "foodState": "RAW",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 77, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 15, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 12, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 12, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.khoai-mo",
+      "canonicalName": "Khoai mỡ",
+      "foodState": "RAW",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["khoai mỡ tím"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 118, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 23, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 17, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.khoai-mon",
+      "canonicalName": "Khoai môn",
+      "foodState": "RAW",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 112, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 22, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 43, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.cu-sen",
+      "canonicalName": "Củ sen",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 74, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.6, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 13, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 45, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.cu-den",
+      "canonicalName": "Củ dền",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["củ dền đỏ"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 43, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.6, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 109, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 16, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.sa",
+      "canonicalName": "Sả",
+      "foodState": "RAW",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 99, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 75, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 8.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 65, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dau-ha-lan",
+      "canonicalName": "Đậu Hà Lan hạt",
+      "foodState": "RAW",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["đậu hà lan"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 81, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 5.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 65, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 25, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 28, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.ngo-ngot",
+      "canonicalName": "Ngô ngọt hạt",
+      "foodState": "RAW",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["bắp", "ngô"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 86, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 42, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 23, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bong-cai-xanh",
+      "canonicalName": "Bông cải xanh",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["súp lơ xanh"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 34, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 63, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 47, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 19, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bong-cai-trang",
+      "canonicalName": "Súp lơ trắng",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["bông cải trắng"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 25, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.9, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 57, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 22, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 45, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bap-cai",
+      "canonicalName": "Bắp cải",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["cải bắp"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 25, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 43, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 40, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 11, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bap-cai-tim",
+      "canonicalName": "Bắp cải tím",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 31, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 18, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 45, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.ot-chuong",
+      "canonicalName": "Ớt chuông",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["ớt ngọt"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 31, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 46, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.xa-lach",
+      "canonicalName": "Xà lách",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["rau xà lách"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 15, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 38, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.9, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 36, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dua-leo",
+      "canonicalName": "Dưa leo",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["dưa chuột"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 15, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 7, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 16, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.la-he",
+      "canonicalName": "Lá hẹ",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hẹ"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 30, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 105, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 92, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.mong-toi",
+      "canonicalName": "Mồng tơi",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["rau mồng tơi", "rau đắng", "rau đét"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 19, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 140, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 109, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.muop-huong",
+      "canonicalName": "Mướp hương",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["mướp"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 20, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 20, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.muop-dang",
+      "canonicalName": "Mướp đắng",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["khổ qua"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 17, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 72, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 19, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.du-du-xanh",
+      "canonicalName": "Đu đủ hườm",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["đu đủ xanh", "đu đủ gần chín"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 39, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.6, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 37, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 20, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.du-du-chin",
+      "canonicalName": "Đu đủ chín",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 43, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 37, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 20, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.doc-mung",
+      "canonicalName": "Dọc mùng",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["bạc hà"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 14, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.qua-sau",
+      "canonicalName": "Quả sấu",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["sấu", "quả dọc"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [],
+      "price": null
+    },
+    {
+      "id": "ing.qua-bo",
+      "canonicalName": "Quả bơ",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["bơ quả", "bơ sáp"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 160, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 81, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 12, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 14, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.cam",
+      "canonicalName": "Nước cam tươi",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["cam"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 45, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 30, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 11, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.xoai",
+      "canonicalName": "Xoài chín",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["xoài"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 60, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 43, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 11, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 7.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dau-tay",
+      "canonicalName": "Dâu tây",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 32, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 24, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 16, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 5.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.viet-quat",
+      "canonicalName": "Việt quất",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 57, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 6, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.tao",
+      "canonicalName": "Táo",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["táo giòn"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 52, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 3, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 3.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nuoc-dua",
+      "canonicalName": "Nước dừa tươi",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 19, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 3, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 24, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dua-nao",
+      "canonicalName": "Cơm dừa nạo",
+      "foodState": "RAW",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["dừa nạo", "cơm dừa"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 354, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 26, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 2.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 14, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 12, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nuoc-cot-dua",
+      "canonicalName": "Nước cốt dừa",
+      "foodState": "PROCESSED",
+      "foodGroup": "OTHER",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["cốt dừa"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 230, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 16, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 16, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.long-nhan",
+      "canonicalName": "Long nhãn khô",
+      "foodState": "DRIED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["long nhãn", "nhãn nhục"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 286, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 4.9, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 5.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 45, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.tao-do",
+      "canonicalName": "Táo đỏ khô",
+      "foodState": "DRIED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["táo tàu"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 287, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 79, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.ky-tu",
+      "canonicalName": "Kỷ tử",
+      "foodState": "DRIED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["câu kỷ tử"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 349, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 14.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 6.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 190, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nho-kho",
+      "canonicalName": "Nho khô",
+      "foodState": "DRIED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 299, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 5, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.9, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 50, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 11, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hat-oc-cho",
+      "canonicalName": "Hạt óc chó",
+      "foodState": "DRIED",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["óc chó"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 654, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 15.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 98, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 2.9, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 98, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 39, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hanh-nhan",
+      "canonicalName": "Hạnh nhân",
+      "foodState": "DRIED",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hạt hạnh nhân"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 579, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 21, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 44, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 3.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 269, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 52, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hat-chia",
+      "canonicalName": "Hạt chia",
+      "foodState": "DRIED",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 486, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 16.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 49, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 7.7, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 631, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hat-bi",
+      "canonicalName": "Hạt bí tách vỏ",
+      "foodState": "DRIED",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hạt bí"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 559, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 30, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 58, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 8.8, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 46, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 63, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.dau-do",
+      "canonicalName": "Đậu đỏ",
+      "foodState": "DRIED",
+      "foodGroup": "LEGUME_NUT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["đậu đỏ hạt nhỏ"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 329, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 19.9, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 622, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 66, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.mien-dong",
+      "canonicalName": "Miến dong",
+      "foodState": "DRIED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["miến"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 351, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 2.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 25, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bun-tuoi",
+      "canonicalName": "Bún tươi",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["bún"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 110, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.banh-pho",
+      "canonicalName": "Bánh phở tươi",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["bánh phở"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 141, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.mi-udon",
+      "canonicalName": "Mì udon tươi",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.lua-mi"],
+      "aliases": ["udon"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 105, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.6, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.3, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.banh-mi-nguyen-cam",
+      "canonicalName": "Bánh mì nguyên cám",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.lua-mi"],
+      "aliases": ["bánh mì đen"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 252, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 12.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 42, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 2.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 161, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.granola",
+      "canonicalName": "Granola yến mạch",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "UNKNOWN",
+      "allergenIds": [],
+      "aliases": ["yến mạch nướng giòn"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 470, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 10, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bot-nang",
+      "canonicalName": "Bột năng",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["tinh bột sắn"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 358, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 20, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bot-gao",
+      "canonicalName": "Bột gạo",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 366, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 6, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 4, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 10, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.bot-san-day",
+      "canonicalName": "Bột sắn dây",
+      "foodState": "PROCESSED",
+      "foodGroup": "GRAIN",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 340, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.7, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.rong-bien",
+      "canonicalName": "Rong biển lá (nori)",
+      "foodState": "DRIED",
+      "foodGroup": "VEGETABLE_FRUIT",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["rong biển", "lá kim"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 300, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 40, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.sua-chua",
+      "canonicalName": "Sữa chua không đường",
+      "foodState": "PROCESSED",
+      "foodGroup": "DAIRY",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.sua"],
+      "aliases": ["sữa chua", "sữa chua ít đường", "yogurt"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 61, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 3.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 7, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.1, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 121, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 15, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.kem-tuoi",
+      "canonicalName": "Kem tươi",
+      "foodState": "PROCESSED",
+      "foodGroup": "DAIRY",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.sua"],
+      "aliases": ["whipping cream"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 340, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2.8, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 4, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.03, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 66, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 17, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.mayonnaise",
+      "canonicalName": "Sốt mayonnaise ít béo",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.trung"],
+      "aliases": ["mayonnaise"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 330, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.xi-dau",
+      "canonicalName": "Xì dầu",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": ["alg.dau-nanh", "alg.lua-mi"],
+      "aliases": ["nước tương", "tương Nhật", "tentsuyu"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 53, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 8.1, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 18, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 1.5, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 33, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.hat-nem",
+      "canonicalName": "Hạt nêm",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["hạt nêm thịt", "hạt nêm gà"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [],
+      "price": null
+    },
+    {
+      "id": "ing.dau-hau",
+      "canonicalName": "Dầu hàu",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "UNKNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 51, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.4, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.duong",
+      "canonicalName": "Đường",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["đường phèn", "đường kính", "nước màu dừa"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 387, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.duong-thot-not",
+      "canonicalName": "Đường thốt nốt",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["mật tinh"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 383, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.mat-ong",
+      "canonicalName": "Mật ong",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 304, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 0.3, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "FOLATE", "amountPer100g": 2, "unit": "mcg_dfe", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "IRON", "amountPer100g": 0.4, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CALCIUM", "amountPer100g": 6, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "CHOLINE", "amountPer100g": 2.2, "unit": "mg", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nuoc-dung-xuong",
+      "canonicalName": "Nước dùng xương",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["nước dùng xương bò", "nước hầm xương"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 15, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 2, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.nuoc-dung-ga",
+      "canonicalName": "Nước dùng gà",
+      "foodState": "PROCESSED",
+      "foodGroup": "SEASONING",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": [],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [
+        { "code": "ENERGY", "amountPer100g": 15, "unit": "kcal", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" },
+        { "code": "PROTEIN", "amountPer100g": 1.5, "unit": "g", "status": "ESTIMATED", "sourceId": "src.demo-placeholder" }
+      ],
+      "price": null
+    },
+    {
+      "id": "ing.yen-sao",
+      "canonicalName": "Yến sào đã chưng",
+      "foodState": "PROCESSED",
+      "foodGroup": "OTHER",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["yến chưng", "tổ yến"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [],
+      "price": null
+    },
+    {
+      "id": "ing.tuyet-yen",
+      "canonicalName": "Tuyết yến, nhựa đào ngâm nở",
+      "foodState": "PROCESSED",
+      "foodGroup": "OTHER",
+      "allergenStatus": "KNOWN",
+      "allergenIds": [],
+      "aliases": ["tuyết yến", "nhựa đào"],
+      "components": [],
+      "sourceId": "src.demo-placeholder",
+      "nutrients": [],
       "price": null
     }
   ]
