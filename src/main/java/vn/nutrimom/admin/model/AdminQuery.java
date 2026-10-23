@@ -16,6 +16,30 @@ import vn.nutrimom.common.exception.ErrorCode;
 public final class AdminQuery {
     public static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private AdminQuery() {}
+
+    /**
+     * SQL gom một cột instant về ngày dương lịch giờ Việt Nam, dưới dạng số nguyên yyyyMMdd — dùng
+     * cho {@code group by}/{@code order by}, rồi đọc lại bằng {@link #dayOf(int)}.
+     *
+     * <p>Không dùng {@code cast(x at time zone 'Asia/Ho_Chi_Minh' as date)}: Postgres cho kết quả
+     * đúng và độc lập với múi giờ phiên (vì {@code at time zone} trả về TIMESTAMP không múi giờ rồi
+     * mới cắt ngày), nhưng H2 — bộ test chạy trên đó — giữ nguyên TIMESTAMP WITH TIME ZONE và cắt
+     * ngày theo múi giờ PHIÊN, vốn thừa kế múi giờ JVM. Trên H2 phép cast ấy do đó tương đương
+     * {@code cast(x as date)}: mốc 17:00Z rơi vào 30/09 khi máy chạy UTC thay vì 01/10 giờ Việt Nam.
+     * {@code extract} thì tôn trọng offset của chính giá trị trên cả hai, nên cùng một câu SQL cho
+     * cùng một ngày ở mọi múi giờ máy chạy. Xem {@code AdminOperationsTimeZoneTest}.
+     */
+    public static String dayKey(String instantColumn) {
+        String local = "(" + instantColumn + " at time zone '" + ZONE.getId() + "')";
+        return "cast(extract(year from " + local + ")*10000"
+                + "+extract(month from " + local + ")*100"
+                + "+extract(day from " + local + ") as bigint)";
+    }
+
+    /** Đọc ngược khóa yyyyMMdd mà {@link #dayKey(String)} sinh ra. */
+    public static LocalDate dayOf(int key) {
+        return LocalDate.of(key / 10000, key / 100 % 100, key % 100);
+    }
     public static BusinessException invalid(String field, String message) {
         return new BusinessException(ErrorCode.VALIDATION_ERROR, message, Map.of(field, message));
     }

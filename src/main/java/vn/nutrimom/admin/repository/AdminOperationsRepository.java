@@ -169,11 +169,10 @@ public class AdminOperationsRepository {
         return one("select coalesce(sum(p.amount),0) amount,count(*) count "+PAYMENT_FROM+f.where(),f.params());
     }
     public List<DailyCollection> collections(Filter f) {
-        return jdbc.query("""
-                select cast(p.paid_at at time zone 'Asia/Ho_Chi_Minh' as date) day_bucket,
-                  coalesce(sum(p.amount),0) amount,count(*) count
-                """+PAYMENT_FROM+f.where()+" group by day_bucket order by day_bucket",f.params(),
-                (r,n)->new DailyCollection(r.getObject("day_bucket",LocalDate.class),money(r,"amount"),r.getLong("count")));
+        return jdbc.query("select "+AdminQuery.dayKey("p.paid_at")+" day_bucket,"
+                +"coalesce(sum(p.amount),0) amount,count(*) count"
+                +PAYMENT_FROM+f.where()+" group by day_bucket order by day_bucket",f.params(),
+                (r,n)->new DailyCollection(AdminQuery.dayOf(r.getInt("day_bucket")),money(r,"amount"),r.getLong("count")));
     }
     public List<PlanCollection> planCollections(Filter f) {
         return jdbc.query("select p.plan_tier,coalesce(sum(p.amount),0) amount,count(*) count "
@@ -212,8 +211,8 @@ public class AdminOperationsRepository {
     public Map<LocalDate,Long> registrations(Period period) {
         var p=new MapSqlParameterSource();var w=new StringBuilder(" where "+USERS);
         dates(w,p,period,"u.created_at");
-        var rows=jdbc.query("select cast(u.created_at at time zone 'Asia/Ho_Chi_Minh' as date) day_bucket,count(*) count "
-                +"from app.users u"+w+" group by day_bucket",p,(r,n)->Map.entry(r.getObject("day_bucket",LocalDate.class),r.getLong("count")));
+        var rows=jdbc.query("select "+AdminQuery.dayKey("u.created_at")+" day_bucket,count(*) count "
+                +"from app.users u"+w+" group by day_bucket",p,(r,n)->Map.entry(AdminQuery.dayOf(r.getInt("day_bucket")),r.getLong("count")));
         var result=new HashMap<LocalDate,Long>();rows.forEach(e->result.put(e.getKey(),e.getValue()));return result;
     }
     public Filter registeredFilter(Period period,OffsetDateTime now) {
