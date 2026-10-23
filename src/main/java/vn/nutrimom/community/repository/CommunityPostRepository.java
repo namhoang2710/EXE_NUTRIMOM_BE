@@ -48,6 +48,8 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, St
     @Query("select count(p) from CommunityPost p where p.pinnedAt is not null and p.deletedAt is null")
     long countPinned();
 
+    long countByStatusAndDeletedAtIsNull(PostStatus status);
+
     /** Bài của chính người dùng, mọi trạng thái trừ bài đã tự xoá. */
     @Query("""
             select p from CommunityPost p

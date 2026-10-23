@@ -64,6 +64,10 @@ import vn.nutrimom.community.service.CommunityR2StorageService;
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 class CommunityIntegrationTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    vn.nutrimom.assistant.service.GroqAssistantClient groq;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    vn.nutrimom.consultation.video.LiveKitClient livekit;
     private static final String POSTS = "/api/v1/community/posts";
     private static final String ADMIN = "/api/v1/admin/community";
     private static final String NOTIFICATIONS = "/api/v1/community/notifications";
@@ -73,6 +77,7 @@ class CommunityIntegrationTest {
     @Autowired UserRepository users;
     @Autowired CommunityPostImageRepository images;
     @Autowired CommunityProperties properties;
+    @Autowired vn.nutrimom.admin.realtime.AdminRealtimeRepository realtimeRepository;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManagerFactory entityManagerFactory;
 
@@ -92,6 +97,31 @@ class CommunityIntegrationTest {
     // ---------------------------------------------------------------------------------------------
     // Bài viết + kiểm duyệt
     // ---------------------------------------------------------------------------------------------
+
+    @Test
+    void pendingCountTracksOutstandingPostsAcrossModerationAndReopening() throws Exception {
+        mvc.perform(get(ADMIN + "/posts/pending-count")).andExpect(status().isUnauthorized());
+        perform(get(ADMIN + "/posts/pending-count"), author).andExpect(status().isForbidden());
+        long baseline = data(perform(get(ADMIN + "/posts/pending-count"), admin)
+                .andExpect(status().isOk())).at("/pending_count").longValue();
+        String first = createPost(author, "Bài chờ thứ nhất", List.of());
+        String second = createPost(author, "Bài chờ thứ hai", List.of());
+        String third = createPost(reader, "Bài chờ thứ ba", List.of());
+        perform(get(ADMIN + "/posts/pending-count"), admin).andExpect(jsonPath("$.data.pending_count").value(baseline + 3));
+        assertThat(realtimeRepository.snapshots(Set.of(admin)).get(admin).communityPendingCount()).isEqualTo(baseline + 3);
+        perform(get(ADMIN + "/posts?status=PENDING&limit=1"), admin).andExpect(status().isOk());
+        perform(post(ADMIN + "/posts/" + first + "/approve"), admin).andExpect(status().isOk());
+        perform(post(ADMIN + "/posts/" + second + "/approve"), admin).andExpect(status().isOk());
+        for (int visit = 0; visit < 2; visit++) {
+            perform(get(ADMIN + "/posts/pending-count"), admin).andExpect(jsonPath("$.data.pending_count").value(baseline + 1));
+        }
+        assertThat(realtimeRepository.snapshots(Set.of(admin)).get(admin).communityPendingCount()).isEqualTo(baseline + 1);
+        perform(post(ADMIN + "/posts/" + third + "/reject").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"\"}"), admin).andExpect(status().isUnprocessableEntity());
+        perform(get(ADMIN + "/posts/pending-count"), admin).andExpect(jsonPath("$.data.pending_count").value(baseline + 1));
+        perform(delete(POSTS + "/" + third), reader).andExpect(status().isOk());
+        perform(get(ADMIN + "/posts/pending-count"), admin).andExpect(jsonPath("$.data.pending_count").value(baseline));
+    }
 
     @Test
     void pendingPostIsHiddenUntilApprovedAndAuthorIsNotified() throws Exception {

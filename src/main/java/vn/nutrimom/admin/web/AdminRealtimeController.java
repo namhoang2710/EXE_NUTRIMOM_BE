@@ -25,7 +25,7 @@ public class AdminRealtimeController {
     private final ObjectProvider<AdminRealtimeHub> hubs;
     public AdminRealtimeController(ObjectProvider<AdminRealtimeHub> hubs) { this.hubs=hubs; }
     @GetMapping(value="/stream",produces=MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary="Cập nhật Dashboard và số thông báo của chính Admin qua một kết nối SSE",
+    @Operation(summary="Cập nhật Dashboard, thông báo Admin và tổng bài Cộng đồng chờ duyệt qua một kết nối SSE",
             description="Bearer header required. Latest revisions are decimal strings; no event replay. "
                 +"Heartbeat every 15s; closes at token expiry or after 5 minutes. "
                 +"Returns 404 when disabled, 429 with Retry-After at connection capacity.")
