@@ -64,6 +64,12 @@ public class AdminCommunityController {
         return ApiResponses.success(moderation.createPost(jwt.getSubject(), request));
     }
 
+    @GetMapping("/posts/pending-count")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Tổng số bài đang chờ duyệt, không phụ thuộc phân trang hoặc trạng thái đã xem")
+    public ApiResponse<vn.nutrimom.community.dto.CommunityDtos.PendingPostCount> pendingCount() {
+        return ApiResponses.success(moderation.pendingCount());
+    }
+
     @GetMapping("/posts/{postId}")
     public ApiResponse<AdminPostItem> post(@PathVariable String postId, @AuthenticationPrincipal Jwt jwt) {
         return ApiResponses.success(moderation.detail(jwt.getSubject(), postId));

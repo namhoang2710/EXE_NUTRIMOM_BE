@@ -46,6 +46,16 @@ class AdminRealtimeHubTest {
         };
     }
     void open(String user) {hub.open(user,now.get().plusSeconds(900));}
+    @Test void pendingCountChangesPushUpdatesWithoutNotificationOrDashboardChanges() {
+        open("a"); wire.clear();
+        data.put("a",new Snapshot(1,"a","1","1",0,3));
+        hub.tick(); assertEquals(1,wire.size()); assertTrue(wire.get(0).contains("event:update"));
+        assertTrue(wire.get(0).contains("communityPendingCount=3"));
+        data.put("a",new Snapshot(1,"a","1","1",0,1));
+        hub.tick(); assertEquals(2,wire.size()); assertTrue(wire.get(1).contains("communityPendingCount=1"));
+        hub.tick(); assertEquals(2,wire.size());
+    }
+
     @Test void idleHasNoQueriesAndAllConnectionsShareOneSnapshotQueryPerTick() {
         hub.tick();verifyNoInteractions(repository);
         open("a");open("a");open("b");wire.clear();clearInvocations(repository);

@@ -88,6 +88,8 @@ public final class CommunityDtos {
             @Size(max = 4, message = "Tối đa 4 ảnh mỗi bài") List<@NotBlank String> imageIds,
             Boolean pinned) { }
 
+    public record PendingPostCount(long pendingCount) { }
+
     public record RejectRequest(
             @NotBlank(message = "reason là bắt buộc") @Size(max = 500, message = "reason tối đa 500 ký tự") String reason) { }
 
