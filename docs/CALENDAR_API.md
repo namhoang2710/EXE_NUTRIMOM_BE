@@ -4,12 +4,20 @@ Lịch kiểu Google Calendar cho mẹ bầu. Nó **trộn ba nguồn**, trong �
 
 | Nguồn (`source`) | Lấy từ | Điều kiện hiện lên lịch |
 |---|---|---|
-| `MEDICAL_RECORD` | `app.medical_records` | Hồ sơ của chính mình, chưa xoá mềm; mốc là `occurred_at` |
+| `MEDICAL_RECORD` | `app.medical_records` | Hồ sơ của chính mình, **thuộc thai kỳ đang `ACTIVE`**, chưa xoá mềm; mốc là `occurred_at` |
 | `CONSULTATION` | `app.consultation_requests` + `app.consultation_slots` | **Chuyên gia đã xác nhận**, tức yêu cầu đã có khung giờ (`PENDING_CONSULTATION` hoặc `COMPLETED`) |
 | `REMINDER` | `app.calendar_reminders` (V29) | Nhắc nhở người dùng tự tạo, trạng thái khác `CANCELLED` |
 
 Yêu cầu tư vấn còn `PENDING_EXPERT` chưa có mốc giờ nào nên không hiện; yêu cầu đã huỷ được trả
 `slot_id` về null lúc huỷ nên cũng tự rụng khỏi lịch.
+
+**Hồ sơ y tế trên lịch chỉ là của thai kỳ đang `ACTIVE`.** Mốc khám của thai kỳ đã đóng
+(`COMPLETED` / `LOSS_REPORTED` / `ARCHIVED`) cố ý không vẽ lên lịch: lịch là màn hình theo dõi thai
+kỳ đang diễn ra, còn lịch sử các lần mang thai trước thuộc về màn hình quản lý hồ sơ
+(`GET /api/v1/medical-records`) — nơi mẹ so sánh thông số lần này với lần trước. Trước khi có ràng
+buộc này, lịch vét mọi hồ sơ theo `owner_user_id` nên thai kỳ lần 2 vẫn hiện chấm của lần 1, bấm vào
+thì rơi xuống một bản ghi mà màn hình quản lý (vốn lọc theo `pregnancy_id`) không liệt kê. Người
+chưa có thai kỳ `ACTIVE` nào thì nguồn này rỗng, hai nguồn còn lại vẫn vẽ bình thường.
 
 Tất cả endpoint cần JWT (`Authorization: Bearer <token>`). JSON dùng snake_case, bọc trong
 `ApiResponse` (`data`, `meta`); lỗi trả `error.code` theo [error-codes.md](error-codes.md).
