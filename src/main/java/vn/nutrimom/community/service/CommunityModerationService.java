@@ -64,6 +64,12 @@ public class CommunityModerationService {
         return toAdminItems(List.of(require(postId)), adminId).get(0);
     }
 
+    @Transactional(readOnly = true)
+    public vn.nutrimom.community.dto.CommunityDtos.PendingPostCount pendingCount() {
+        return new vn.nutrimom.community.dto.CommunityDtos.PendingPostCount(
+                posts.countByStatusAndDeletedAtIsNull(PostStatus.PENDING));
+    }
+
     /**
      * Ban quản trị đăng bài: duyệt ngay, ghim tuỳ chọn. Không tính quota 10 bài/24 giờ của người dùng.
      * Ghim khi đã đủ số bài ghim → 409 và không tạo bài (kiểm tra trước khi ghi).
