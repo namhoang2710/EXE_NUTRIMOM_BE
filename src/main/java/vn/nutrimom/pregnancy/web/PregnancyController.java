@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,9 +15,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
+import vn.nutrimom.pregnancy.domain.PregnancyStatus;
 import vn.nutrimom.pregnancy.dto.CalculatePregnancyRequest;
 import vn.nutrimom.pregnancy.dto.CreatePregnancyRequest;
 import vn.nutrimom.pregnancy.dto.PregnancyCalculationResponse;
@@ -50,6 +53,16 @@ public class PregnancyController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CalculatePregnancyRequest request) {
         return ApiResponses.success(service.calculate(request));
+    }
+
+    @GetMapping
+    @Operation(summary = "List the authenticated user's pregnancies, newest first",
+            description = "Omit status to list every pregnancy. Gestational week, day, trimester and "
+                    + "days_until_due are null for pregnancies that are not ACTIVE.")
+    public ApiResponse<List<PregnancyResponse>> list(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) PregnancyStatus status) {
+        return ApiResponses.success(service.list(jwt.getSubject(), status));
     }
 
     @GetMapping("/current")

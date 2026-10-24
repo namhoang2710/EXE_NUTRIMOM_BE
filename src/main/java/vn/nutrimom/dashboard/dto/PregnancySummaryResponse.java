@@ -5,9 +5,9 @@ import java.time.LocalDate;
 public record PregnancySummaryResponse(
         String id,
         String status,
-        long gestationalWeek,
-        int gestationalDay,
-        int trimester,
+        Long gestationalWeek,
+        Integer gestationalDay,
+        Integer trimester,
         LocalDate estimatedDueDate,
-        long daysUntilDue,
+        Long daysUntilDue,
         String careFacilityName) { }

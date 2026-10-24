@@ -88,7 +88,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | FAMILY_GROUP_NOT_FOUND | 404 | false | family |
 | OWNER_ALREADY_IN_GROUP | 409 | false | family |
 | FAMILY_MEMBER_EXISTS | 409 | false | family |
-| PREGNANCY_NOT_ACTIVE | 409 | false | family/pregnancy |
+| PREGNANCY_NOT_ACTIVE | 409 | false | family/pregnancy/medical-records (tạo hồ sơ cho thai kỳ đã đóng) |
 | ACTIVE_PREGNANCY_NOT_FOUND | 404 | false | family/dashboard |
 | PREGNANCY_ARCHIVED | 409 | false | pregnancy |
 | ACTIVE_PREGNANCY_EXISTS | 409 | false | pregnancy |

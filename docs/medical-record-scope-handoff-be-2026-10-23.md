@@ -102,3 +102,22 @@ curl -s "http://localhost:5173/api/v1/medical-records?limit=50" -H "Authorizatio
 - Không truyền `pregnancy_id` → phải ra **2** bản ghi (`19a7eb7d` và `1d961b8a`).
 - `GET /api/v1/calendar/events?from=2026-10-20&to=2026-10-20&types=MEDICAL_RECORD` → phải ra **0**
   bản ghi (trước khi sửa là 1).
+
+## Trạng thái phía quản lý hồ sơ — 24/10/2026
+
+Nhánh `fix/medical-record-pregnancy-scope`. Không migration, không đổi entity.
+
+| Mục | Kết quả |
+|---|---|
+| 1. Danh sách xuyên thai kỳ | Giữ nguyên hành vi (bỏ `pregnancy_id` = mọi thai kỳ, `occurred_at` giảm dần) và **khoá bằng test** `MedicalRecordPregnancyScopeIntegrationTest`. `limit` giữ trần 100, không nâng |
+| 2. API liệt kê thai kỳ | **Đã có** `GET /api/v1/pregnancies?status=` → `data: [PregnancyResponse]`, mới trước (`created_at`). `status` sai → 400 `INVALID_REQUEST_PARAMETER` |
+| 3. `pregnancy_id` nhiều giá trị | Chưa làm, để sau |
+
+Thay đổi đi kèm:
+- Thai kỳ **không** `ACTIVE`: `gestational_week`, `gestational_day`, `trimester`, `days_until_due` là null
+  (bị bỏ khỏi JSON vì Jackson `non_null`). Các số này tính tới hôm nay nên vô nghĩa với thai kỳ đã đóng.
+  Áp cho `GET /pregnancies`, `GET /pregnancies/{id}`, `PATCH` và `GET /dashboard/mom?pregnancy_id=`.
+  `GET /pregnancies/current` không đổi.
+- Tạo hồ sơ cho thai kỳ đã đóng: **409 `PREGNANCY_NOT_ACTIVE`** (trước là 404). Sửa/xoá hồ sơ cũ vẫn được.
+- Sửa lỗi lọc `from`/`to` lệch một ngày: so ngày theo `app.calendar.default-timezone`
+  (Asia/Ho_Chi_Minh) thay vì ngày UTC.

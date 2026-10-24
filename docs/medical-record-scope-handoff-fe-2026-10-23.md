@@ -67,7 +67,11 @@ Mỗi bản ghi trả về đều có `pregnancy_id`. Gộp cả hai thai kỳ v
 mẹ không phân biệt được mốc nào của lần nào. Đề xuất: nhóm theo thai kỳ, nhóm thai kỳ hiện tại mở
 sẵn ở trên, các thai kỳ cũ gập lại kèm nhãn (ví dụ *"Thai kỳ trước · dự sinh 14/02/2027"*).
 
-**Phụ thuộc đang chặn:** hiện **chưa có API liệt kê thai kỳ** — `PregnancyController` chỉ có
+**Cập nhật 24/10:** BE đã có `GET /api/v1/pregnancies?status=` (mới trước). Thai kỳ không `ACTIVE`
+không còn trả `gestational_week`/`gestational_day`/`trimester`/`days_until_due`. Tạo hồ sơ cho thai kỳ
+đã đóng trả 409 `PREGNANCY_NOT_ACTIVE`. Chi tiết ở cuối [doc BE](medical-record-scope-handoff-be-2026-10-23.md).
+
+**Phụ thuộc (đã gỡ ngày 24/10):** trước đây **chưa có API liệt kê thai kỳ** — `PregnancyController` chỉ có
 `GET /current` và `GET /{id}`, nên FE không tra được tên/ngày dự sinh của một `pregnancy_id` cũ.
 Đã đề nghị BE bổ sung `GET /api/v1/pregnancies` (xem
 [doc gửi team quản lý hồ sơ](medical-record-scope-handoff-be-2026-10-23.md)). Trong lúc chờ, có thể
