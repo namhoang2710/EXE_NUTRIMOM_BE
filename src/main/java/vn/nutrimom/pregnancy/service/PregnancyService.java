@@ -3,6 +3,7 @@ package vn.nutrimom.pregnancy.service;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -121,6 +122,16 @@ public class PregnancyService {
     public java.util.Optional<PregnancyResponse> findCurrent(String userId) {
         requireActiveUser(userId);
         return pregnancies.findByOwnerUserIdAndStatus(userId, PregnancyStatus.ACTIVE).map(this::toResponse);
+    }
+
+    /** Mọi thai kỳ của người dùng, mới trước. {@code status} null = không lọc. */
+    @Transactional(readOnly = true)
+    public List<PregnancyResponse> list(String userId, PregnancyStatus status) {
+        requireActiveUser(userId);
+        List<PregnancyEntity> owned = status == null
+                ? pregnancies.findByOwnerUserIdOrderByCreatedAtDescIdDesc(userId)
+                : pregnancies.findByOwnerUserIdAndStatusOrderByCreatedAtDescIdDesc(userId, status);
+        return owned.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -258,12 +269,18 @@ public class PregnancyService {
                 new PregnancyCalculationService.CalculationRequest(
                         source, lmp, conception, dueDate, week, day,
                         pregnancy.getGestationalAgeAnchorDate(), pregnancy.getTimezone()));
+        // Tuần thai và số ngày tới dự sinh được tính tới hôm nay, nên chỉ có nghĩa khi thai kỳ còn
+        // ACTIVE. Thai kỳ đã đóng mà vẫn trả "tuần 60, còn -100 ngày" thì màn so sánh sẽ hiện số vô nghĩa.
+        boolean ongoing = pregnancy.getStatus() == PregnancyStatus.ACTIVE;
         return new PregnancyResponse(
                 pregnancy.getId(), pregnancy.getStatus().name(), calculation.lastMenstrualPeriod(),
                 calculation.conceptionDate(), calculation.estimatedDueDate(),
                 pregnancy.getIsFirstPregnancy(), pregnancy.getMultiplePregnancy(), pregnancy.getTimezone(),
-                calculation.gestationalWeek(), calculation.gestationalDay(), calculation.trimester(),
-                calculation.daysUntilDue(), calculation.source().name(), pregnancy.getCareFacilityName(),
+                ongoing ? calculation.gestationalWeek() : null,
+                ongoing ? calculation.gestationalDay() : null,
+                ongoing ? calculation.trimester() : null,
+                ongoing ? calculation.daysUntilDue() : null,
+                calculation.source().name(), pregnancy.getCareFacilityName(),
                 pregnancy.getCareProviderName(), pregnancy.getVersion(), pregnancy.getCreatedAt(),
                 pregnancy.getUpdatedAt());
     }
