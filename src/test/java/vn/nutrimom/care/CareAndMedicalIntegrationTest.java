@@ -1,7 +1,9 @@
 package vn.nutrimom.care;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -186,6 +188,42 @@ class CareAndMedicalIntegrationTest extends ApiIntegrationTestSupport {
         mockMvc.perform(get(downloadUrl))
                 .andExpect(status().isOk())
                 .andExpect(content().bytes(pdfBytes));
+    }
+
+    /**
+     * FE gửi nguyên {@code headers} của phiên upload khi PUT nội dung tệp, từ origin khác (Vercel → Render).
+     * Thiếu một tên trong CORS là trình duyệt chặn lệnh PUT sau preflight, tệp kẹt UPLOADING mãi
+     * (lỗi production 25/10/2026 với {@code X-File-Id}). Máy dev không lộ lỗi vì Vite proxy cùng origin.
+     */
+    @Test
+    void theBrowserMaySendEveryHeaderTheUploadSessionAsksFor() throws Exception {
+        Session owner = registerViaOtp("0912397006", "Cors Owner");
+        byte[] pdfBytes = "%PDF-1.7\nNutriMom cors\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        MvcResult session = mockMvc.perform(post("/api/v1/files/upload-sessions")
+                        .header("Authorization", bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UploadRequest(
+                                "MEDICAL_RECORD", "cors.pdf", "application/pdf", pdfBytes.length, sha256(pdfBytes)))))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode upload = objectMapper.readTree(session.getResponse().getContentAsString()).at("/data");
+        java.util.List<String> requested = new java.util.ArrayList<>(java.util.List.of("Authorization"));
+        upload.at("/headers").propertyNames().forEach(requested::add);
+        assertThat(requested).contains("X-File-Id", "Content-Type");
+
+        MvcResult preflight = mockMvc.perform(options(upload.at("/upload_url").stringValue())
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "PUT")
+                        .header("Access-Control-Request-Headers", String.join(", ", requested)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String allowed = preflight.getResponse().getHeader("Access-Control-Allow-Headers");
+        assertThat(allowed).isNotNull();
+        java.util.Set<String> allowedNames = java.util.Arrays.stream(allowed.split(","))
+                .map(name -> name.trim().toLowerCase(java.util.Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
+        assertThat(requested).allSatisfy(name ->
+                assertThat(allowedNames).as("CORS cho phép header %s", name).contains(name.toLowerCase(java.util.Locale.ROOT)));
     }
 
     private String createPregnancy(Session session) throws Exception {

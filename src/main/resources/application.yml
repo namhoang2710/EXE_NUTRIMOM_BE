@@ -184,6 +184,10 @@ app:
     daily-token-budget: ${NUTRIMOM_ASSISTANT_DAILY_TOKEN_BUDGET:150000}
     retention-days: ${NUTRIMOM_ASSISTANT_RETENTION_DAYS:30}
   storage:
+    # Bắt buộc lưu tệp y tế lên R2 riêng, KHÔNG lặng lẽ ghi ổ đĩa local. Ổ đĩa của Render là tạm:
+    # mất sau mỗi lần deploy/khởi động lại, tệp người dùng sẽ biến mất. Render tự đặt RENDER=true cho
+    # mọi service nên trên Render cờ này tự bật; máy dev vẫn dùng ổ đĩa local như cũ.
+    require-private-r2: ${FILES_REQUIRE_PRIVATE_R2:${RENDER:false}}
     r2:
       enabled: ${FILES_R2_ENABLED:false}
       account-id: ${FILES_R2_ACCOUNT_ID:${R2_ACCOUNT_ID:}}

@@ -57,6 +57,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | UNSUPPORTED_FILE_TYPE | 415 | false | Định dạng tệp không hỗ trợ | **reserved** (07) |
 | MALWARE_DETECTED | 422 | false | Tệp nghi chứa mã độc | **reserved** (07) |
 | UPLOAD_NOT_COMPLETE | 409 | false | Tệp chưa hoàn tất upload | **reserved** (07) |
+| FILE_STORAGE_UNAVAILABLE | 503 | true | Kho tệp riêng tư (R2) chưa cấu hình; cùng code nhưng **502** khi gọi R2 lỗi | dùng (07) |
 | SLOT_UNAVAILABLE | 409 | false | Khung giờ tư vấn đã bị đặt | dùng (consultation) |
 | QUOTA_EXCEEDED | 429 | false | Hết hạn mức (scan/subscription) | **reserved** (15/17) |
 | SCAN_FAILED | 422 | false | Xử lý ảnh/tài liệu thất bại | **reserved** (15) |

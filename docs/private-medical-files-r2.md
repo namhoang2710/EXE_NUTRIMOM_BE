@@ -42,6 +42,18 @@ Bucket privacy itself must be verified in Cloudflare; the S3 adapter cannot prov
 and custom-domain access are disabled. Do not enable private-file storage until that is verified.
 `FILES_R2_ENABLED=false` explicitly keeps new uploads local for development.
 
+**Hosts with an ephemeral disk (Render):** `app.storage.require-private-r2`
+(`FILES_REQUIRE_PRIVATE_R2`, defaulting to Render's own `RENDER=true`) refuses to create medical
+upload sessions with 503 `FILE_STORAGE_UNAVAILABLE` when private R2 is not configured, and logs an
+error at startup. Without it, uploads silently went to `/tmp` and were lost on the next restart
+(production incident 25/10/2026). On Render, set at least `FILES_R2_ENABLED=true` and
+`FILES_R2_BUCKET_NAME=nutrimom-medical-records`. The `R2_*` credentials are reused unless
+`FILES_R2_*` credentials are set, and they must have access to the private bucket.
+
+The upload session returns headers (`Content-Type`, `X-File-Id`) that the browser sends on the PUT.
+Every one of them must be listed in the CORS allowed headers (`SecurityConfig`); a missing name
+makes the browser block the PUT after preflight, and the file stays `UPLOADING`.
+
 Apply migration `V41__private_file_storage_provider.sql` on restart through Flyway.
 Existing file rows are marked LOCAL without changing their keys or bytes. New R2 rows
 record provider and bucket; upload, completion and download route using those persisted

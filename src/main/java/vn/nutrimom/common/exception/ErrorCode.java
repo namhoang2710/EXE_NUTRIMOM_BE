@@ -44,6 +44,9 @@ public enum ErrorCode {
     UNSUPPORTED_FILE_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, false, "Định dạng tệp không được hỗ trợ."),
     MALWARE_DETECTED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Tệp có dấu hiệu chứa mã độc."),
     UPLOAD_NOT_COMPLETE(HttpStatus.CONFLICT, false, "Tệp chưa hoàn tất tải lên."),
+    /** Kho tệp riêng tư chưa cấu hình (503). Lỗi khi gọi tới R2 dùng cùng code nhưng 502 (PrivateR2StorageService). */
+    FILE_STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, true,
+            "Kho lưu tệp hồ sơ y tế đang tạm thời không dùng được. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."),
     SLOT_UNAVAILABLE(HttpStatus.CONFLICT, false, "Khung giờ đã được đặt. Vui lòng chọn khung khác."),
     QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, false, "Bạn đã dùng hết hạn mức cho phép."),
     SCAN_FAILED(HttpStatus.UNPROCESSABLE_CONTENT, false, "Xử lý ảnh/tài liệu thất bại."),

@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
 
 /** Private objects are served through FileService ownership/signed-token checks, never public URLs. */
 public class PrivateR2StorageService implements AutoCloseable {
@@ -56,8 +57,9 @@ public class PrivateR2StorageService implements AutoCloseable {
     private BusinessException unavailable(String operation, RuntimeException exception) {
         // Do not log keys, filenames, credentials or provider exception messages.
         log.warn("Private R2 {} failed ({})", operation, exception.getClass().getSimpleName());
-        return new BusinessException(HttpStatus.BAD_GATEWAY, "FILE_STORAGE_UNAVAILABLE",
-                "Private file storage is temporarily unavailable. Please retry.", true);
+        // Cùng code với ErrorCode.FILE_STORAGE_UNAVAILABLE nhưng 502: lỗi đến từ phía R2, không phải thiếu cấu hình.
+        return new BusinessException(HttpStatus.BAD_GATEWAY, ErrorCode.FILE_STORAGE_UNAVAILABLE.code(),
+                "Không kết nối được kho lưu tệp hồ sơ y tế. Vui lòng thử lại.", true);
     }
 
     @Override

@@ -18,10 +18,35 @@ class FileStorageServiceTest {
     @TempDir Path directory;
 
     private FileStorageService router(PrivateR2StorageService r2) {
+        return router(r2, false);
+    }
+
+    private FileStorageService router(PrivateR2StorageService r2, boolean requirePrivateR2) {
         StaticListableBeanFactory beans = new StaticListableBeanFactory();
         if (r2 != null) beans.addBean("privateR2", r2);
         return new FileStorageService(new LocalStorageService(directory.toString()),
-                beans.getBeanProvider(PrivateR2StorageService.class));
+                beans.getBeanProvider(PrivateR2StorageService.class), requirePrivateR2);
+    }
+
+    /**
+     * Trên Render ổ đĩa bị xoá mỗi lần khởi động lại: thiếu R2 riêng thì phải từ chối ngay ở bước tạo
+     * phiên upload (503 rõ ràng), không được lặng lẽ ghi tệp y tế vào ổ đĩa rồi làm mất (lỗi 25/10/2026).
+     */
+    @Test
+    void requiredPrivateR2RefusesMedicalUploadsInsteadOfWritingToTheEphemeralDisk() {
+        FileStorageService storage = router(null, true);
+        assertThatThrownBy(() -> storage.newLocation("MEDICAL_RECORD", "user/file/random"))
+                .isInstanceOfSatisfying(BusinessException.class, error -> {
+                    assertThat(error.getCode()).isEqualTo("FILE_STORAGE_UNAVAILABLE");
+                    assertThat(error.getStatus().value()).isEqualTo(503);
+                });
+        // Mục đích khác không phải tệp y tế thì vẫn local như trước.
+        assertThat(storage.newLocation("AVATAR", "user/file/avatar").provider()).isEqualTo(StorageProvider.LOCAL);
+
+        PrivateR2StorageService r2 = mock(PrivateR2StorageService.class);
+        when(r2.bucket()).thenReturn("private-bucket");
+        assertThat(router(r2, true).newLocation("MEDICAL_RECORD", "user/file/random").provider())
+                .isEqualTo(StorageProvider.R2);
     }
 
     @Test

@@ -163,8 +163,10 @@ public class SecurityConfig {
         // Thiếu một tên ở đây là trình duyệt CHẶN request ngay sau preflight, không có status code
         // nào để đọc: FE chỉ thấy "Failed to fetch". Idempotency-Key do api-client gắn cho checkout
         // và trợ lý — backend không đọc header này, nhưng vẫn phải khai cho qua CORS.
+        // X-File-Id: FileService trả trong headers của phiên upload và FE gửi nguyên khi PUT nội dung
+        // tệp (CareAndMedicalIntegrationTest khoá: mọi header của phiên upload phải có ở đây).
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
-                "X-Device-Id", "Accept-Language", "Idempotency-Key"));
+                "X-Device-Id", "Accept-Language", "Idempotency-Key", "X-File-Id"));
         config.setExposedHeaders(List.of("X-Request-Id", "Retry-After", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
