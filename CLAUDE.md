@@ -38,8 +38,10 @@ V67 = `payment_order_lifecycle` (hạn checkout + dấu vết đối soát, nhá
 — số lấy ngày 22/10/2026, đã đối chiếu cả `flyway_schema_history` (DB ở V66) lẫn mọi ref git (lớn
 nhất V65). Đã chạy lên DB dùng chung ngày 22/10/2026.
 V68 = `password_reset_tokens` (quên mật khẩu qua email, nhánh `feature/forgot-password-email`) — số lấy
-ngày 25/10/2026, DB dùng chung ở V67, không ref git nào dùng V68+. Chưa chạy lên DB dùng chung.
-V69 = để dành cho `web_reviews` (đánh giá web, nhánh `feature/web-reviews`, làm sau V68).
+ngày 25/10/2026, DB dùng chung ở V67, không ref git nào dùng V68+. Merge PR #67.
+V69 = `web_reviews` (đánh giá web, nhánh `feature/web-reviews`, PR #68, merge sau V68).
+V68 và V69 đã chạy lên DB dùng chung ngày 25/10/2026 (khởi động BE từ `main` 236336d, Flyway áp 68 rồi 69).
+Số trống tiếp theo: **V70**.
 Không tái sử dụng các số này. Những thay đổi tiếp theo phải dùng số còn trống sau khi đối chiếu.
 
 **Đánh số bằng `flyway_schema_history`, không bằng file trong git.** V66 là ví dụ sống: ngày 22/10
