@@ -77,6 +77,8 @@ public class SecurityConfig {
                         // định tạo tài khoản. Chỉ mở ĐÚNG các path GET danh mục dưới đây — mọi
                         // endpoint cá nhân của module dinh dưỡng (hồ sơ ở /api/v1/me/..., gợi ý,
                         // thực đơn, nhật ký) vẫn cần token.
+                        // Đánh giá web: trang công khai và tổng hợp sao. /reviews/me vẫn cần đăng nhập.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews", "/api/v1/reviews/summary").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes", "/api/v1/recipes/*").permitAll()
                         // Chip dị ứng và ô tìm nguyên liệu của onboarding đọc hai danh mục này.
                         // Chúng là dữ liệu seed dùng chung, không mang thông tin của ai.

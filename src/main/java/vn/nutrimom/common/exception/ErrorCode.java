@@ -108,6 +108,12 @@ public enum ErrorCode {
     COMMUNITY_MEDIA_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, false,
             "Ảnh không hợp lệ hoặc đã hết hạn. Vui lòng tải ảnh lên lại."),
 
+    // --- Web reviews (đánh giá NutriMom) — tiền tố WEB_ vì REVIEW_* đã thuộc đánh giá buổi tư vấn ---
+    WEB_REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy đánh giá."),
+    WEB_REVIEW_NOT_ALLOWED(HttpStatus.FORBIDDEN, false, "Chỉ tài khoản người dùng mới được viết đánh giá."),
+    WEB_REVIEW_HIDDEN(HttpStatus.CONFLICT, false, "Đánh giá đang bị ẩn nên không sửa được. Vui lòng liên hệ hỗ trợ."),
+    WEB_REVIEW_DELETED(HttpStatus.CONFLICT, false, "Đánh giá đã bị người viết xoá."),
+
     // --- Consultation / experts (đặt lịch tư vấn 1-1) ---
     REQUEST_ALREADY_CLAIMED(HttpStatus.CONFLICT, false,
             "Yêu cầu đã được một chuyên gia khác tiếp nhận."),

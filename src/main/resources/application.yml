@@ -282,6 +282,14 @@ app:
         recipes:
           capacity: 60
           window: PT1M
+        # Đánh giá web: trang công khai khoá theo IP (như recipes); /reviews/me khoá theo người dùng,
+        # đủ cho đọc/sửa bình thường nhưng chặn spam sửa-xoá-viết lại.
+        reviews-public:
+          capacity: 60
+          window: PT1M
+        reviews-me:
+          capacity: 30
+          window: PT15M
         invitation-create:
           capacity: 10
           window: PT1H
@@ -348,6 +356,12 @@ app:
           policy: devices
         - pattern: /api/v1/assistant/conversations/*/messages
           policy: assistant
+        - pattern: /api/v1/reviews/me
+          policy: reviews-me
+        - pattern: /api/v1/reviews/summary
+          policy: reviews-public
+        - pattern: /api/v1/reviews
+          policy: reviews-public
         - pattern: /api/v1/recipes
           policy: recipes
         - pattern: /api/v1/recipes/*
