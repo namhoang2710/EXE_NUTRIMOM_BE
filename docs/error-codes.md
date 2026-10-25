@@ -78,6 +78,10 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | ACCOUNT_NOT_FOUND | 404 | false | auth |
 | ACCOUNT_UNAVAILABLE | 401 | false | auth |
 | OTP_REAUTHENTICATION_MISMATCH | 401 | false | auth |
+| PASSWORD_RESET_TOKEN_INVALID | 400 | false | auth (link đặt lại sai hoặc đã dùng) |
+| PASSWORD_RESET_TOKEN_EXPIRED | 410 | false | auth (link đặt lại quá hạn) |
+| CURRENT_PASSWORD_INCORRECT | 400 | false | auth (đổi mật khẩu khi đang đăng nhập) |
+| PASSWORD_NOT_SET | 409 | false | auth (tài khoản magic link chưa có mật khẩu) |
 | REAUTHENTICATION_REQUIRED | 401 | false | user |
 | INVALID_REAUTHENTICATION | 401 | false | user |
 | INVALID_INVITATION_TOKEN | 404 | false | family |

@@ -65,6 +65,10 @@ public enum ErrorCode {
     ACCOUNT_PENDING_ACTIVATION(HttpStatus.FORBIDDEN, false, "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt tài khoản."),
     INVALID_ACTIVATION_TOKEN(HttpStatus.BAD_REQUEST, false, "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."),
     ACTIVATION_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, false, "Liên kết kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại email kích hoạt."),
+    PASSWORD_RESET_TOKEN_INVALID(HttpStatus.BAD_REQUEST, false, "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng."),
+    PASSWORD_RESET_TOKEN_EXPIRED(HttpStatus.GONE, false, "Liên kết đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu liên kết mới."),
+    CURRENT_PASSWORD_INCORRECT(HttpStatus.BAD_REQUEST, false, "Mật khẩu hiện tại không đúng."),
+    PASSWORD_NOT_SET(HttpStatus.CONFLICT, false, "Tài khoản chưa có mật khẩu. Hãy dùng chức năng Quên mật khẩu để tạo mật khẩu."),
     OTP_REAUTHENTICATION_MISMATCH(HttpStatus.UNAUTHORIZED, false, "Phiên xác thực lại không khớp."),
 
     // --- User (đang dùng) ---
