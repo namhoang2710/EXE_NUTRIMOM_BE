@@ -89,6 +89,12 @@ management:
   health:
     redis:
       enabled: ${NUTRIMOM_REDIS_HEALTH_ENABLED:false}
+    # MailHealthIndicator mở hẳn một kết nối SMTP mỗi lần ai đó gọi /actuator/health. Nhà cung
+    # cấp hosting thường chặn cổng 25/465/587, nên nó timeout 5 giây rồi trả DOWN — health check
+    # của hạ tầng đọc 503 và kết luận service hỏng, dù API hoàn toàn bình thường. Trạng thái gửi
+    # thư đã có delivery_status của EmailService theo dõi, không cần tới chỉ báo này.
+    mail:
+      enabled: ${NUTRIMOM_MAIL_HEALTH_ENABLED:false}
   endpoints:
     web:
       exposure:
