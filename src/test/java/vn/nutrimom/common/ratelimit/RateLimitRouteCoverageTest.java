@@ -72,6 +72,22 @@ class RateLimitRouteCoverageTest {
     }
 
     /** Mọi policy được route trỏ tới phải tồn tại — gõ sai tên là bỏ chặn, không phải lỗi khởi động. */
+    /** Route auth ẩn danh mà rơi khỏi rate limit thì mã 6 chữ số và hộp thư người khác bị dò/spam vô hạn. */
+    @Test
+    void everyAnonymousAuthRouteHasItsOwnQuota() {
+        assertThat(policyFor("/api/v1/auth/password/forgot")).isEqualTo("email-send");
+        assertThat(policyFor("/api/v1/auth/password/reset/validate")).isEqualTo("code-verify");
+        assertThat(policyFor("/api/v1/auth/password/reset")).isEqualTo("code-verify");
+        assertThat(policyFor("/api/v1/auth/password/change")).isEqualTo("password-change");
+        assertThat(policyFor("/api/v1/auth/register")).isEqualTo("register");
+        assertThat(policyFor("/api/v1/auth/activate")).isEqualTo("code-verify");
+        assertThat(policyFor("/api/v1/auth/resend-activation")).isEqualTo("email-send");
+        assertThat(policyFor("/api/v1/auth/magic-link/request")).isEqualTo("email-send");
+        assertThat(policyFor("/api/v1/auth/magic-link/verify")).isEqualTo("code-verify");
+        assertThat(policyFor("/api/v1/auth/login")).isEqualTo("login");
+        assertThat(policyFor("/api/v1/auth/otp/verify")).isEqualTo("otp");
+    }
+
     @Test
     void everyRouteNamesAPolicyThatExists() {
         assertThat(properties.getRoutes())

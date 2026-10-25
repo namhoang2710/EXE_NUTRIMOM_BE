@@ -80,6 +80,26 @@ class RateLimitFilterTest {
         }
     }
 
+    /** X-Device-Id do client tự đặt: đổi nó mỗi request không được mở thêm quota cho route ẩn danh. */
+    @Test
+    void changingTheDeviceHeaderDoesNotResetTheAnonymousQuota() throws Exception {
+        RateLimitProperties properties = new RateLimitProperties();
+        properties.setEnabled(true);
+        properties.setPolicies(Map.of("code-verify", new RateLimitPolicy(2, Duration.ofMinutes(15))));
+        properties.setRoutes(List.of(new RateLimitProperties.RouteRule("/api/v1/auth/activate", "code-verify")));
+        RateLimitFilter filter = new RateLimitFilter(
+                properties, new InMemoryRateLimiterStore(), new RateLimitKeyResolver());
+
+        for (int i = 0; i < 3; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/activate");
+            request.setRemoteAddr("203.0.113.9");
+            request.addHeader("X-Device-Id", "device-" + i);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, new MockFilterChain());
+            assertThat(response.getStatus()).as("lượt %d", i + 1).isEqualTo(i < 2 ? 200 : 429);
+        }
+    }
+
     private Outcome invoke(RateLimitFilter filter, String uri) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", uri);
         request.setRequestURI(uri);

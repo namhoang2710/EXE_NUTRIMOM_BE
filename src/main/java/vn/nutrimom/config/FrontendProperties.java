@@ -20,6 +20,7 @@ public class FrontendProperties {
 
     private String baseUrl = "http://localhost:5173";
     private String invitePath = "/family/invite";
+    private String resetPasswordPath = "/reset-password";
 
     public String getBaseUrl() {
         return baseUrl;
@@ -35,6 +36,20 @@ public class FrontendProperties {
 
     public void setInvitePath(String invitePath) {
         this.invitePath = invitePath;
+    }
+
+    public String getResetPasswordPath() {
+        return resetPasswordPath;
+    }
+
+    public void setResetPasswordPath(String resetPasswordPath) {
+        this.resetPasswordPath = resetPasswordPath;
+    }
+
+    /** {@code {base}{resetPasswordPath}?token=...} — đích của nút "Đặt mật khẩu mới" trong email. */
+    public String resetPasswordUrl(String rawToken) {
+        return baseUrl + resetPasswordPath + "?token="
+                + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
     }
 
     /** {@code {base}{invitePath}?token=...} — đích của nút "Chấp nhận lời mời" trong email. */

@@ -152,10 +152,17 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   auth:
     magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:5173/auth/verify}
+    # Quên mật khẩu: link sống ttl, mỗi email cách nhau ít nhất cooldown và tối đa max-per-hour thư
+    # mỗi giờ. Vượt mức thì API vẫn trả cùng một câu, chỉ là không gửi thư (không lộ email có tồn tại).
+    password-reset:
+      ttl: ${NUTRIMOM_PASSWORD_RESET_TTL:PT30M}
+      cooldown: PT60S
+      max-per-hour: 5
   # base-url là ORIGIN thuần, khác magic-link-base-url ở trên (vốn là một đường dẫn đầy đủ).
   frontend:
     base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
     invite-path: ${APP_FRONTEND_INVITE_PATH:/family/invite}
+    reset-password-path: ${APP_FRONTEND_RESET_PASSWORD_PATH:/reset-password}
   family:
     invitation:
       default-expiry-hours: ${NUTRIMOM_FAMILY_INVITE_EXPIRY_HOURS:48}
@@ -249,6 +256,21 @@ app:
         otp:
           capacity: 5
           window: PT1M
+        # Route ẩn danh gửi thư (quên mật khẩu, gửi lại mã kích hoạt, magic link). Khoá theo IP nên
+        # để rộng cho wifi dùng chung; mỗi luồng còn cooldown riêng theo email/tài khoản.
+        email-send:
+          capacity: 10
+          window: PT15M
+        # Route ẩn danh nhập mã/token (mã kích hoạt và magic link chỉ 6 chữ số): chặn dò mã.
+        code-verify:
+          capacity: 20
+          window: PT15M
+        register:
+          capacity: 10
+          window: PT1H
+        password-change:
+          capacity: 5
+          window: PT15M
         devices:
           capacity: 20
           window: PT1M
@@ -303,6 +325,25 @@ app:
           policy: login
         - pattern: /api/v1/auth/otp/**
           policy: otp
+        # Mọi route auth ẩn danh đều phải có rule: path không khớp rule nào là KHÔNG bị giới hạn.
+        - pattern: /api/v1/auth/password/forgot
+          policy: email-send
+        - pattern: /api/v1/auth/password/reset/validate
+          policy: code-verify
+        - pattern: /api/v1/auth/password/reset
+          policy: code-verify
+        - pattern: /api/v1/auth/password/change
+          policy: password-change
+        - pattern: /api/v1/auth/register
+          policy: register
+        - pattern: /api/v1/auth/activate
+          policy: code-verify
+        - pattern: /api/v1/auth/resend-activation
+          policy: email-send
+        - pattern: /api/v1/auth/magic-link/request
+          policy: email-send
+        - pattern: /api/v1/auth/magic-link/verify
+          policy: code-verify
         - pattern: /api/v1/devices
           policy: devices
         - pattern: /api/v1/assistant/conversations/*/messages
