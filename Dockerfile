@@ -14,9 +14,12 @@ RUN mvn -B -ntp clean package -DskipTests
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
-# MaxRAMPercentage: instance nhỏ thì JVM mặc định ăn quá phần RAM được cấp rồi bị OOM-kill.
 # user.timezone khớp giả định của AdminOperationsRepository (ZoneId.systemDefault()).
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Djava.awt.headless=true -Duser.timezone=Asia/Ho_Chi_Minh"
+# Heap cố định thay vì MaxRAMPercentage: trần RAM của instance phải chứa cả metaspace, code cache
+# và thread stack, nên để JVM tự chia theo phần trăm là chắc chắn vượt ở mức 512MB.
+# TieredStopAtLevel=1 bỏ JIT tầng cao: khởi động nhanh hơn hẳn khi CPU bị bóp, đổi lại throughput
+# lúc chạy ổn định thấp hơn. Lên instance >= 2GB thì bỏ toàn bộ phần giới hạn bộ nhớ ở đây.
+ENV JAVA_OPTS="-Xmx190m -Xss512k -XX:MaxMetaspaceSize=200m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true -Duser.timezone=Asia/Ho_Chi_Minh -Dspring.jmx.enabled=false"
 EXPOSE 8080
 # Render bơm biến PORT, còn application.yml chỉ đọc SERVER_PORT — truyền thẳng để khỏi phải
 # set tay hai biến cho khớp nhau.
