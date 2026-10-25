@@ -102,6 +102,10 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | IMAGE_PROCESSING_BUSY | 429 | true | knowledge (image upload) |
 | COMMUNITY_PIN_LIMIT_REACHED | 409 | false | community (admin ghim quá số bài tối đa) |
 | COMMUNITY_MEDIA_INVALID | 422 | false | community (image_ids không thuộc người dùng, đã gắn bài khác hoặc đã hết hạn) |
+| WEB_REVIEW_NOT_FOUND | 404 | false | web reviews (chưa có đánh giá / id không tồn tại) |
+| WEB_REVIEW_NOT_ALLOWED | 403 | false | web reviews (admin, chuyên gia, biên tập viên không tự đánh giá) |
+| WEB_REVIEW_HIDDEN | 409 | false | web reviews (người viết sửa đánh giá đang bị admin ẩn) |
+| WEB_REVIEW_DELETED | 409 | false | web reviews (admin trả lời/ẩn đánh giá đã bị xoá) |
 | REQUEST_ALREADY_CLAIMED | 409 | false | consultation (yêu cầu ngẫu nhiên đã bị chuyên gia khác nhận) |
 | REVIEW_ALREADY_EXISTS | 409 | false | consultation (đã đánh giá buổi tư vấn) |
 | REVIEW_NOT_ALLOWED | 409 | false | consultation (chưa hoàn thành, không được đánh giá) |

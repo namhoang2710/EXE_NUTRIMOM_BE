@@ -80,6 +80,15 @@ class RateLimitRouteCoverageTest {
                         .containsKey(rule.policy()));
     }
 
+    /** Trang đánh giá là công khai: không có rule thì bị quét vô hạn theo IP. */
+    @Test
+    void webReviewRoutesHaveTheirOwnQuota() {
+        assertThat(policyFor("/api/v1/reviews")).isEqualTo("reviews-public");
+        assertThat(policyFor("/api/v1/reviews/summary")).isEqualTo("reviews-public");
+        assertThat(policyFor("/api/v1/reviews/me")).isEqualTo("reviews-me");
+        assertThat(policyFor("/api/v1/admin/reviews/abc/reply")).isEqualTo("default");
+    }
+
     private String policyFor(String path) {
         return properties.getRoutes().stream()
                 .filter(rule -> MATCHER.match(rule.pattern(), path))
