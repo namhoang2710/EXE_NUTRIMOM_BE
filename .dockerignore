@@ -1,0 +1,13 @@
+target/
+.git/
+.github/
+.idea/
+.vscode/
+.mvn/wrapper/*.jar
+.env
+.env.*
+docs/
+scripts/
+*.md
+*.log
+compose.yaml
