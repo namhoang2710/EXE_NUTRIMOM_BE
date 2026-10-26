@@ -136,8 +136,11 @@ public class ConsultationRequestService {
 
         adminEvents.record(bookedSlot != null ? ADMIN_APPOINTMENT_CREATED : ADMIN_EXPERT_WAITING, entity.getId());
         if (bookedSlot != null) {
-            // DIRECT: phát thông báo in-app và gửi email chi tiết cho cả bệnh nhân và bác sĩ
-            dispatchBookingNotificationsAndEmails(entity, bookedSlot);
+            // DIRECT: user đã chọn sẵn chuyên gia và khung giờ, nên người cần biết là chuyên gia.
+            notifyExpert(entity.getExpertUserId(), entity, "Bạn có lịch tư vấn mới",
+                    "Một người dùng vừa đặt lịch tư vấn với bạn lúc "
+                            + appointmentLabel(bookedSlot) + ".");
+            sendBookingEmails(entity, bookedSlot);
         } else {
             broadcastPendingRequest(entity);
             notifyUser(entity,"Yêu cầu tư vấn đang chờ tiếp nhận",
@@ -294,12 +297,11 @@ public class ConsultationRequestService {
     }
 
     /**
-     * Bắn thông báo in-app kèm chi tiết lịch hẹn cho cả người dùng và chuyên gia,
-     * đồng thời gửi email thông báo chi tiết cho cả hai sau khi transaction commit.
+     * Gửi email thông báo chi tiết cho cả bệnh nhân và chuyên gia sau khi transaction commit.
      */
-    private void dispatchBookingNotificationsAndEmails(ConsultationRequestEntity entity,
-                                                       AvailabilitySlotEntity slot) {
-        if (slot == null || entity == null) {
+    private void sendBookingEmails(ConsultationRequestEntity entity,
+                                   AvailabilitySlotEntity slot) {
+        if (slot == null || entity == null || emailService == null) {
             return;
         }
 
@@ -314,8 +316,6 @@ public class ConsultationRequestService {
                 ? experts.findById(entity.getExpertUserId()).orElse(null) : null;
         String doctorName = (expert != null && expert.getFullName() != null && !expert.getFullName().isBlank())
                 ? expert.getFullName() : "Chuyên gia NutriMom";
-        String doctorTitle = (expert != null && expert.getTitle() != null && !expert.getTitle().isBlank())
-                ? expert.getTitle() : "Bác sĩ";
         UserEntity doctorUser = (entity.getExpertUserId() != null)
                 ? users.findById(entity.getExpertUserId()).orElse(null) : null;
         String doctorEmail = (doctorUser != null) ? doctorUser.getEmail() : null;
@@ -335,26 +335,6 @@ public class ConsultationRequestService {
                 + " ngày " + slot.getSlotDate().format(APPOINTMENT_DATE);
 
         String note = entity.getNote();
-        String noteSuffix = (note != null && !note.isBlank()) ? ". Ghi chú: " + note : ".";
-
-        // 5. Thông báo in-app cho người dùng (bệnh nhân)
-        String userTitle = "Đặt lịch tư vấn thành công";
-        String userBody = "Lịch hẹn với " + doctorTitle + " " + doctorName + " (" + specialtyLabel + ") vào lúc "
-                + timeLabel + noteSuffix;
-        notifyUser(entity, userTitle, userBody);
-
-        // 6. Thông báo in-app cho chuyên gia (bác sĩ)
-        if (entity.getExpertUserId() != null) {
-            String expertTitle = "Lịch hẹn tư vấn mới";
-            String expertBody = "Bệnh nhân " + patientName + " đã đặt lịch hẹn tư vấn (" + specialtyLabel + ") vào lúc "
-                    + timeLabel + (note != null && !note.isBlank() ? ". Ghi chú của bệnh nhân: " + note : ".");
-            notifyExpert(entity.getExpertUserId(), entity, expertTitle, expertBody);
-        }
-
-        // 7. Gửi email thông báo cho cả bệnh nhân và bác sĩ
-        if (emailService == null) {
-            return;
-        }
 
         String baseUrl = (frontendProperties != null && frontendProperties.getBaseUrl() != null && !frontendProperties.getBaseUrl().isBlank())
                 ? frontendProperties.getBaseUrl() : "http://localhost:5173";
@@ -482,8 +462,12 @@ public class ConsultationRequestService {
         adminEvents.record(ADMIN_APPOINTMENT_ACCEPTED, entity.getId());
         if(entity.getAcceptanceDeadlineAt()!=null && entity.getAcceptedAt().isAfter(entity.getAcceptanceDeadlineAt()))
             adminEvents.record(vn.nutrimom.notification.domain.AdminNotificationEvent.ADMIN_ACCEPTANCE_OVERDUE,entity.getId());
-        // Thông báo in-app và gửi email chi tiết cho cả người dùng và chuyên gia
-        dispatchBookingNotificationsAndEmails(entity, slot);
+        // Khung giờ do chuyên gia chọn chứ không phải user, nên thông báo phải nói thẳng mốc hẹn —
+        // bắt user mở app mới biết mình hẹn lúc nào là cách chắc chắn để họ lỡ buổi tư vấn.
+        notifyUser(entity, "Chuyên gia đã tiếp nhận yêu cầu tư vấn",
+                "Buổi tư vấn của bạn được xếp lúc " + appointmentLabel(slot)
+                        + ". Vui lòng có mặt đúng giờ.");
+        sendBookingEmails(entity, slot);
         recordActivity(entity, expertUserId,
                 ActivityType.CONSULTATION_ACCEPTED, "Chuyên gia đã tiếp nhận yêu cầu tư vấn");
         return toResponse(entity, null);

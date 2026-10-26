@@ -234,22 +234,12 @@ class ConsultationRequestServiceTest {
 
         service.create(patientUserId, request);
 
-        // Verify notification published for Patient
-        org.mockito.Mockito.verify(notifications).publish(
-                org.mockito.ArgumentMatchers.eq(patientUserId),
-                org.mockito.ArgumentMatchers.eq(vn.nutrimom.notification.domain.NotificationType.CONSULTATION),
-                org.mockito.ArgumentMatchers.eq("Đặt lịch tư vấn thành công"),
-                org.mockito.ArgumentMatchers.contains("BS. Nguyễn Văn A"),
-                org.mockito.ArgumentMatchers.contains("nutrimom://consultations/"),
-                org.mockito.ArgumentMatchers.eq("CONSULTATION"),
-                org.mockito.ArgumentMatchers.any());
-
-        // Verify notification published for Doctor
+        // Verify in-app notification published only for Doctor
         org.mockito.Mockito.verify(notifications).publish(
                 org.mockito.ArgumentMatchers.eq(expertUserId),
                 org.mockito.ArgumentMatchers.eq(vn.nutrimom.notification.domain.NotificationType.CONSULTATION),
-                org.mockito.ArgumentMatchers.eq("Lịch hẹn tư vấn mới"),
-                org.mockito.ArgumentMatchers.contains("Trần Thị Mai"),
+                org.mockito.ArgumentMatchers.eq("Bạn có lịch tư vấn mới"),
+                org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.contains("nutrimom://expert/consultations/"),
                 org.mockito.ArgumentMatchers.eq("CONSULTATION"),
                 org.mockito.ArgumentMatchers.any());
