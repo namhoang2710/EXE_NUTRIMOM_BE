@@ -34,11 +34,11 @@ public class EmailService {
     private final ObjectMapper objectMapper;
 
     /**
-     * Constructor tương thích ngược cho unit test.
+     * Constructor tương thích ngược cho unit test (không chứa annotation Spring).
      */
-    public EmailService(@Autowired(required = false) JavaMailSender mailSender,
-                        @Value("${app.mail.from:}") String fromEmail,
-                        @Value("${spring.mail.username:}") String mailUsername) {
+    public EmailService(JavaMailSender mailSender,
+                        String fromEmail,
+                        String mailUsername) {
         this(mailSender, fromEmail, mailUsername, "", "NutriMom <onboarding@resend.dev>", new ObjectMapper());
     }
 
@@ -54,7 +54,10 @@ public class EmailService {
                         @Value("${resend.from:${RESEND_FROM:NutriMom <onboarding@resend.dev>}}") String resendFrom,
                         @Autowired(required = false) ObjectMapper objectMapper) {
         this.mailSender = Optional.ofNullable(mailSender);
-        this.resendApiKey = resendApiKey != null ? resendApiKey.trim() : "";
+        String resolvedKey = resendApiKey != null && !resendApiKey.isBlank()
+                ? resendApiKey.trim()
+                : Optional.ofNullable(System.getenv("RESEND_API_KEY")).orElse("").trim();
+        this.resendApiKey = resolvedKey;
         this.resendFrom = resendFrom != null && !resendFrom.isBlank() ? resendFrom.trim() : "NutriMom <onboarding@resend.dev>";
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
@@ -67,6 +70,12 @@ public class EmailService {
             this.fromEmail = mailUsername;
         } else {
             this.fromEmail = "";
+        }
+
+        if (!this.resendApiKey.isBlank()) {
+            log.info("EmailService đã kích hoạt Resend HTTP API với sender: {}", resolvedSender());
+        } else {
+            log.info("EmailService chạy chế độ SMTP/Mock (không có RESEND_API_KEY)");
         }
     }
 
