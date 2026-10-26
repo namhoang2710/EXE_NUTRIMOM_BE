@@ -26,7 +26,7 @@ public class TrafficAnalyticsService {
     private final TrafficLogRepository trafficLogRepository;
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${app.analytics.ga4-property-id:G-NUTRIMOM2026}")
+    @Value("${app.analytics.ga4-property-id:G-4KC1688D38}")
     private String ga4PropertyId;
 
     @Value("${app.analytics.ga4-console-url:https://analytics.google.com/}")
