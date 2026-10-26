@@ -261,6 +261,192 @@ public class EmailService {
         return sendHtml(toEmail, subject, html);
     }
 
+    public MailResult sendConsultationBookingConfirmationToPatient(
+            String toEmail,
+            String patientName,
+            String doctorName,
+            String specialtyLabel,
+            String timeLabel,
+            String note,
+            String consultationLink) {
+        String safePatientName = escapeHtml(patientName != null && !patientName.isBlank() ? patientName : "Quý khách");
+        String safeDoctorName = escapeHtml(doctorName != null && !doctorName.isBlank() ? doctorName : "Bác sĩ / Chuyên gia NutriMom");
+        String safeSpecialty = escapeHtml(specialtyLabel != null && !specialtyLabel.isBlank() ? specialtyLabel : "Tư vấn dinh dưỡng & sức khỏe");
+        String safeTime = escapeHtml(timeLabel != null ? timeLabel : "Đang cập nhật");
+        String safeNote = escapeHtml(note != null && !note.isBlank() ? note : "Không có ghi chú thêm");
+        String safeLink = escapeHtml(consultationLink != null ? consultationLink : "#");
+
+        String subject = "📅 Xác nhận đặt lịch tư vấn thành công - NutriMom";
+        String html = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Xác nhận đặt lịch tư vấn</title>
+              <style>
+                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; }
+                .wrapper { max-width: 580px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+                .header { background: linear-gradient(135deg, #0d9488 0%%, #14b8a6 100%%); padding: 32px 24px; text-align: center; color: #ffffff; }
+                .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+                .header p { margin: 6px 0 0; opacity: 0.95; font-size: 14px; }
+                .content { padding: 32px 28px; line-height: 1.6; }
+                .card { background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 20px 22px; margin: 24px 0; }
+                .card-title { font-size: 16px; font-weight: 700; color: #0f766e; margin-bottom: 12px; border-bottom: 1px dashed #99f6e4; padding-bottom: 8px; }
+                .cta { text-align: center; margin: 28px 0; }
+                .btn { display: inline-block; background: #0d9488; color: #ffffff !important; text-decoration: none; font-weight: 700; font-size: 15px; padding: 13px 32px; border-radius: 10px; box-shadow: 0 3px 12px rgba(13,148,136,0.25); }
+                .note { background: #f8fafc; border-left: 4px solid #0d9488; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #475569; margin-top: 24px; }
+                .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+              </style>
+            </head>
+            <body>
+              <div class="wrapper">
+                <div class="header">
+                  <h1>NutriMom</h1>
+                  <p>Xác nhận lịch hẹn tư vấn trực tuyến</p>
+                </div>
+                <div class="content">
+                  <p>Xin chào <strong>%s</strong>,</p>
+                  <p>Bạn đã đặt lịch tư vấn thành công trên hệ thống <strong>NutriMom</strong>. Dưới đây là thông tin chi tiết lịch hẹn của bạn:</p>
+                  
+                  <div class="card">
+                    <div class="card-title">📋 Thông tin buổi tư vấn</div>
+                    <table style="width: 100%%; border-collapse: collapse; font-size: 14px;">
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b; width: 150px;">⏰ Thời gian hẹn:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b;">🩺 Bác sĩ / Chuyên gia:</td>
+                        <td style="padding: 6px 0; color: #0f766e; font-weight: 700;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b;">🏷️ Chuyên khoa:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b;">💻 Hình thức:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">Tư vấn trực tuyến qua Video Call NutriMom</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b; vertical-align: top;">📝 Ghi chú tư vấn:</td>
+                        <td style="padding: 6px 0; color: #334155;">%s</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <div class="cta">
+                    <a href="%s" class="btn" target="_blank">Xem chi tiết &amp; Vào phòng tư vấn</a>
+                  </div>
+
+                  <div class="note">
+                    ⏱️ <strong>Lưu ý:</strong> Vui lòng có mặt trước giờ hẹn <strong>5 phút</strong>, kiểm tra tai nghe, micro và đường truyền Internet ổn định để buổi tư vấn đạt hiệu quả tốt nhất.
+                  </div>
+                </div>
+                <div class="footer">
+                  © 2026 NutriMom Health &amp; Nutrition. Mọi quyền được bảo lưu.
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(safePatientName, safeTime, safeDoctorName, safeSpecialty, safeNote, safeLink);
+
+        return sendHtml(toEmail, subject, html);
+    }
+
+    public MailResult sendConsultationBookingNoticeToDoctor(
+            String toEmail,
+            String doctorName,
+            String patientName,
+            String specialtyLabel,
+            String timeLabel,
+            String note,
+            String consoleLink) {
+        String safeDoctorName = escapeHtml(doctorName != null && !doctorName.isBlank() ? doctorName : "Bác sĩ / Chuyên gia");
+        String safePatientName = escapeHtml(patientName != null && !patientName.isBlank() ? patientName : "Bệnh nhân");
+        String safeSpecialty = escapeHtml(specialtyLabel != null && !specialtyLabel.isBlank() ? specialtyLabel : "Tư vấn dinh dưỡng & sức khỏe");
+        String safeTime = escapeHtml(timeLabel != null ? timeLabel : "Đang cập nhật");
+        String safeNote = escapeHtml(note != null && !note.isBlank() ? note : "Không có ghi chú thêm");
+        String safeLink = escapeHtml(consoleLink != null ? consoleLink : "#");
+
+        String subject = "🩺 Thông báo lịch hẹn tư vấn mới - NutriMom";
+        String html = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thông báo lịch hẹn tư vấn mới</title>
+              <style>
+                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; }
+                .wrapper { max-width: 580px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+                .header { background: linear-gradient(135deg, #6755a5 0%%, #7a68b8 100%%); padding: 32px 24px; text-align: center; color: #ffffff; }
+                .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+                .header p { margin: 6px 0 0; opacity: 0.95; font-size: 14px; }
+                .content { padding: 32px 28px; line-height: 1.6; }
+                .card { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 20px 22px; margin: 24px 0; }
+                .card-title { font-size: 16px; font-weight: 700; color: #5b21b6; margin-bottom: 12px; border-bottom: 1px dashed #c4b5fd; padding-bottom: 8px; }
+                .cta { text-align: center; margin: 28px 0; }
+                .btn { display: inline-block; background: #6755a5; color: #ffffff !important; text-decoration: none; font-weight: 700; font-size: 15px; padding: 13px 32px; border-radius: 10px; box-shadow: 0 3px 12px rgba(103,85,165,0.25); }
+                .note { background: #f8fafc; border-left: 4px solid #6755a5; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #475569; margin-top: 24px; }
+                .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+              </style>
+            </head>
+            <body>
+              <div class="wrapper">
+                <div class="header">
+                  <h1>NutriMom</h1>
+                  <p>Không gian Chuyên gia &amp; Bác sĩ</p>
+                </div>
+                <div class="content">
+                  <p>Kính chào <strong>%s</strong>,</p>
+                  <p>Hệ thống <strong>NutriMom</strong> vừa ghi nhận một lịch hẹn tư vấn mới với thông tin chi tiết như sau:</p>
+                  
+                  <div class="card">
+                    <div class="card-title">📋 Chi tiết lịch hẹn từ bệnh nhân</div>
+                    <table style="width: 100%%; border-collapse: collapse; font-size: 14px;">
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b; width: 150px;">⏰ Thời gian hẹn:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b;">👤 Bệnh nhân:</td>
+                        <td style="padding: 6px 0; color: #5b21b6; font-weight: 700;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b;">🏷️ Chuyên khoa:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">%s</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b;">💻 Hình thức:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">Tư vấn trực tuyến qua Video Call NutriMom</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; color: #64748b; vertical-align: top;">📝 Ghi chú từ bệnh nhân:</td>
+                        <td style="padding: 6px 0; color: #334155;">%s</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <div class="cta">
+                    <a href="%s" class="btn" target="_blank">Mở không gian Chuyên gia để xem lịch</a>
+                  </div>
+
+                  <div class="note">
+                    ⏱️ <strong>Lưu ý:</strong> Vui lòng xem trước ghi chú của bệnh nhân và vào phòng tư vấn trước <strong>5 phút</strong> để buổi làm việc diễn ra thuận lợi.
+                  </div>
+                </div>
+                <div class="footer">
+                  © 2026 NutriMom Health &amp; Nutrition. Mọi quyền được bảo lưu.
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(safeDoctorName, safeTime, safePatientName, safeSpecialty, safeNote, safeLink);
+
+        return sendHtml(toEmail, subject, html);
+    }
+
     /**
      * Lời mời tham gia nhóm gia đình, kiểu email mời cộng tác của GitHub.
      *

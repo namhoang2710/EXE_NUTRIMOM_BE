@@ -17,11 +17,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import vn.nutrimom.auth.domain.UserEntity;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.exception.BusinessException;
 import vn.nutrimom.common.exception.ErrorCode;
 import vn.nutrimom.common.security.AccessGuard;
 import vn.nutrimom.consultation.domain.AssignmentType;
+import vn.nutrimom.consultation.domain.AvailabilitySlotEntity;
 import vn.nutrimom.consultation.domain.ConsultationRequestEntity;
 import vn.nutrimom.consultation.domain.ConsultationStatus;
 import vn.nutrimom.consultation.domain.ExpertProfileEntity;
@@ -61,20 +63,23 @@ class ConsultationRequestServiceTest {
     @Mock private ExpertProfileRepository experts;
     @Mock private ConsultationReviewRepository reviews;
     @Mock private UserRepository users;
-    /** Mọi guard đều chặn trước khi tới bước báo tin, nên các cộng tác viên này không bị gọi. */
     @Mock private NotificationService notifications;
     @Mock private ActivityFeedService activityFeed;
     @Mock private ConsultationVideoService video;
+    @Mock private vn.nutrimom.common.email.EmailService emailService;
+    private vn.nutrimom.config.FrontendProperties frontendProperties;
 
     private ConsultationRequestService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
+        frontendProperties = new vn.nutrimom.config.FrontendProperties();
         service = new ConsultationRequestService(
                 requests, slots, dayOffs, experts, reviews, users, new AccessGuard(), clock,
                 notifications, activityFeed, video,
-                org.mockito.Mockito.mock(vn.nutrimom.notification.service.AdminNotificationEvents.class));
+                org.mockito.Mockito.mock(vn.nutrimom.notification.service.AdminNotificationEvents.class),
+                emailService, frontendProperties);
     }
 
     private static ExpertProfileEntity expert(String userId, Specialty specialty) {
@@ -189,5 +194,84 @@ class ConsultationRequestServiceTest {
                 });
 
         verifyNoInteractions(slots);
+    }
+
+    @Test
+    void directBookingNotifiesBothUserAndDoctorAndSendsEmails() {
+        String patientUserId = "user-1";
+        String expertUserId = "expert-9";
+
+        ExpertProfileEntity expertEntity = expert(expertUserId, Specialty.PSYCHOLOGY);
+        expertEntity.setFullName("BS. Nguyễn Văn A");
+        expertEntity.setTitle("Bác sĩ Chuyên khoa I");
+        when(experts.findByUserIdAndStatus(expertUserId, ExpertStatus.ACTIVE))
+                .thenReturn(Optional.of(expertEntity));
+        when(experts.findById(expertUserId)).thenReturn(Optional.of(expertEntity));
+        when(dayOffs.existsByExpertUserIdAndOffDate(expertUserId, TOMORROW)).thenReturn(false);
+        when(slots.findForUpdate(expertUserId, TOMORROW, NINE)).thenReturn(Optional.empty());
+
+        AvailabilitySlotEntity slot = new AvailabilitySlotEntity();
+        slot.setExpertUserId(expertUserId);
+        slot.setSlotDate(TOMORROW);
+        slot.setStartTime(NINE);
+        slot.setEndTime(LocalTime.of(9, 30));
+        when(slots.saveAndFlush(org.mockito.ArgumentMatchers.any())).thenReturn(slot);
+
+        UserEntity patientUser = new UserEntity();
+        patientUser.setId(patientUserId);
+        patientUser.setDisplayName("Trần Thị Mai");
+        patientUser.setEmail("mai@example.com");
+        when(users.findById(patientUserId)).thenReturn(Optional.of(patientUser));
+
+        UserEntity expertUser = new UserEntity();
+        expertUser.setId(expertUserId);
+        expertUser.setDisplayName("Nguyễn Văn A");
+        expertUser.setEmail("bacsi@example.com");
+        when(users.findById(expertUserId)).thenReturn(Optional.of(expertUser));
+
+        CreateConsultationRequest request = new CreateConsultationRequest(
+                AssignmentType.DIRECT, expertUserId, TOMORROW, NINE, null, "Cần tư vấn tuần 12");
+
+        service.create(patientUserId, request);
+
+        // Verify notification published for Patient
+        org.mockito.Mockito.verify(notifications).publish(
+                org.mockito.ArgumentMatchers.eq(patientUserId),
+                org.mockito.ArgumentMatchers.eq(vn.nutrimom.notification.domain.NotificationType.CONSULTATION),
+                org.mockito.ArgumentMatchers.eq("Đặt lịch tư vấn thành công"),
+                org.mockito.ArgumentMatchers.contains("BS. Nguyễn Văn A"),
+                org.mockito.ArgumentMatchers.contains("nutrimom://consultations/"),
+                org.mockito.ArgumentMatchers.eq("CONSULTATION"),
+                org.mockito.ArgumentMatchers.any());
+
+        // Verify notification published for Doctor
+        org.mockito.Mockito.verify(notifications).publish(
+                org.mockito.ArgumentMatchers.eq(expertUserId),
+                org.mockito.ArgumentMatchers.eq(vn.nutrimom.notification.domain.NotificationType.CONSULTATION),
+                org.mockito.ArgumentMatchers.eq("Lịch hẹn tư vấn mới"),
+                org.mockito.ArgumentMatchers.contains("Trần Thị Mai"),
+                org.mockito.ArgumentMatchers.contains("nutrimom://expert/consultations/"),
+                org.mockito.ArgumentMatchers.eq("CONSULTATION"),
+                org.mockito.ArgumentMatchers.any());
+
+        // Verify email sent to patient
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.timeout(3000)).sendConsultationBookingConfirmationToPatient(
+                org.mockito.ArgumentMatchers.eq("mai@example.com"),
+                org.mockito.ArgumentMatchers.eq("Trần Thị Mai"),
+                org.mockito.ArgumentMatchers.eq("BS. Nguyễn Văn A"),
+                org.mockito.ArgumentMatchers.eq("Tâm lý"),
+                org.mockito.ArgumentMatchers.contains("09:00 - 09:30"),
+                org.mockito.ArgumentMatchers.eq("Cần tư vấn tuần 12"),
+                org.mockito.ArgumentMatchers.contains("/app/consultations/history?request="));
+
+        // Verify email sent to doctor
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.timeout(3000)).sendConsultationBookingNoticeToDoctor(
+                org.mockito.ArgumentMatchers.eq("bacsi@example.com"),
+                org.mockito.ArgumentMatchers.eq("BS. Nguyễn Văn A"),
+                org.mockito.ArgumentMatchers.eq("Trần Thị Mai"),
+                org.mockito.ArgumentMatchers.eq("Tâm lý"),
+                org.mockito.ArgumentMatchers.contains("09:00 - 09:30"),
+                org.mockito.ArgumentMatchers.eq("Cần tư vấn tuần 12"),
+                org.mockito.ArgumentMatchers.contains("/expert?section=requests&request_focus="));
     }
 }

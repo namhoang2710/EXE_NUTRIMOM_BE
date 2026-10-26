@@ -69,6 +69,8 @@ public class UserEntity {
     private String emailActivationTokenHash;
     @Column(name = "email_activation_expires_at")
     private OffsetDateTime emailActivationExpiresAt;
+    @Column(name = "acquisition_source", length = 50)
+    private String acquisitionSource = "DIRECT";
 
     @PrePersist
     void beforeInsert() {
@@ -116,4 +118,6 @@ public class UserEntity {
     public void setEmailActivationTokenHash(String emailActivationTokenHash) { this.emailActivationTokenHash = emailActivationTokenHash; }
     public OffsetDateTime getEmailActivationExpiresAt() { return emailActivationExpiresAt; }
     public void setEmailActivationExpiresAt(OffsetDateTime emailActivationExpiresAt) { this.emailActivationExpiresAt = emailActivationExpiresAt; }
+    public String getAcquisitionSource() { return acquisitionSource; }
+    public void setAcquisitionSource(String acquisitionSource) { this.acquisitionSource = acquisitionSource; }
 }

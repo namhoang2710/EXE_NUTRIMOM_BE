@@ -133,4 +133,22 @@ class EmailServiceTest {
                 "https://nutrimom.vn/family/invite?token=xyz", EXPIRES))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void renderingConsultationBookingPatientEmailNeverThrows() {
+        assertThatCode(() -> service.sendConsultationBookingConfirmationToPatient(
+                "patient@example.com", "Nguyễn Thị Mai", "BS. Trần Văn B",
+                "Dinh dưỡng & Sức khỏe", "16:00 - 16:30 ngày 20/10/2026",
+                "Tư vấn thực đơn thai kỳ 3 tháng đầu", "http://localhost:5173/app/consultations/history?request=123"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void renderingConsultationBookingDoctorEmailNeverThrows() {
+        assertThatCode(() -> service.sendConsultationBookingNoticeToDoctor(
+                "doctor@example.com", "BS. Trần Văn B", "Nguyễn Thị Mai",
+                "Dinh dưỡng & Sức khỏe", "16:00 - 16:30 ngày 20/10/2026",
+                "Tư vấn thực đơn thai kỳ 3 tháng đầu", "http://localhost:5173/expert?section=requests&request_focus=123"))
+                .doesNotThrowAnyException();
+    }
 }

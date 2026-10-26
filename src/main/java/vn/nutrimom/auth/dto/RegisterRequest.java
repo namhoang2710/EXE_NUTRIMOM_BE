@@ -16,5 +16,10 @@ public record RegisterRequest(
         @NotNull(message = "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.")
         @AssertTrue(message = "Bạn cần đồng ý Điều khoản sử dụng và Chính sách bảo mật.")
         Boolean acceptedTerms,
-        @Size(max = 100, message = "Mã thiết bị tối đa 100 ký tự") String deviceId
-) { }
+        @Size(max = 100, message = "Mã thiết bị tối đa 100 ký tự") String deviceId,
+        @Size(max = 50, message = "Nguồn tiếp cận tối đa 50 ký tự") String acquisitionSource
+) {
+    public RegisterRequest(String phone, String email, String password, String displayName, Boolean acceptedTerms, String deviceId) {
+        this(phone, email, password, displayName, acceptedTerms, deviceId, "DIRECT");
+    }
+}

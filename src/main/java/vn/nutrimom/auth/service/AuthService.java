@@ -59,31 +59,56 @@ public class AuthService {
         String phone = null;
         if (request.phone() != null && !request.phone().isBlank()) {
             phone = phoneNormalizer.normalizeVietnamesePhone(request.phone());
-            if (userRepository.existsByPhone(phone)) throw duplicatePhone();
         }
 
         String email = null;
         if (request.email() != null && !request.email().isBlank()) {
             email = request.email().trim().toLowerCase();
-            if (userRepository.existsByEmailIgnoreCase(email)) {
-                throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email này đã được đăng ký.");
-            }
         }
 
         if (phone == null && email == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Vui lòng nhập email hoặc số điện thoại để đăng ký.");
         }
 
-        UserEntity user = new UserEntity();
-        user.setPhone(phone);
-        user.setEmail(email);
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setDisplayName(request.displayName().trim());
+        UserEntity user = null;
+        if (email != null) {
+            user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+        }
+        if (user == null && phone != null) {
+            user = userRepository.findByPhone(phone).orElse(null);
+        }
 
-        OffsetDateTime acceptedAt = OffsetDateTime.now(ZoneOffset.UTC);
-        user.setTermsAcceptedAt(acceptedAt);
-        user.setPrivacyAcceptedAt(acceptedAt);
-        user.getRoles().add(UserRole.USER);
+        if (user != null) {
+            if (user.getStatus() == UserStatus.ACTIVE) {
+                if (phone != null && phone.equals(user.getPhone())) throw duplicatePhone();
+                throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email hoặc số điện thoại này đã được sử dụng. Vui lòng đăng nhập.");
+            }
+            // Existing user is in PENDING_ACTIVATION: update registration details and refresh activation
+            user.setPhone(phone);
+            user.setEmail(email);
+            user.setPasswordHash(passwordEncoder.encode(request.password()));
+            user.setDisplayName(request.displayName().trim());
+        } else {
+            if (phone != null && userRepository.existsByPhone(phone)) throw duplicatePhone();
+            if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
+                throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email này đã được đăng ký.");
+            }
+
+            user = new UserEntity();
+            user.setPhone(phone);
+            user.setEmail(email);
+            user.setPasswordHash(passwordEncoder.encode(request.password()));
+            user.setDisplayName(request.displayName().trim());
+
+            String source = (request.acquisitionSource() != null && !request.acquisitionSource().isBlank())
+                    ? request.acquisitionSource().trim().toUpperCase() : "DIRECT";
+            user.setAcquisitionSource(source);
+
+            OffsetDateTime acceptedAt = OffsetDateTime.now(ZoneOffset.UTC);
+            user.setTermsAcceptedAt(acceptedAt);
+            user.setPrivacyAcceptedAt(acceptedAt);
+            user.getRoles().add(UserRole.USER);
+        }
 
         String rawActivationToken = null;
         if (email != null) {
@@ -105,11 +130,16 @@ public class AuthService {
         adminEvents.record(ADMIN_ACCOUNT_CREATED, user.getId());
 
         if (email != null && rawActivationToken != null) {
-            try {
-                emailService.sendRegistrationConfirmation(email, user.getDisplayName(), rawActivationToken);
-            } catch (Exception ex) {
-                // Email sending failure logged inside EmailService
-            }
+            final String targetEmail = email;
+            final String targetName = user.getDisplayName();
+            final String targetToken = rawActivationToken;
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    emailService.sendRegistrationConfirmation(targetEmail, targetName, targetToken);
+                } catch (Exception ex) {
+                    // Email sending failure logged inside EmailService
+                }
+            });
             // Return AuthResponse without tokens so client is NOT authenticated before activation
             return new AuthResponse(null, 0, null, 0, null, toUserResponse(user));
         }
@@ -205,7 +235,15 @@ public class AuthService {
         user.setEmailActivationExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(15));
         userRepository.save(user);
 
-        emailService.sendRegistrationConfirmation(email, user.getDisplayName(), rawActivationToken);
+        final String targetEmail = email;
+        final String targetName = user.getDisplayName();
+        final String targetToken = rawActivationToken;
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                emailService.sendRegistrationConfirmation(targetEmail, targetName, targetToken);
+            } catch (Exception ignored) {
+            }
+        });
 
         return new vn.nutrimom.auth.dto.ResendActivationResponse(true, "Mã kích hoạt mới đã được gửi tới " + email);
     }

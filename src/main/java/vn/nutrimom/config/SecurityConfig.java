@@ -64,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/files/*/content").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/consultation-video/webhook").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/analytics/traffic/visit").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/experts", "/api/v1/experts/*").permitAll()
                         // Trang giá phải xem được khi chưa đăng nhập, nếu không thì FE vẫn phải
                         // hardcode giá đúng cái mà spec mục 17 cấm.
@@ -74,6 +75,9 @@ public class SecurityConfig {
                         // định tạo tài khoản. Chỉ mở ĐÚNG các path GET danh mục dưới đây — mọi
                         // endpoint cá nhân của module dinh dưỡng (hồ sơ ở /api/v1/me/..., gợi ý,
                         // thực đơn, nhật ký) vẫn cần token.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset",
+                                "/api/v1/auth/password/reset/validate").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews", "/api/v1/reviews/summary").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes", "/api/v1/recipes/*").permitAll()
                         // Chip dị ứng và ô tìm nguyên liệu của onboarding đọc hai danh mục này.
                         // Chúng là dữ liệu seed dùng chung, không mang thông tin của ai.
@@ -149,12 +153,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource(
+            @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*,https://*.vercel.app,https://nutrimom-fe.vercel.app}") List<String> allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        config.setAllowedOriginPatterns(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
-                "X-Device-Id", "Accept-Language"));
+                "X-Device-Id", "Accept-Language", "Idempotency-Key"));
         config.setExposedHeaders(List.of("X-Request-Id", "Retry-After", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
