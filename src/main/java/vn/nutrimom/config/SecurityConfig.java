@@ -165,7 +165,7 @@ public class SecurityConfig {
         // nào để đọc: FE chỉ thấy "Failed to fetch". Idempotency-Key do api-client gắn cho checkout
         // và trợ lý — backend không đọc header này, nhưng vẫn phải khai cho qua CORS.
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
-                "X-Device-Id", "Accept-Language", "Idempotency-Key"));
+                "X-Device-Id", "Accept-Language", "Idempotency-Key", "X-File-Id"));
         config.setExposedHeaders(List.of("X-Request-Id", "Retry-After", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
