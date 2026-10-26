@@ -82,6 +82,14 @@ class EmailServiceTest {
     }
 
     @Test
+    void resendSenderResolvesCorrectly() {
+        assertThat(new EmailService(null, "", "", "re_test_key", "NutriMom <onboarding@resend.dev>", null).resolvedSender())
+                .isEqualTo("NutriMom <onboarding@resend.dev>");
+        assertThat(new EmailService(null, "support@nutrimom.vn", "", "re_test_key", "NutriMom <onboarding@resend.dev>", null).resolvedSender())
+                .isEqualTo("support@nutrimom.vn");
+    }
+
+    @Test
     void renderingTheActivationEmailNeverThrows() {
         assertThatCode(() -> service.sendRegistrationConfirmation(
                 "an@example.com", "Mai", "123456")).doesNotThrowAnyException();

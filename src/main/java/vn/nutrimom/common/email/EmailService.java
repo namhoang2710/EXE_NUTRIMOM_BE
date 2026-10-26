@@ -1,10 +1,18 @@
 package vn.nutrimom.common.email;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,23 +28,39 @@ public class EmailService {
 
     private final Optional<JavaMailSender> mailSender;
     private final String fromEmail;
+    private final String resendApiKey;
+    private final String resendFrom;
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     /**
-     * Địa chỉ gửi lấy từ {@code app.mail.from}, thiếu thì rơi về chính tài khoản SMTP.
-     *
-     * <p>Thiếu cả hai thì để <strong>rỗng</strong> chứ không bịa ra một địa chỉ mặc định.
-     * Một sender mà nhà cung cấp SMTP không cho phép sẽ bị từ chối hoặc viết lại ở phía họ —
-     * tức là thư im lặng không tới nơi trong khi mọi thứ phía mình trông như đã gửi xong. Thà
-     * {@link #sendHtml} từ chối ngay với {@code NO_SENDER} còn hơn.</p>
-     *
-     * <p>Lưu ý cho người sửa {@code application.yml}: khoá {@code app.mail.from} phải để default
-     * RỖNG ({@code ${APP_MAIL_FROM:}}). Đặt một giá trị mặc định ở đó sẽ làm nhánh rơi về
-     * {@code spring.mail.username} dưới đây không bao giờ chạy — đó chính là lỗi cũ.</p>
+     * Constructor tương thích ngược cho unit test.
      */
     public EmailService(@Autowired(required = false) JavaMailSender mailSender,
                         @Value("${app.mail.from:}") String fromEmail,
                         @Value("${spring.mail.username:}") String mailUsername) {
+        this(mailSender, fromEmail, mailUsername, "", "NutriMom <onboarding@resend.dev>", new ObjectMapper());
+    }
+
+    /**
+     * Địa chỉ gửi lấy từ {@code app.mail.from}, thiếu thì rơi về chính tài khoản SMTP.
+     * Hỗ trợ Resend API qua HTTP (cổng 443) khi có {@code RESEND_API_KEY}.
+     */
+    @Autowired
+    public EmailService(@Autowired(required = false) JavaMailSender mailSender,
+                        @Value("${app.mail.from:}") String fromEmail,
+                        @Value("${spring.mail.username:}") String mailUsername,
+                        @Value("${resend.api-key:${RESEND_API_KEY:}}") String resendApiKey,
+                        @Value("${resend.from:${RESEND_FROM:NutriMom <onboarding@resend.dev>}}") String resendFrom,
+                        @Autowired(required = false) ObjectMapper objectMapper) {
         this.mailSender = Optional.ofNullable(mailSender);
+        this.resendApiKey = resendApiKey != null ? resendApiKey.trim() : "";
+        this.resendFrom = resendFrom != null && !resendFrom.isBlank() ? resendFrom.trim() : "NutriMom <onboarding@resend.dev>";
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+
         if (fromEmail != null && !fromEmail.isBlank()) {
             this.fromEmail = fromEmail;
         } else if (mailUsername != null && !mailUsername.isBlank()) {
@@ -53,7 +77,13 @@ public class EmailService {
      * do {@link #familyInvitationHtml} được mở ra ở mức này.</p>
      */
     String resolvedSender() {
-        return fromEmail;
+        if (!fromEmail.isBlank()) {
+            return fromEmail;
+        }
+        if (!resendApiKey.isBlank()) {
+            return resendFrom;
+        }
+        return "";
     }
 
     /**
@@ -101,6 +131,10 @@ public class EmailService {
      * tên lớp.</p>
      */
     public MailResult sendHtml(String to, String subject, String htmlContent) {
+        if (!resendApiKey.isBlank()) {
+            return sendViaResend(to, subject, htmlContent);
+        }
+
         if (mailSender.isEmpty()) {
             log.info("[MOCK EMAIL] MailSender chưa được cấu hình, bỏ qua email tới {}.", mask(to));
             return MailResult.failed(MailResult.NOT_CONFIGURED);
@@ -129,6 +163,50 @@ public class EmailService {
             // và stack trace đầy đủ thì kéo theo cả header lẫn thân thư.
             log.warn("Không gửi được email tới {}: {}. Vui lòng kiểm tra cấu hình SMTP.",
                     mask(to), e.getClass().getSimpleName());
+            return MailResult.failed(e);
+        }
+    }
+
+    private MailResult sendViaResend(String to, String subject, String htmlContent) {
+        try {
+            String sender;
+            if (resendFrom != null && !resendFrom.isBlank() && !resendFrom.equals("NutriMom <onboarding@resend.dev>")) {
+                sender = resendFrom;
+            } else if (!fromEmail.isBlank() && !fromEmail.contains("@gmail.com") && !fromEmail.contains("@fpt.edu.vn")) {
+                sender = fromEmail;
+            } else {
+                sender = "NutriMom <onboarding@resend.dev>";
+            }
+
+            Map<String, Object> payload = Map.of(
+                    "from", sender,
+                    "to", List.of(to),
+                    "subject", singleLine(subject),
+                    "html", htmlContent
+            );
+            String json = objectMapper.writeValueAsString(payload);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .header("User-Agent", "NutriMom-Backend/1.0")
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            int code = response.statusCode();
+
+            if (code >= 200 && code < 300) {
+                log.info("Đã gửi email thành công qua Resend API tới {}.", mask(to));
+                return MailResult.ok();
+            } else {
+                log.warn("Lỗi gửi email qua Resend API tới {}: HTTP {} - {}", mask(to), code, response.body());
+                return MailResult.failed("ResendHttp_" + code);
+            }
+        } catch (Exception e) {
+            log.warn("Không gửi được email qua Resend API tới {}: {}", mask(to), e.getClass().getSimpleName());
             return MailResult.failed(e);
         }
     }

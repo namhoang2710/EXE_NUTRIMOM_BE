@@ -430,6 +430,10 @@ payos:
   return-url: ${PAYOS_RETURN_URL:http://localhost:5173/payment/success}
   cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/payment/cancel}
 
+resend:
+  api-key: ${RESEND_API_KEY:}
+  from: ${RESEND_FROM:NutriMom <onboarding@resend.dev>}
+
 logging:
   pattern:
     level: "%5p [requestId:%X{requestId:-}]"
