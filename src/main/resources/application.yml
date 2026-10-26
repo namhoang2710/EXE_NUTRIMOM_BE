@@ -434,6 +434,10 @@ resend:
   api-key: ${RESEND_API_KEY:}
   from: ${RESEND_FROM:NutriMom <onboarding@resend.dev>}
 
+brevo:
+  api-key: ${BREVO_API_KEY:}
+  sender-email: ${BREVO_SENDER_EMAIL:namhoang20032710@gmail.com}
+
 logging:
   pattern:
     level: "%5p [requestId:%X{requestId:-}]"

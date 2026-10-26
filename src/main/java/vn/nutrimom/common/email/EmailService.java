@@ -30,6 +30,8 @@ public class EmailService {
     private final String fromEmail;
     private final String resendApiKey;
     private final String resendFrom;
+    private final String brevoApiKey;
+    private final String brevoSenderEmail;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
@@ -39,12 +41,23 @@ public class EmailService {
     public EmailService(JavaMailSender mailSender,
                         String fromEmail,
                         String mailUsername) {
-        this(mailSender, fromEmail, mailUsername, "", "NutriMom <onboarding@resend.dev>", new ObjectMapper());
+        this(mailSender, fromEmail, mailUsername, "", "NutriMom <onboarding@resend.dev>", "", "namhoang20032710@gmail.com", new ObjectMapper());
     }
 
     /**
-     * Địa chỉ gửi lấy từ {@code app.mail.from}, thiếu thì rơi về chính tài khoản SMTP.
-     * Hỗ trợ Resend API qua HTTP (cổng 443) khi có {@code RESEND_API_KEY}.
+     * Constructor tương thích ngược cho unit test Resend (không chứa annotation Spring).
+     */
+    public EmailService(JavaMailSender mailSender,
+                        String fromEmail,
+                        String mailUsername,
+                        String resendApiKey,
+                        String resendFrom,
+                        ObjectMapper objectMapper) {
+        this(mailSender, fromEmail, mailUsername, resendApiKey, resendFrom, "", "namhoang20032710@gmail.com", objectMapper);
+    }
+
+    /**
+     * Hỗ trợ Brevo API và Resend API qua HTTP (cổng 443) khi có API key.
      */
     @Autowired
     public EmailService(@Autowired(required = false) JavaMailSender mailSender,
@@ -52,13 +65,24 @@ public class EmailService {
                         @Value("${spring.mail.username:}") String mailUsername,
                         @Value("${resend.api-key:${RESEND_API_KEY:}}") String resendApiKey,
                         @Value("${resend.from:${RESEND_FROM:NutriMom <onboarding@resend.dev>}}") String resendFrom,
+                        @Value("${brevo.api-key:${BREVO_API_KEY:}}") String brevoApiKey,
+                        @Value("${brevo.sender-email:${BREVO_SENDER_EMAIL:namhoang20032710@gmail.com}}") String brevoSenderEmail,
                         @Autowired(required = false) ObjectMapper objectMapper) {
         this.mailSender = Optional.ofNullable(mailSender);
-        String resolvedKey = resendApiKey != null && !resendApiKey.isBlank()
+        String resolvedResendKey = resendApiKey != null && !resendApiKey.isBlank()
                 ? resendApiKey.trim()
                 : Optional.ofNullable(System.getenv("RESEND_API_KEY")).orElse("").trim();
-        this.resendApiKey = resolvedKey;
+        this.resendApiKey = resolvedResendKey;
         this.resendFrom = resendFrom != null && !resendFrom.isBlank() ? resendFrom.trim() : "NutriMom <onboarding@resend.dev>";
+
+        String resolvedBrevoKey = brevoApiKey != null && !brevoApiKey.isBlank()
+                ? brevoApiKey.trim()
+                : Optional.ofNullable(System.getenv("BREVO_API_KEY")).orElse("").trim();
+        this.brevoApiKey = resolvedBrevoKey;
+        this.brevoSenderEmail = brevoSenderEmail != null && !brevoSenderEmail.isBlank()
+                ? brevoSenderEmail.trim()
+                : Optional.ofNullable(System.getenv("BREVO_SENDER_EMAIL")).orElse("namhoang20032710@gmail.com").trim();
+
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
@@ -72,10 +96,12 @@ public class EmailService {
             this.fromEmail = "";
         }
 
-        if (!this.resendApiKey.isBlank()) {
+        if (!this.brevoApiKey.isBlank()) {
+            log.info("EmailService đã kích hoạt Brevo HTTP API với sender: {}", this.brevoSenderEmail);
+        } else if (!this.resendApiKey.isBlank()) {
             log.info("EmailService đã kích hoạt Resend HTTP API với sender: {}", resolvedSender());
         } else {
-            log.info("EmailService chạy chế độ SMTP/Mock (không có RESEND_API_KEY)");
+            log.info("EmailService chạy chế độ SMTP/Mock (không có BREVO_API_KEY hoặc RESEND_API_KEY)");
         }
     }
 
@@ -88,6 +114,9 @@ public class EmailService {
     String resolvedSender() {
         if (!fromEmail.isBlank()) {
             return fromEmail;
+        }
+        if (!brevoApiKey.isBlank() && !brevoSenderEmail.isBlank()) {
+            return brevoSenderEmail;
         }
         if (!resendApiKey.isBlank()) {
             return resendFrom;
@@ -140,6 +169,9 @@ public class EmailService {
      * tên lớp.</p>
      */
     public MailResult sendHtml(String to, String subject, String htmlContent) {
+        if (!brevoApiKey.isBlank()) {
+            return sendViaBrevo(to, subject, htmlContent);
+        }
         if (!resendApiKey.isBlank()) {
             return sendViaResend(to, subject, htmlContent);
         }
@@ -172,6 +204,46 @@ public class EmailService {
             // và stack trace đầy đủ thì kéo theo cả header lẫn thân thư.
             log.warn("Không gửi được email tới {}: {}. Vui lòng kiểm tra cấu hình SMTP.",
                     mask(to), e.getClass().getSimpleName());
+            return MailResult.failed(e);
+        }
+    }
+
+    private MailResult sendViaBrevo(String to, String subject, String htmlContent) {
+        try {
+            String senderEmail = brevoSenderEmail != null && !brevoSenderEmail.isBlank()
+                    ? brevoSenderEmail
+                    : "namhoang20032710@gmail.com";
+
+            Map<String, Object> payload = Map.of(
+                    "sender", Map.of("name", "NutriMom", "email", senderEmail),
+                    "to", List.of(Map.of("email", to)),
+                    "subject", singleLine(subject),
+                    "htmlContent", htmlContent
+            );
+            String json = objectMapper.writeValueAsString(payload);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("api-key", brevoApiKey)
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "NutriMom-Backend/1.0")
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            int code = response.statusCode();
+
+            if (code >= 200 && code < 300) {
+                log.info("Đã gửi email thành công qua Brevo API tới {}.", mask(to));
+                return MailResult.ok();
+            } else {
+                log.warn("Lỗi gửi email qua Brevo API tới {}: HTTP {} - {}", mask(to), code, response.body());
+                return MailResult.failed("BrevoHttp_" + code);
+            }
+        } catch (Exception e) {
+            log.warn("Không gửi được email qua Brevo API tới {}: {}", mask(to), e.getClass().getSimpleName());
             return MailResult.failed(e);
         }
     }
