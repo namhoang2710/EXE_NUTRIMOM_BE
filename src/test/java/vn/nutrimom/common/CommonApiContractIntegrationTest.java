@@ -63,6 +63,23 @@ class CommonApiContractIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     @Test
+    void corsAllowsNutrimomSiteAndVercelDomains() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/login")
+                        .header("Origin", "https://nutrimom.site")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type, X-Request-Id"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://nutrimom.site"));
+
+        mockMvc.perform(options("/api/v1/auth/login")
+                        .header("Origin", "https://nutrimom-fe.vercel.app")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type, X-Request-Id"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://nutrimom-fe.vercel.app"));
+    }
+
+    @Test
     void successEnvelopeAndOtpDeviceContractUseSnakeCase() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/otp/request")
                         .header("X-Request-Id", "contract-success")

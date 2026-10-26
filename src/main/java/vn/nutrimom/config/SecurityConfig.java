@@ -159,7 +159,14 @@ public class SecurityConfig {
             @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
         // Origin của FE theo môi trường: localhost khi dev, domain đã deploy khi chạy thật.
-        config.setAllowedOriginPatterns(allowedOrigins);
+        Set<String> patterns = new LinkedHashSet<>(allowedOrigins != null ? allowedOrigins : List.of());
+        patterns.add("https://nutrimom.site");
+        patterns.add("https://www.nutrimom.site");
+        patterns.add("https://nutrimom-fe.vercel.app");
+        patterns.add("https://*.vercel.app");
+        patterns.add("http://localhost:*");
+        patterns.add("http://127.0.0.1:*");
+        config.setAllowedOriginPatterns(new ArrayList<>(patterns));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         // Thiếu một tên ở đây là trình duyệt CHẶN request ngay sau preflight, không có status code
         // nào để đọc: FE chỉ thấy "Failed to fetch". Idempotency-Key do api-client gắn cho checkout

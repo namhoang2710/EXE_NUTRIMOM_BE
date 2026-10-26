@@ -149,7 +149,7 @@ app:
   # vì SecurityConfig dùng setAllowedOriginPatterns. Deploy thật phải liệt kê domain FE, không
   # để nguyên mặc định — thiếu origin là FE ăn lỗi CORS ở mọi request.
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://nutrimom-fe.vercel.app,https://nutrimom.site,https://www.nutrimom.site}
   auth:
     magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:5173/auth/verify}
     # Quên mật khẩu: link sống ttl, mỗi email cách nhau ít nhất cooldown và tối đa max-per-hour thư
