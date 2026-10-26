@@ -78,6 +78,10 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | ACCOUNT_NOT_FOUND | 404 | false | auth |
 | ACCOUNT_UNAVAILABLE | 401 | false | auth |
 | OTP_REAUTHENTICATION_MISMATCH | 401 | false | auth |
+| PASSWORD_RESET_TOKEN_INVALID | 400 | false | auth (link đặt lại sai hoặc đã dùng) |
+| PASSWORD_RESET_TOKEN_EXPIRED | 410 | false | auth (link đặt lại quá hạn) |
+| CURRENT_PASSWORD_INCORRECT | 400 | false | auth (đổi mật khẩu khi đang đăng nhập) |
+| PASSWORD_NOT_SET | 409 | false | auth (tài khoản magic link chưa có mật khẩu) |
 | REAUTHENTICATION_REQUIRED | 401 | false | user |
 | INVALID_REAUTHENTICATION | 401 | false | user |
 | INVALID_INVITATION_TOKEN | 404 | false | family |
@@ -88,7 +92,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | FAMILY_GROUP_NOT_FOUND | 404 | false | family |
 | OWNER_ALREADY_IN_GROUP | 409 | false | family |
 | FAMILY_MEMBER_EXISTS | 409 | false | family |
-| PREGNANCY_NOT_ACTIVE | 409 | false | family/pregnancy |
+| PREGNANCY_NOT_ACTIVE | 409 | false | family/pregnancy/medical-records (tạo hồ sơ cho thai kỳ đã đóng) |
 | ACTIVE_PREGNANCY_NOT_FOUND | 404 | false | family/dashboard |
 | PREGNANCY_ARCHIVED | 409 | false | pregnancy |
 | ACTIVE_PREGNANCY_EXISTS | 409 | false | pregnancy |
@@ -102,6 +106,10 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | IMAGE_PROCESSING_BUSY | 429 | true | knowledge (image upload) |
 | COMMUNITY_PIN_LIMIT_REACHED | 409 | false | community (admin ghim quá số bài tối đa) |
 | COMMUNITY_MEDIA_INVALID | 422 | false | community (image_ids không thuộc người dùng, đã gắn bài khác hoặc đã hết hạn) |
+| WEB_REVIEW_NOT_FOUND | 404 | false | web reviews (chưa có đánh giá / id không tồn tại) |
+| WEB_REVIEW_NOT_ALLOWED | 403 | false | web reviews (admin, chuyên gia, biên tập viên không tự đánh giá) |
+| WEB_REVIEW_HIDDEN | 409 | false | web reviews (người viết sửa đánh giá đang bị admin ẩn) |
+| WEB_REVIEW_DELETED | 409 | false | web reviews (admin trả lời/ẩn đánh giá đã bị xoá) |
 | REQUEST_ALREADY_CLAIMED | 409 | false | consultation (yêu cầu ngẫu nhiên đã bị chuyên gia khác nhận) |
 | REVIEW_ALREADY_EXISTS | 409 | false | consultation (đã đánh giá buổi tư vấn) |
 | REVIEW_NOT_ALLOWED | 409 | false | consultation (chưa hoàn thành, không được đánh giá) |
@@ -111,6 +119,7 @@ HTTP status và cờ `retryable` đã gắn sẵn trong enum — không truyền
 | PAYMENT_ORDER_NOT_FOUND | 404 | false | payment |
 | PAYMENT_FAILED | 400 | false | payment (PayOS từ chối / lỗi khởi tạo link) |
 | PAYMENT_SIGNATURE_INVALID | 400 | false | payment (webhook sai chữ ký) |
+| PAYMENT_ORDER_NOT_CANCELLABLE | 409 | false | payment (huỷ đơn đã thanh toán) |
 | INVALID_PLAN_TIER | 400 | false | payment (gói không hợp lệ, vd thanh toán gói FREE) |
 | PLAN_UPGRADE_REQUIRED | 403 | false | entitlement (tính năng không có trong gói hiện tại) |
 | ASSISTANT_BUSY | 409 | true | assistant |

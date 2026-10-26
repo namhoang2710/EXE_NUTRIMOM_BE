@@ -10,16 +10,16 @@ import org.springframework.stereotype.Component;
 import vn.nutrimom.community.domain.CommunityPost;
 import vn.nutrimom.community.domain.CommunityPostImage;
 import vn.nutrimom.community.domain.PostStatus;
-import vn.nutrimom.community.dto.CommunityDtos.Author;
 import vn.nutrimom.community.dto.CommunityDtos.Image;
 import vn.nutrimom.community.dto.CommunityDtos.PostItem;
 import vn.nutrimom.community.repository.CommunityPostImageRepository;
 import vn.nutrimom.community.repository.CommunityPostLikeRepository;
 import vn.nutrimom.community.repository.CommunityPostSaveRepository;
+import vn.nutrimom.community.repository.MemberView;
 
 /**
  * Dựng {@link PostItem} cho một trang bài với số câu truy vấn CỐ ĐỊNH, không phụ thuộc số bài:
- * tác giả (1), ảnh (1), đã tim (1), đã lưu (1). Bộ đếm tim/bình luận lấy sẵn trên dòng bài.
+ * tác giả + cờ official (1), ảnh (1), đã tim (1), đã lưu (1). Bộ đếm tim/bình luận lấy sẵn trên dòng bài.
  */
 @Component
 public class CommunityPostAssembler {
@@ -53,7 +53,7 @@ public class CommunityPostAssembler {
         List<String> ids = posts.stream().map(CommunityPost::getId).toList();
         Set<String> authorIds = new HashSet<>();
         posts.forEach(post -> authorIds.add(post.getAuthorId()));
-        Map<String, Author> authors = members.authors(authorIds);
+        Map<String, MemberView> authors = members.views(authorIds);
 
         Map<String, List<Image>> imagesByPost = new LinkedHashMap<>();
         if (posts.stream().anyMatch(post -> post.getImageCount() > 0)) {
@@ -71,12 +71,14 @@ public class CommunityPostAssembler {
             boolean pinned = post.getPinnedAt() != null && (moderatorView || post.isPublic());
             // Lý do từ chối chỉ chủ bài và admin thấy.
             String rejectReason = mine || moderatorView ? post.getRejectReason() : null;
+            MemberView author = authors.get(post.getAuthorId());
             return new PostItem(post.getId(),
-                    authors.getOrDefault(post.getAuthorId(), CommunityMembers.fallback(post.getAuthorId())),
+                    author == null ? CommunityMembers.fallback(post.getAuthorId()) : CommunityMembers.author(author),
                     post.getContent(), post.getTopic(), imagesByPost.getOrDefault(post.getId(), List.of()),
                     post.getLikeCount(), post.getCommentCount(), liked.contains(post.getId()),
                     saved.contains(post.getId()), pinned, post.getStatus(), rejectReason, editable, editable,
-                    post.getVersion(), post.getPublishedAt(), post.getCreatedAt(), post.getEditedAt());
+                    post.getVersion(), post.getPublishedAt(), post.getCreatedAt(), post.getEditedAt(),
+                    author != null && author.official());
         }).toList();
     }
 }

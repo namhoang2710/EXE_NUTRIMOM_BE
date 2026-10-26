@@ -76,6 +76,11 @@ server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
   forward-headers-strategy: framework
+  tomcat:
+    # Mặc định 200 thread, mỗi thread đặt chỗ stack riêng. Instance 512MB đặt 20 là thừa dùng;
+    # để nguyên 200 ở local vì máy dev không thiếu RAM.
+    threads:
+      max: ${SERVER_TOMCAT_MAX_THREADS:200}
   error:
     include-message: never
     include-stacktrace: never
@@ -84,6 +89,12 @@ management:
   health:
     redis:
       enabled: ${NUTRIMOM_REDIS_HEALTH_ENABLED:false}
+    # MailHealthIndicator mở hẳn một kết nối SMTP mỗi lần ai đó gọi /actuator/health. Nhà cung
+    # cấp hosting thường chặn cổng 25/465/587, nên nó timeout 5 giây rồi trả DOWN — health check
+    # của hạ tầng đọc 503 và kết luận service hỏng, dù API hoàn toàn bình thường. Trạng thái gửi
+    # thư đã có delivery_status của EmailService theo dõi, không cần tới chỉ báo này.
+    mail:
+      enabled: ${NUTRIMOM_MAIL_HEALTH_ENABLED:false}
   endpoints:
     web:
       exposure:
@@ -104,6 +115,16 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  payment:
+    # Hạn hiệu lực của link checkout. Gửi sang PayOS ở expiredAt (epoch GIÂY) và lưu ở
+    # payment_orders.expires_at để FE đếm ngược.
+    checkout-ttl: ${NUTRIMOM_PAYMENT_CHECKOUT_TTL:PT5M}
+    # Job đối soát đơn quá hạn. Tắt là đơn chờ sẽ nằm PENDING vĩnh viễn và link cũ còn trả được.
+    reconcile-job-enabled: ${NUTRIMOM_PAYMENT_RECONCILE_ENABLED:true}
+    reconcile-job-interval: ${NUTRIMOM_PAYMENT_RECONCILE_INTERVAL:PT5M}
+    reconcile-batch-size: ${NUTRIMOM_PAYMENT_RECONCILE_BATCH:50}
+    reconcile-grace: ${NUTRIMOM_PAYMENT_RECONCILE_GRACE:PT2M}
+    reconcile-cooldown: ${NUTRIMOM_PAYMENT_RECONCILE_COOLDOWN:PT5M}
   admin:
     metrics-snapshot-enabled: ${NUTRIMOM_ADMIN_METRICS_SNAPSHOT_ENABLED:true}
     expert-performance:
@@ -124,12 +145,24 @@ app:
       join-early: PT5M
       end-grace: PT5M
       token-ttl: PT5M
+  # Origin được phép gọi API, ngăn cách bằng dấu phẩy. Chấp nhận wildcard kiểu localhost:*
+  # vì SecurityConfig dùng setAllowedOriginPatterns. Deploy thật phải liệt kê domain FE, không
+  # để nguyên mặc định — thiếu origin là FE ăn lỗi CORS ở mọi request.
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   auth:
     magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:5173/auth/verify}
+    # Quên mật khẩu: link sống ttl, mỗi email cách nhau ít nhất cooldown và tối đa max-per-hour thư
+    # mỗi giờ. Vượt mức thì API vẫn trả cùng một câu, chỉ là không gửi thư (không lộ email có tồn tại).
+    password-reset:
+      ttl: ${NUTRIMOM_PASSWORD_RESET_TTL:PT30M}
+      cooldown: PT60S
+      max-per-hour: 5
   # base-url là ORIGIN thuần, khác magic-link-base-url ở trên (vốn là một đường dẫn đầy đủ).
   frontend:
     base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
     invite-path: ${APP_FRONTEND_INVITE_PATH:/family/invite}
+    reset-password-path: ${APP_FRONTEND_RESET_PASSWORD_PATH:/reset-password}
   family:
     invitation:
       default-expiry-hours: ${NUTRIMOM_FAMILY_INVITE_EXPIRY_HOURS:48}
@@ -223,6 +256,21 @@ app:
         otp:
           capacity: 5
           window: PT1M
+        # Route ẩn danh gửi thư (quên mật khẩu, gửi lại mã kích hoạt, magic link). Khoá theo IP nên
+        # để rộng cho wifi dùng chung; mỗi luồng còn cooldown riêng theo email/tài khoản.
+        email-send:
+          capacity: 10
+          window: PT15M
+        # Route ẩn danh nhập mã/token (mã kích hoạt và magic link chỉ 6 chữ số): chặn dò mã.
+        code-verify:
+          capacity: 20
+          window: PT15M
+        register:
+          capacity: 10
+          window: PT1H
+        password-change:
+          capacity: 5
+          window: PT15M
         devices:
           capacity: 20
           window: PT1M
@@ -234,6 +282,14 @@ app:
         recipes:
           capacity: 60
           window: PT1M
+        # Đánh giá web: trang công khai khoá theo IP (như recipes); /reviews/me khoá theo người dùng,
+        # đủ cho đọc/sửa bình thường nhưng chặn spam sửa-xoá-viết lại.
+        reviews-public:
+          capacity: 60
+          window: PT1M
+        reviews-me:
+          capacity: 30
+          window: PT15M
         invitation-create:
           capacity: 10
           window: PT1H
@@ -277,10 +333,35 @@ app:
           policy: login
         - pattern: /api/v1/auth/otp/**
           policy: otp
+        # Mọi route auth ẩn danh đều phải có rule: path không khớp rule nào là KHÔNG bị giới hạn.
+        - pattern: /api/v1/auth/password/forgot
+          policy: email-send
+        - pattern: /api/v1/auth/password/reset/validate
+          policy: code-verify
+        - pattern: /api/v1/auth/password/reset
+          policy: code-verify
+        - pattern: /api/v1/auth/password/change
+          policy: password-change
+        - pattern: /api/v1/auth/register
+          policy: register
+        - pattern: /api/v1/auth/activate
+          policy: code-verify
+        - pattern: /api/v1/auth/resend-activation
+          policy: email-send
+        - pattern: /api/v1/auth/magic-link/request
+          policy: email-send
+        - pattern: /api/v1/auth/magic-link/verify
+          policy: code-verify
         - pattern: /api/v1/devices
           policy: devices
         - pattern: /api/v1/assistant/conversations/*/messages
           policy: assistant
+        - pattern: /api/v1/reviews/me
+          policy: reviews-me
+        - pattern: /api/v1/reviews/summary
+          policy: reviews-public
+        - pattern: /api/v1/reviews
+          policy: reviews-public
         - pattern: /api/v1/recipes
           policy: recipes
         - pattern: /api/v1/recipes/*

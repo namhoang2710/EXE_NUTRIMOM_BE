@@ -65,6 +65,10 @@ public enum ErrorCode {
     ACCOUNT_PENDING_ACTIVATION(HttpStatus.FORBIDDEN, false, "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để kích hoạt tài khoản."),
     INVALID_ACTIVATION_TOKEN(HttpStatus.BAD_REQUEST, false, "Mã kích hoạt tài khoản không hợp lệ hoặc đã được sử dụng."),
     ACTIVATION_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, false, "Liên kết kích hoạt đã hết hạn. Vui lòng yêu cầu gửi lại email kích hoạt."),
+    PASSWORD_RESET_TOKEN_INVALID(HttpStatus.BAD_REQUEST, false, "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng."),
+    PASSWORD_RESET_TOKEN_EXPIRED(HttpStatus.GONE, false, "Liên kết đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu liên kết mới."),
+    CURRENT_PASSWORD_INCORRECT(HttpStatus.BAD_REQUEST, false, "Mật khẩu hiện tại không đúng."),
+    PASSWORD_NOT_SET(HttpStatus.CONFLICT, false, "Tài khoản chưa có mật khẩu. Hãy dùng chức năng Quên mật khẩu để tạo mật khẩu."),
     OTP_REAUTHENTICATION_MISMATCH(HttpStatus.UNAUTHORIZED, false, "Phiên xác thực lại không khớp."),
 
     // --- User (đang dùng) ---
@@ -104,6 +108,12 @@ public enum ErrorCode {
     COMMUNITY_MEDIA_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, false,
             "Ảnh không hợp lệ hoặc đã hết hạn. Vui lòng tải ảnh lên lại."),
 
+    // --- Web reviews (đánh giá NutriMom) — tiền tố WEB_ vì REVIEW_* đã thuộc đánh giá buổi tư vấn ---
+    WEB_REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy đánh giá."),
+    WEB_REVIEW_NOT_ALLOWED(HttpStatus.FORBIDDEN, false, "Chỉ tài khoản người dùng mới được viết đánh giá."),
+    WEB_REVIEW_HIDDEN(HttpStatus.CONFLICT, false, "Đánh giá đang bị ẩn nên không sửa được. Vui lòng liên hệ hỗ trợ."),
+    WEB_REVIEW_DELETED(HttpStatus.CONFLICT, false, "Đánh giá đã bị người viết xoá."),
+
     // --- Consultation / experts (đặt lịch tư vấn 1-1) ---
     REQUEST_ALREADY_CLAIMED(HttpStatus.CONFLICT, false,
             "Yêu cầu đã được một chuyên gia khác tiếp nhận."),
@@ -123,6 +133,8 @@ public enum ErrorCode {
     PAYMENT_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, false, "Không tìm thấy đơn hàng thanh toán."),
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST, false, "Giao dịch thanh toán thất bại."),
     PAYMENT_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, false, "Chữ ký webhook PayOS không hợp lệ."),
+    PAYMENT_ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, false,
+            "Đơn thanh toán không ở trạng thái có thể huỷ."),
     INVALID_PLAN_TIER(HttpStatus.BAD_REQUEST, false, "Gói dịch vụ không hợp lệ."),
     // 403 chứ không phải 429 như QUOTA_EXCEEDED: đây là "gói của bạn không bán tính năng này",
     // không phải "bạn đã dùng hết lượt". FE cần phân biệt hai ca để biết có mời nâng cấp hay không.

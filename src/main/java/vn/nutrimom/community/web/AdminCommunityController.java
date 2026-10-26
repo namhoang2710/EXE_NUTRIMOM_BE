@@ -2,6 +2,7 @@ package vn.nutrimom.community.web;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -13,12 +14,14 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import vn.nutrimom.common.api.ApiResponse;
 import vn.nutrimom.common.api.ApiResponses;
 import vn.nutrimom.common.api.CursorPage;
 import vn.nutrimom.community.domain.PostStatus;
 import vn.nutrimom.community.domain.ReportStatus;
+import vn.nutrimom.community.dto.CommunityDtos.AdminCreatePostRequest;
 import vn.nutrimom.community.dto.CommunityDtos.AdminPostItem;
 import vn.nutrimom.community.dto.CommunityDtos.AdminReportItem;
 import vn.nutrimom.community.dto.CommunityDtos.RejectRequest;
@@ -47,9 +50,24 @@ public class AdminCommunityController {
 
     @GetMapping("/posts")
     public ApiResponse<CursorPage<AdminPostItem>> posts(@RequestParam(required = false) PostStatus status,
+            @RequestParam(defaultValue = "false") boolean pinned,
             @RequestParam(required = false) String cursor, @RequestParam(defaultValue = "20") int limit,
             @AuthenticationPrincipal Jwt jwt) {
-        return ApiResponses.success(moderation.list(jwt.getSubject(), status, cursor, limit));
+        return ApiResponses.success(moderation.list(jwt.getSubject(), status, pinned, cursor, limit));
+    }
+
+    /** Ban quản trị đăng bài: duyệt ngay, {@code pinned=true} thì ghim luôn. */
+    @PostMapping("/posts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<AdminPostItem> create(@Valid @RequestBody AdminCreatePostRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ApiResponses.success(moderation.createPost(jwt.getSubject(), request));
+    }
+
+    @GetMapping("/posts/pending-count")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Tổng số bài đang chờ duyệt, không phụ thuộc phân trang hoặc trạng thái đã xem")
+    public ApiResponse<vn.nutrimom.community.dto.CommunityDtos.PendingPostCount> pendingCount() {
+        return ApiResponses.success(moderation.pendingCount());
     }
 
     @GetMapping("/posts/{postId}")

@@ -10,12 +10,16 @@ import org.springframework.stereotype.Component;
  * Dựng khóa đếm rate-limit cho một request.
  *
  * <p>Request đã xác thực → khóa theo userId (claim {@code sub}) để giới hạn theo người dùng. Request chưa
- * xác thực (login/OTP) → khóa theo IP (kèm X-Device-Id nếu có) vì chưa biết là ai.</p>
+ * xác thực (login/OTP/quên mật khẩu) → khóa theo IP vì chưa biết là ai.</p>
+ *
+ * <p>KHÔNG ghép thêm {@code X-Device-Id} vào khóa ẩn danh: header đó do client tự đặt, nên trước đây chỉ
+ * cần đổi giá trị mỗi request là có quota mới, và giới hạn của login/OTP/mã kích hoạt mất tác dụng.
+ * Đổi lại, nhiều người chung một IP (wifi trường, NAT nhà mạng) chia chung quota của các route ẩn danh —
+ * ngưỡng trong {@code application.yml} đã tính tới việc đó. IP thật lấy qua
+ * {@code server.forward-headers-strategy}.</p>
  */
 @Component
 public class RateLimitKeyResolver {
-
-    private static final String DEVICE_HEADER = "X-Device-Id";
 
     public String resolve(String policyName, HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -23,9 +27,6 @@ public class RateLimitKeyResolver {
                 && authentication.getPrincipal() instanceof Jwt jwt && jwt.getSubject() != null) {
             return policyName + ":u:" + jwt.getSubject();
         }
-        String ip = request.getRemoteAddr();
-        String device = request.getHeader(DEVICE_HEADER);
-        String suffix = device == null || device.isBlank() ? "" : ":d:" + device.trim();
-        return policyName + ":ip:" + ip + suffix;
+        return policyName + ":ip:" + request.getRemoteAddr();
     }
 }

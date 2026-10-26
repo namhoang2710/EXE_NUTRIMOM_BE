@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.*;
@@ -59,6 +60,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/otp/request", "/api/v1/auth/otp/verify",
                                 "/api/v1/auth/magic-link/request", "/api/v1/auth/magic-link/verify",
                                 "/api/v1/auth/refresh", "/api/v1/auth/logout",
+                                "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset",
+                                "/api/v1/auth/password/reset/validate",
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
                                 "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/files/*/content").permitAll()
@@ -75,8 +78,7 @@ public class SecurityConfig {
                         // định tạo tài khoản. Chỉ mở ĐÚNG các path GET danh mục dưới đây — mọi
                         // endpoint cá nhân của module dinh dưỡng (hồ sơ ở /api/v1/me/..., gợi ý,
                         // thực đơn, nhật ký) vẫn cần token.
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset",
-                                "/api/v1/auth/password/reset/validate").permitAll()
+                        // Đánh giá web: trang công khai và tổng hợp sao. /reviews/me vẫn cần đăng nhập.
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews", "/api/v1/reviews/summary").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes", "/api/v1/recipes/*").permitAll()
                         // Chip dị ứng và ô tìm nguyên liệu của onboarding đọc hai danh mục này.
@@ -154,10 +156,14 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*,https://*.vercel.app,https://nutrimom-fe.vercel.app}") List<String> allowedOrigins) {
+            @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
+        // Origin của FE theo môi trường: localhost khi dev, domain đã deploy khi chạy thật.
         config.setAllowedOriginPatterns(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // Thiếu một tên ở đây là trình duyệt CHẶN request ngay sau preflight, không có status code
+        // nào để đọc: FE chỉ thấy "Failed to fetch". Idempotency-Key do api-client gắn cho checkout
+        // và trợ lý — backend không đọc header này, nhưng vẫn phải khai cho qua CORS.
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
                 "X-Device-Id", "Accept-Language", "Idempotency-Key"));
         config.setExposedHeaders(List.of("X-Request-Id", "Retry-After", "Content-Disposition"));

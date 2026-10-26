@@ -3,6 +3,7 @@ package vn.nutrimom.calendar;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -131,6 +132,33 @@ class CalendarEventsIntegrationTest {
                         .with(userJwt(otherId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    /**
+     * Lịch chỉ theo dõi thai kỳ đang diễn ra: mốc khám của thai kỳ đã đóng thuộc về màn hình quản
+     * lý hồ sơ (nơi mẹ so sánh lần 1 với lần 2), chứ không được lẫn vào lịch của lần này.
+     */
+    @Test
+    void medicalRecordsOfAClosedPregnancyStayOffTheCalendar() throws Exception {
+        String momId = createUserAccount("0913500081", "Mom Two Pregnancies");
+        LocalDate day = daysFromToday(5);
+
+        String closedPregnancy = createPregnancy(momId);
+        createMedicalRecord(momId, closedPregnancy, "Siêu âm 12 tuần thai kỳ cũ",
+                day.atTime(7, 0).atZone(VN).toOffsetDateTime());
+        completePregnancy(momId, closedPregnancy);
+
+        String activePregnancy = createPregnancy(momId);
+        createMedicalRecord(momId, activePregnancy, "Khám thai tuần 21",
+                day.atTime(8, 0).atZone(VN).toOffsetDateTime());
+
+        mockMvc.perform(get("/api/v1/calendar/events")
+                        .param("from", day.toString()).param("to", day.toString())
+                        .param("types", "MEDICAL_RECORD")
+                        .with(userJwt(momId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].title").value("Khám thai tuần 21"));
     }
 
     @Test
@@ -262,6 +290,13 @@ class CalendarEventsIntegrationTest {
                                 """.formatted(pregnancyId, title, occurredAt)))
                 .andExpect(status().isCreated()).andReturn();
         return readData(result, "/data/id");
+    }
+
+    private void completePregnancy(String userId, String pregnancyId) throws Exception {
+        mockMvc.perform(patch("/api/v1/pregnancies/{id}", pregnancyId)
+                        .with(userJwt(userId)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\",\"version\":0}"))
+                .andExpect(status().isOk());
     }
 
     private String createReminder(String userId, String title, OffsetDateTime startsAt)

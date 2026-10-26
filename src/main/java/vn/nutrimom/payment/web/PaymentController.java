@@ -88,6 +88,17 @@ public class PaymentController {
                 jwt.getSubject(), page, pageSize, status, planTier, fromDate, toDate));
     }
 
+    @PostMapping("/orders/{orderCode}/cancel")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Huỷ một đơn thanh toán đang chờ",
+            description = "Idempotent: đơn đã huỷ hoặc đã hết hạn trả 200 với trạng thái hiện tại. "
+                    + "Đơn đã thanh toán trả 409 PAYMENT_ORDER_NOT_CANCELLABLE.")
+    public ApiResponse<PaymentOrderResponse> cancelOrder(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long orderCode) {
+        return ApiResponses.success(paymentService.cancelOrder(jwt.getSubject(), orderCode));
+    }
+
     @PostMapping("/webhook")
     @Operation(summary = "Webhook tiếp nhận kết quả giao dịch tự động từ PayOS")
     public ResponseEntity<Map<String, Object>> handlePayOSWebhook(@RequestBody Webhook webhook) {

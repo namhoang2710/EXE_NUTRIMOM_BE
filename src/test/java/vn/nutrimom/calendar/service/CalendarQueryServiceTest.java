@@ -131,7 +131,7 @@ class CalendarQueryServiceTest {
 
     @Test
     void eventsAreSortedByStartAcrossSources() {
-        when(medicalRecords.findWindow(eq(USER_ID), any(), any())).thenReturn(List.of(
+        when(medicalRecords.findActivePregnancyWindow(eq(USER_ID), any(), any())).thenReturn(List.of(
                 new MedicalRecordCalendarRow("record-1", "Siêu âm",
                         OffsetDateTime.parse("2026-10-02T05:00:00Z"),
                         MedicalRecordCategory.ULTRASOUND, "BV A")));
@@ -186,7 +186,7 @@ class CalendarQueryServiceTest {
     // ----- Helpers -----
 
     private void stubEmptyExceptConsultations(List<ConfirmedConsultationRow> rows) {
-        lenient().when(medicalRecords.findWindow(eq(USER_ID), any(), any())).thenReturn(List.of());
+        lenient().when(medicalRecords.findActivePregnancyWindow(eq(USER_ID), any(), any())).thenReturn(List.of());
         lenient().when(reminders.findWindow(eq(USER_ID), any(), any(), any())).thenReturn(List.of());
         lenient().when(consultations.findConfirmed(eq(USER_ID), any(), any(), any()))
                 .thenReturn(rows);
@@ -194,7 +194,7 @@ class CalendarQueryServiceTest {
 
     private void verifyWindow(ArgumentCaptor<OffsetDateTime> from, ArgumentCaptor<OffsetDateTime> to) {
         org.mockito.Mockito.verify(medicalRecords)
-                .findWindow(anyString(), from.capture(), to.capture());
+                .findActivePregnancyWindow(anyString(), from.capture(), to.capture());
     }
 
     private static ConfirmedConsultationRow consultation(String date, String start, String end) {

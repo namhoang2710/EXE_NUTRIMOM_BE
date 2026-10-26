@@ -229,7 +229,7 @@ public class CalendarQueryService {
         }
         List<CalendarEventItem> items = new ArrayList<>();
         if (sources.contains(CalendarSource.MEDICAL_RECORD)) {
-            medicalRecords.findWindow(ownerUserId, from, to).stream()
+            medicalRecords.findActivePregnancyWindow(ownerUserId, from, to).stream()
                     .map(row -> toItem(row, zone)).forEach(items::add);
         }
         if (sources.contains(CalendarSource.CONSULTATION)) {

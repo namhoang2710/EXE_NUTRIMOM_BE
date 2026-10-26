@@ -448,6 +448,74 @@ public class EmailService {
     }
 
     /**
+     * Link đặt lại mật khẩu. Nút là thẻ {@code <a>} (Outlook bỏ qua {@code <button>}), link dạng chữ
+     * bên dưới là lối thoát cho client chặn thẻ {@code a}. Không đưa token vào tiêu đề thư: tiêu đề
+     * hiện trên màn hình khoá và trong danh sách thư.
+     */
+    public MailResult sendPasswordReset(String toEmail, String displayName, String resetUrl, long ttlMinutes) {
+        String subject = "🔑 Đặt lại mật khẩu NutriMom";
+        String safeUrl = escapeHtml(resetUrl);
+        String html = PASSWORD_MAIL_TEMPLATE.formatted(
+                "Đặt lại mật khẩu",
+                escapeHtml(displayName != null ? displayName : "Bạn"),
+                "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản NutriMom của bạn. Bấm nút dưới đây để tạo mật khẩu mới:",
+                """
+                <div class="cta"><a href="%s">Đặt mật khẩu mới</a></div>
+                <p class="link">Nếu nút không bấm được, hãy mở liên kết sau: <br><a href="%s">%s</a></p>
+                """.formatted(safeUrl, safeUrl, safeUrl),
+                "⏱️ Liên kết chỉ dùng được <strong>một lần</strong> và hết hạn sau <strong>%d phút</strong>. Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này, mật khẩu hiện tại vẫn giữ nguyên."
+                        .formatted(ttlMinutes));
+        return sendHtml(toEmail, subject, html);
+    }
+
+    /** Báo mật khẩu vừa đổi, để chủ tài khoản phát hiện kịp nếu không phải mình đổi. */
+    public MailResult sendPasswordChanged(String toEmail, String displayName) {
+        String html = PASSWORD_MAIL_TEMPLATE.formatted(
+                "Mật khẩu đã được thay đổi",
+                escapeHtml(displayName != null ? displayName : "Bạn"),
+                "Mật khẩu tài khoản NutriMom của bạn vừa được thay đổi. Vì an toàn, mọi thiết bị đang đăng nhập đã được đăng xuất.",
+                "",
+                "⚠️ Nếu <strong>không phải bạn</strong> thực hiện, hãy dùng chức năng Quên mật khẩu để đặt lại ngay và liên hệ đội hỗ trợ NutriMom.");
+        return sendHtml(toEmail, "🔒 Mật khẩu NutriMom của bạn đã được thay đổi", html);
+    }
+
+    /** Khung chung cho hai thư mật khẩu: tiêu đề, tên, đoạn mở đầu, khối hành động, ghi chú. */
+    private static final String PASSWORD_MAIL_TEMPLATE = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>%s</title>
+              <style>
+                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; }
+                .wrapper { max-width: 560px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+                .header { background: linear-gradient(135deg, #0d9488 0%%, #14b8a6 100%%); padding: 32px 24px; text-align: center; color: #ffffff; }
+                .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+                .content { padding: 32px 28px; line-height: 1.6; }
+                .cta { text-align: center; margin: 28px 0; }
+                .cta a { display: inline-block; background: #0d9488; color: #ffffff; text-decoration: none; font-weight: 700; padding: 14px 32px; border-radius: 10px; }
+                .link { font-size: 12px; color: #64748b; word-break: break-all; }
+                .note { background: #f0fdf4; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #166534; border: 1px solid #bbf7d0; margin-top: 24px; }
+                .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+              </style>
+            </head>
+            <body>
+              <div class="wrapper">
+                <div class="header"><h1>NutriMom</h1></div>
+                <div class="content">
+                  <p>Xin chào <strong>%s</strong>,</p>
+                  <p>%s</p>
+                  %s
+                  <div class="note">%s</div>
+                </div>
+                <div class="footer">© 2026 NutriMom Health &amp; Nutrition. Mọi quyền được bảo lưu.</div>
+              </div>
+            </body>
+            </html>
+            """;
+
+    /**
      * Lời mời tham gia nhóm gia đình, kiểu email mời cộng tác của GitHub.
      *
      * <p>Nút bấm là thẻ {@code <a>} có nền và padding chứ không phải {@code <button>}: Outlook bỏ

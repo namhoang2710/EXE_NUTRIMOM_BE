@@ -1796,7 +1796,7 @@ Danh mục nạp từ `src/main/resources/nutrition/` lúc khởi động: `nutr
 - Tắt bằng `app.nutrition.seed-enabled=false` (profile test đặt sẵn `false`).
 - Nhánh 2 thêm `retentionFactors` và `energyEstimate` vào `nutritionRules.json`
   (`nutrition-seed-v2`); nhánh 9 thêm `weeklyFoodLimits` và nguồn `src.fda-epa-fish-advice`, nên
-  `rules_version` hiện là **`nutrition-seed-v3`**. Ba khối này **không vào database**:
+  `rules_version` hiện là **`nutrition-seed-v4`**. Ba khối này **không vào database**:
   `NutritionRulesProvider` đọc thẳng từ classpath, và thiếu hệ số thì ứng dụng không khởi động.
 - Tăng `rules_version` làm **mọi bản xem trước đang mở hết hiệu lực** (`VERSION_CONFLICT` lúc lưu)
   và đánh dấu kế hoạch cũ sinh bằng tập quy tắc khác — đúng như thiết kế: con số đã trình bày cho

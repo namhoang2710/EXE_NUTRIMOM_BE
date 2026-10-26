@@ -20,6 +20,8 @@ public enum AdminNotificationEvent {
             "Yêu cầu hỗ trợ đã hoàn tất", "Đội hỗ trợ đã hoàn tất một yêu cầu của khách hàng.", "CONTACT_REQUEST", "contact-requests"),
     ADMIN_CONTACT_CANCELLED(NotificationCategory.SUPPORT, NotificationType.CONTACT,
             "Khách hàng hủy yêu cầu hỗ trợ", "Một yêu cầu hỗ trợ đã được khách hàng hủy.", "CONTACT_REQUEST", "contact-requests"),
+    ADMIN_REVIEW_NEW(NotificationCategory.SUPPORT, NotificationType.SYSTEM,
+            "Có đánh giá mới", "Một người dùng vừa đánh giá NutriMom. Mở mục Đánh giá để xem và trả lời.", "WEB_REVIEW", "reviews"),
     ADMIN_APPOINTMENT_CREATED(NotificationCategory.APPOINTMENT, NotificationType.CONSULTATION,
             "Có lịch tư vấn mới", "Một khách hàng vừa đặt lịch tư vấn với chuyên gia.", "CONSULTATION", "appointments"),
     ADMIN_EXPERT_WAITING(NotificationCategory.APPOINTMENT, NotificationType.CONSULTATION,

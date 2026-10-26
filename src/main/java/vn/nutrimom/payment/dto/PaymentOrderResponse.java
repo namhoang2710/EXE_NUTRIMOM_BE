@@ -20,6 +20,10 @@ import vn.nutrimom.payment.domain.PlanTier;
  * <p>{@code checkoutUrl} và {@code qrCode} chỉ có nghĩa khi đơn còn {@code PENDING}; với đơn đã
  * thanh toán hoặc huỷ thì chúng là link chết. Cả hai đều nullable và
  * {@code default-property-inclusion: non_null} sẽ bỏ hẳn key khỏi JSON khi vắng.</p>
+ *
+ * <p>{@code expiresAt} là hạn hiệu lực của link checkout, để FE đếm ngược thay vì đoán. Null với
+ * đơn tạo trước V67 (và chỉ với chúng), nên FE phải chịu được việc thiếu key: vắng hạn nghĩa là
+ * không biết, không phải là vô hạn.</p>
  */
 public record PaymentOrderResponse(
         String id,
@@ -34,6 +38,7 @@ public record PaymentOrderResponse(
         String qrCode,
         String description,
         OffsetDateTime paidAt,
+        OffsetDateTime expiresAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {}

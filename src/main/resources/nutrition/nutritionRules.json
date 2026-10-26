@@ -1,6 +1,6 @@
 {
   "_note": "rulesVersion là mã của TOÀN BỘ tập seed. Tăng nó mỗi lần sửa bất kỳ file nào trong thư mục này: loader so sánh để biết có phải nạp lại hay không, và các nhánh sau ghi nó vào snapshot kế hoạch để tái lập được kết quả.",
-  "rulesVersion": "nutrition-seed-v3",
+  "rulesVersion": "nutrition-seed-v4",
 
   "_micronutrientNote": "Mức tham chiếu NIH cho nhóm tuổi 19-50 khi mang thai. Choline là AI, các chất còn lại là RDA. Đây KHÔNG phải mức phân bổ cho một bữa, cũng không phải liều cần bổ sung. Nhánh 2 (NutritionCalculator) đọc bảng này; nhánh 1 chỉ nạp và kiểm tra tính hợp lệ.",
   "micronutrientTargets": [
@@ -20,8 +20,15 @@
     {
       "code": "SEAFOOD_BEST_CHOICE",
       "label": "cá và hải sản nhóm nên ăn",
-      "ingredientIds": ["ing.ca-hoi", "ing.ca-com", "ing.tom-su", "ing.tom-kho"],
+      "ingredientIds": ["ing.ca-hoi", "ing.ca-com", "ing.tom-su", "ing.tom-kho", "ing.muc-ong", "ing.cua-dong", "ing.cha-ca-that-lat"],
       "maxGramPerWeek": 340,
+      "sourceId": "src.fda-epa-fish-advice"
+    },
+    {
+      "code": "SEAFOOD_GOOD_CHOICE",
+      "label": "cá nhóm chỉ nên ăn 1 lần mỗi tuần",
+      "ingredientIds": ["ing.ca-chep"],
+      "maxGramPerWeek": 113,
       "sourceId": "src.fda-epa-fish-advice"
     }
   ],

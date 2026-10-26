@@ -25,18 +25,26 @@ public class AdminRealtimeRepository {
         var rows=jdbc.query("""
                 select u.id,coalesce(d.revision,0) dashboard_revision,coalesce(n.revision,0) notifications_revision,
                   (select count(*) from app.notifications x where x.user_id=u.id
-                     and x.audience='ADMIN' and x.read_at is null) unread_count
+                     and x.audience='ADMIN' and x.read_at is null) unread_count,
+                  (select count(*) from app.community_posts p where p.status='PENDING'
+                     and p.deleted_at is null) community_pending_count
                 from app.users u
                 left join app.admin_realtime_revisions d on d.scope_key='DASHBOARD'
                 left join app.admin_realtime_revisions n on n.scope_key=concat('NOTIFICATIONS:',u.id)
                 where u.id in (:users) and u.status='ACTIVE' and exists
                   (select 1 from app.user_roles r where r.user_id=u.id and r.role='ADMIN')
                 """,new MapSqlParameterSource("users",users),(rs,index)->new Snapshot(1,rs.getString("id"),
-                rs.getString("dashboard_revision"),rs.getString("notifications_revision"),rs.getLong("unread_count")));
+                rs.getString("dashboard_revision"),rs.getString("notifications_revision"),rs.getLong("unread_count"),
+                rs.getLong("community_pending_count")));
         var result=new LinkedHashMap<String,Snapshot>();
         for(var row:rows) result.put(row.adminUserId(),row);
         return result;
     }
     public record Snapshot(int protocolVersion,String adminUserId,String dashboardRevision,
-                           String notificationsRevision,long unreadCount) { }
+                           String notificationsRevision,long unreadCount,long communityPendingCount) {
+        public Snapshot(int protocolVersion,String adminUserId,String dashboardRevision,
+                        String notificationsRevision,long unreadCount) {
+            this(protocolVersion,adminUserId,dashboardRevision,notificationsRevision,unreadCount,0);
+        }
+    }
 }

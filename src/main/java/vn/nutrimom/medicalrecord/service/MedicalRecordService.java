@@ -3,6 +3,7 @@ package vn.nutrimom.medicalrecord.service;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
@@ -13,6 +14,8 @@ import vn.nutrimom.auth.domain.UserStatus;
 import vn.nutrimom.auth.repository.UserRepository;
 import vn.nutrimom.common.api.CursorPage;
 import vn.nutrimom.common.exception.BusinessException;
+import vn.nutrimom.common.exception.ErrorCode;
+import vn.nutrimom.config.CalendarProperties;
 import vn.nutrimom.file.domain.FileEntity;
 import vn.nutrimom.file.domain.FileStatus;
 import vn.nutrimom.file.repository.FileRepository;
@@ -36,15 +39,18 @@ public class MedicalRecordService {
     private final MedicalRecordRepository records;
     private final MedicalRecordAuditRepository audits;
     private final FileRepository files;
+    /** Ngày khám do người dùng chọn theo lịch Việt Nam; occurred_at đọc ra ở UTC nên phải đổi về đây trước khi so ngày. */
+    private final ZoneId recordZone;
 
     public MedicalRecordService(UserRepository users, PregnancyRepository pregnancies,
                                 MedicalRecordRepository records, MedicalRecordAuditRepository audits,
-                                FileRepository files) {
+                                FileRepository files, CalendarProperties calendarProperties) {
         this.users = users;
         this.pregnancies = pregnancies;
         this.records = records;
         this.audits = audits;
         this.files = files;
+        this.recordZone = ZoneId.of(calendarProperties.getDefaultTimezone());
     }
 
     @Transactional(readOnly = true)
@@ -52,15 +58,15 @@ public class MedicalRecordService {
                                                   MedicalRecordCategory category, LocalDate from,
                                                   LocalDate to, String cursor, int limit) {
         requireActiveUser(userId);
-        if (pregnancyId != null) requireOwnedPregnancy(userId, pregnancyId, false);
+        if (pregnancyId != null) requireOwnedPregnancy(userId, pregnancyId);
         int pageSize = normalizeLimit(limit);
         List<MedicalRecordEntity> filtered = records
                 .findByOwnerUserIdAndDeletedAtIsNullOrderByOccurredAtDescIdDesc(userId)
                 .stream()
                 .filter(record -> pregnancyId == null || pregnancyId.equals(record.getPregnancyId()))
                 .filter(record -> category == null || category == record.getCategory())
-                .filter(record -> from == null || !record.getOccurredAt().toLocalDate().isBefore(from))
-                .filter(record -> to == null || !record.getOccurredAt().toLocalDate().isAfter(to))
+                .filter(record -> from == null || !localDate(record).isBefore(from))
+                .filter(record -> to == null || !localDate(record).isAfter(to))
                 .toList();
         int offset = decodeCursor(cursor, filtered.size());
         int end = Math.min(offset + pageSize, filtered.size());
@@ -73,7 +79,12 @@ public class MedicalRecordService {
     @Transactional
     public MedicalRecordResponse create(String userId, CreateMedicalRecordRequest request) {
         requireActiveUser(userId);
-        PregnancyEntity pregnancy = requireOwnedPregnancy(userId, request.pregnancyId(), true);
+        PregnancyEntity pregnancy = requireOwnedPregnancy(userId, request.pregnancyId());
+        if (pregnancy.getStatus() != PregnancyStatus.ACTIVE) {
+            // Thai kỳ có thật và thuộc người dùng, chỉ là đã đóng: 404 sẽ khiến FE tưởng mất dữ liệu.
+            throw new BusinessException(ErrorCode.PREGNANCY_NOT_ACTIVE,
+                    "Medical records can only be added to the active pregnancy.");
+        }
         MedicalRecordEntity record = new MedicalRecordEntity();
         record.setOwnerUserId(userId);
         record.setPregnancyId(pregnancy.getId());
@@ -165,10 +176,12 @@ public class MedicalRecordService {
         audits.save(audit);
     }
 
-    private PregnancyEntity requireOwnedPregnancy(String userId, String pregnancyId, boolean activeOnly) {
-        return pregnancies.findByIdAndOwnerUserId(pregnancyId, userId)
-                .filter(item -> !activeOnly || item.getStatus() == PregnancyStatus.ACTIVE)
-                .orElseThrow(this::notFound);
+    private PregnancyEntity requireOwnedPregnancy(String userId, String pregnancyId) {
+        return pregnancies.findByIdAndOwnerUserId(pregnancyId, userId).orElseThrow(this::notFound);
+    }
+
+    private LocalDate localDate(MedicalRecordEntity record) {
+        return record.getOccurredAt().atZoneSameInstant(recordZone).toLocalDate();
     }
 
     private MedicalRecordEntity loadOwned(String userId, String id) {
